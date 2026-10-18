@@ -1,6 +1,6 @@
 "use strict";
 const $=id=>document.getElementById(id);
-const state={ records:[], selected:new Set(), providers:[], editId:null};
+const state={ records:[], claims:[], selected:new Set(), providers:[], editId:null};
 function setStatus(message, bad=false){const p=$("capture-status");p.textContent=message;p.style.color=bad?"#e6a9a2":"#9ebda7"}
 async function api(url, options={}){
   const r=await fetch(url,{...options,headers:{...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})}});
@@ -18,7 +18,29 @@ async function refresh(){
   const available=new Set(data.records.map(x=>x.id));
   // Keep selected items across searches? No: if a record isn't visible, clear it.
   state.selected=new Set([...state.selected].filter(x=>available.has(x)));
-  drawRecords();drawContext();
+  drawRecords();drawContext();await refreshClaims();
+}
+const SUPPORT_LABEL={supported:"EVIDENCE INTACT",stale:"EVIDENCE CORRECTED — RE-CHECK",orphaned:"EVIDENCE DELETED — UNSUPPORTED"};
+async function refreshClaims(){state.claims=(await api("/api/claims")).claims;drawClaims()}
+async function decideClaim(id,decision){try{await api(`/api/claims/${id}/${decision}`,{method:"POST",body:JSON.stringify({confirm:true})});await refreshClaims()}catch(e){alert(e.message)}}
+function drawClaims(){
+  $("claim-count").textContent=`${state.claims.length} claims`;
+  const container=$("claims-list");container.replaceChildren();
+  if(!state.claims.length){container.append(el("p","empty","No claims yet. Select evidence above and propose an interpretation."));return}
+  for(const c of state.claims){
+    const wrapper=el("div","record claim "+(c.authoritative?"authoritative":"not-authoritative"));
+    wrapper.append(el("div","record-main",c.text));
+    const foot=el("div","record-foot");const tags=el("div","record-actions");
+    tags.append(el("span","tag claim-"+(c.status==="approved"&&!c.authoritative?"stale":c.status),c.status==="approved"&&!c.authoritative?"APPROVED · NO LONGER AUTHORITATIVE":c.status.toUpperCase()),el("span","tag claim-"+c.support,SUPPORT_LABEL[c.support]),el("span","tag",c.origin==="model"?"MODEL-PROPOSED":"HUMAN-WRITTEN"));
+    const meta=el("span","",`from ${c.source_ids.map(x=>x.slice(0,8)).join(", ")} · ${displayDate(c.created_at)}`);
+    const actions=el("div","record-actions");
+    if(c.status==="proposed"&&c.support==="supported"){
+      const ok=el("button","","Approve");ok.addEventListener("click",()=>{if(confirm("Approve this claim as an accurate interpretation of its evidence?"))decideClaim(c.id,"approve")});
+      const no=el("button","","Reject");no.addEventListener("click",()=>decideClaim(c.id,"reject"));actions.append(ok,no);
+    }
+    const del=el("button","","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this claim? Its evidence is not affected."))return;try{await api(`/api/claims/${c.id}`,{method:"DELETE"});await refreshClaims()}catch(e){alert(e.message)}});
+    actions.append(del);foot.append(tags,meta,actions);wrapper.append(foot);container.append(wrapper)
+  }
 }
 function drawRecords(){
   $("count").textContent=`${state.records.length} shown`;
@@ -38,7 +60,7 @@ function drawRecords(){
 }
 function selectedRecords(){return state.records.filter(r=>state.selected.has(r.id))}
 function drawContext(){
-  const chosen=selectedRecords();$("context-count").textContent=String(chosen.length);$("selected-count").textContent=`${chosen.length} selected for context`;
+  const chosen=selectedRecords();$("context-count").textContent=String(chosen.length);$("selected-count").textContent=`${chosen.length} selected for context`;$("claim-source-count").textContent=String(chosen.length);
   const preview=$("context-preview");preview.replaceChildren();
   if(!chosen.length){preview.append(el("p","empty","No records selected. Your question can still be sent without a memory context."));return}
   for(const r of chosen){const item=el("div","context-item");item.append(el("small","",`${r.sensitivity.toUpperCase()} · ${r.id.slice(0,8)} · ${displayDate(r.created_at)}`),document.createTextNode(r.content));preview.append(item)}
@@ -57,6 +79,7 @@ async function init(){
  $("provider").addEventListener("change",updateProvider);updateProvider();await refresh();
  for(const nav of document.querySelectorAll("[data-jump]"))nav.addEventListener("click",()=>{document.getElementById(nav.dataset.jump).scrollIntoView({behavior:"smooth"});document.querySelectorAll(".nav").forEach(n=>n.classList.remove("active"));nav.classList.add("active")});
  $("save").addEventListener("click",async()=>{const content=$("note").value.trim();if(!content){setStatus("Write a note first.",true);return}$("save").disabled=true;try{await api("/api/memories",{method:"POST",body:JSON.stringify({content,sensitivity:$("sensitivity").value})});$("note").value="";$("search").value="";await refresh();setStatus("Source record saved locally. No model was contacted.")}catch(e){setStatus(e.message,true)}finally{$("save").disabled=false}});
+ $("add-claim").addEventListener("click",async()=>{const text=$("claim-text").value.trim();const source_ids=selectedRecords().map(x=>x.id);if(!text||!source_ids.length){alert("Select at least one source record and write the claim.");return}try{await api("/api/claims",{method:"POST",body:JSON.stringify({text,source_ids,origin:"human"})});$("claim-text").value="";await refreshClaims()}catch(e){alert(e.message)}});
  $("refresh").addEventListener("click",()=>refresh().catch(e=>alert(e.message)));
  $("search").addEventListener("keydown",e=>{if(e.key==="Enter")refresh().catch(err=>alert(err.message))});
  $("edit-form").addEventListener("submit",async e=>{e.preventDefault();try{const original=state.records.find(r=>r.id===state.editId);await api(`/api/memories/${state.editId}/correct`,{method:"POST",body:JSON.stringify({content:$("edit-text").value,sensitivity:original.sensitivity})});state.selected.delete(state.editId);$("edit-dialog").close();$("search").value="";await refresh();setStatus("Correction saved as new active revision.")}catch(err){alert(err.message)}});

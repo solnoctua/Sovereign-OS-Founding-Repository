@@ -9,7 +9,7 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import providers
@@ -19,6 +19,19 @@ from .store import Vault
 class NoteIn(BaseModel):
     content: str = Field(min_length=1, max_length=10000)
     sensitivity: Literal["private", "sensitive"] = "private"
+
+
+class ClaimIn(BaseModel):
+    # extra="forbid": a client-supplied `status` is rejected, not silently ignored.
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=2000)
+    source_ids: list[str] = Field(min_length=1, max_length=8)
+    origin: Literal["human", "model"] = "human"
+
+
+class DecisionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    confirm: Literal[True]
 
 
 class AskIn(BaseModel):
@@ -87,6 +100,42 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if not vault.delete(record_id):
             raise HTTPException(status_code=404, detail="Record not found")
         return {"removed": True, "note": "Removed from active SQLite rows; backups/forensic copies not covered."}
+
+    @app.get("/api/claims")
+    def list_claims():
+        return {"claims": vault.list_claims()}
+
+    @app.post("/api/claims", status_code=201)
+    def add_claim(claim: ClaimIn):
+        try:
+            return vault.add_claim(claim.text, claim.source_ids, claim.origin)
+        except KeyError as e:
+            raise HTTPException(status_code=422, detail=str(e.args[0]))
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+    def decide(claim_id: str, decision: str):
+        try:
+            return vault.decide_claim(claim_id, decision)
+        except KeyError as e:
+            raise HTTPException(status_code=404, detail=str(e.args[0]))
+        except ValueError as e:
+            raise HTTPException(status_code=409, detail=str(e))
+
+    # Approval/rejection is an explicit local human action; no model path calls these.
+    @app.post("/api/claims/{claim_id}/approve")
+    def approve_claim(claim_id: str, body: DecisionIn):
+        return decide(claim_id, "approved")
+
+    @app.post("/api/claims/{claim_id}/reject")
+    def reject_claim(claim_id: str, body: DecisionIn):
+        return decide(claim_id, "rejected")
+
+    @app.delete("/api/claims/{claim_id}")
+    def remove_claim(claim_id: str):
+        if not vault.delete_claim(claim_id):
+            raise HTTPException(status_code=404, detail="Claim not found")
+        return {"removed": True}
 
     @app.get("/api/export")
     def export():

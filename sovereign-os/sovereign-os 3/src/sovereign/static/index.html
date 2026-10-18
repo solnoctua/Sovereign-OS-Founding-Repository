@@ -17,6 +17,7 @@
         <button class="nav active" data-jump="intelligence"><span>✳</span> Intelligence <i>01</i></button>
         <button class="nav" data-jump="capture"><span>＋</span> Capture <i>02</i></button>
         <button class="nav" data-jump="library"><span>▤</span> Memory library <i>03</i></button>
+        <button class="nav" data-jump="claims"><span>◇</span> Claims <i>04</i></button>
       </nav>
       <div class="side-bottom"><div class="side-divider"></div>
         <div class="status-row"><span class="green-dot"></span><span>Local vault connected</span></div>
@@ -47,6 +48,12 @@
             <div class="library-footer"><span id="selected-count">0 selected for context</span><button class="text-button" id="export">Export JSON ↗</button></div>
           </section>
         </div>
+        <section class="panel claims-panel" id="claims"><div class="panel-header"><div><span class="eyebrow">02B / INTERPRETATION</span><h2>Memory claims</h2></div><span class="counter" id="claim-count">0 claims</span></div>
+          <p class="micro">Source records are <b>evidence</b>: what was actually captured. A claim is an <b>interpretation</b> linked to evidence. It is not treated as fact until you approve it, and it stops counting as supported if its evidence is corrected or deleted. Claims are never sent to a model.</p>
+          <label for="claim-text">Propose a claim from the <span id="claim-source-count">0</span> records selected above</label>
+          <div class="search-row"><input id="claim-text" maxlength="2000" placeholder="e.g. The garden project starts in May"/><button class="secondary" id="add-claim">Propose claim</button></div>
+          <div class="records" id="claims-list"><p class="empty">No claims yet.</p></div>
+        </section>
         <section class="panel ask-panel"><div class="panel-header"><div><span class="eyebrow">03 / REASON</span><h2>Ask Sovereign</h2></div><span class="muted-symbol">⌁</span></div>
           <div class="ask-layout"><div class="ask-main"><label for="question">What would you like to understand?</label><textarea id="question" rows="3" maxlength="2000" placeholder="What do my selected records actually say about...?"></textarea>
               <div class="model-row"><label for="provider">Reasoning engine</label><select id="provider"><option value="local">Local evidence (no AI)</option></select><span class="hint" id="provider-note">No external connection.</span></div>
