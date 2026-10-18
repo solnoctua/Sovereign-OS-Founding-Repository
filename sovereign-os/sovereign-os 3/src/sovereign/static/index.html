@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Sovereign — Personal Intelligence</title>
+  <link rel="stylesheet" href="/ui.css" />
+  <script defer src="/ui.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="emblem">S</div><div><strong>SOVEREIGN</strong><small>PERSONAL INTELLIGENCE</small></div></div>
+      <div class="nav-heading">WORKSPACE</div>
+      <nav aria-label="Sections">
+        <button class="nav active" data-jump="intelligence"><span>✳</span> Intelligence <i>01</i></button>
+        <button class="nav" data-jump="capture"><span>＋</span> Capture <i>02</i></button>
+        <button class="nav" data-jump="library"><span>▤</span> Memory library <i>03</i></button>
+      </nav>
+      <div class="side-bottom"><div class="side-divider"></div>
+        <div class="status-row"><span class="green-dot"></span><span>Local vault connected</span></div>
+        <p>Founding build · v0.1</p>
+        <p>Local-first. Human agency first.</p>
+      </div>
+    </aside>
+    <main>
+      <header class="topbar"><span>Personal OS <span class="slash">/</span> Foundation</span><div><span class="pill">LOCAL PROTOTYPE</span> <span class="top-date" id="today"></span></div></header>
+      <div class="content">
+        <section class="intro" id="intelligence"><p class="eyebrow">THE FIRST INTELLIGENCE LOOP</p>
+          <h1>Your mind. <em>Extended.</em></h1>
+          <p class="lede">Capture what matters. Retrieve it with fidelity. Decide what intelligence is allowed to see.</p>
+          <div class="warning"><span>◈</span><div><strong>Prototype trust boundary</strong><p>Use synthetic, non-sensitive data for now. This app has no login or application-layer vault encryption. It is bound to your own computer; cloud requests need explicit per-request consent.</p></div></div>
+        </section>
+        <div class="two-columns">
+          <section class="panel" id="capture">
+            <div class="panel-header"><div><span class="eyebrow">01 / INPUT</span><h2>Capture a thought</h2></div><span class="muted-symbol">✎</span></div>
+            <label for="note">Thought or observation</label>
+            <textarea id="note" maxlength="10000" rows="5" placeholder="Something you want your future self to remember..."></textarea>
+            <div class="capture-footer"><label class="field-inline" for="sensitivity">Classification <select id="sensitivity"><option value="private">Private (local by default)</option><option value="sensitive">Sensitive (never sent to cloud in V0)</option></select></label><button id="save" class="primary">Save to vault <span>↗</span></button></div>
+            <p id="capture-status" class="micro" aria-live="polite">Only original text is stored. No inference is automatically promoted as fact.</p>
+          </section>
+          <section class="panel" id="library">
+            <div class="panel-header"><div><span class="eyebrow">02 / MEMORY</span><h2>Your source library</h2></div><span class="counter" id="count">0 records</span></div>
+            <div class="search-row"><input type="search" id="search" placeholder="Search memories (exact phrase)..." aria-label="Search memories"/><button class="secondary" id="refresh">Search</button></div>
+            <div class="records" id="records"><p class="empty">No source records yet. Capture a thought to begin.</p></div>
+            <div class="library-footer"><span id="selected-count">0 selected for context</span><button class="text-button" id="export">Export JSON ↗</button></div>
+          </section>
+        </div>
+        <section class="panel ask-panel"><div class="panel-header"><div><span class="eyebrow">03 / REASON</span><h2>Ask Sovereign</h2></div><span class="muted-symbol">⌁</span></div>
+          <div class="ask-layout"><div class="ask-main"><label for="question">What would you like to understand?</label><textarea id="question" rows="3" maxlength="2000" placeholder="What do my selected records actually say about...?"></textarea>
+              <div class="model-row"><label for="provider">Reasoning engine</label><select id="provider"><option value="local">Local evidence (no AI)</option></select><span class="hint" id="provider-note">No external connection.</span></div>
+              <div id="approval" class="approval" hidden><label><input type="checkbox" id="allow-cloud" /> <span>I approve transmitting <b>this question and the records selected below</b> to the chosen model provider for this request.</span></label><p>Sensitive-classified sources are blocked regardless of this checkbox. Provider retention policies still apply.</p></div>
+              <button id="ask" class="primary wide">Run request <span>→</span></button><div id="answer" class="answer" aria-live="polite"><span class="eyebrow">OUTPUT</span><p>Search and select records, enter a question, then run a local evidence check or an approved cloud request.</p></div>
+            </div>
+            <aside class="context"><div class="context-header"><span class="eyebrow">EXPLICIT CONTEXT</span><span id="context-count">0</span></div><p>Only records that you select are eligible for inclusion in a request. Review them here first.</p><div id="context-preview" class="context-preview"><p class="empty">No records selected.</p></div></aside>
+          </div>
+        </section>
+        <footer><span>SOVEREIGN / FOUNDING BUILD</span><span>More life. Less interface.</span></footer>
+      </div>
+    </main>
+  </div>
+  <dialog id="edit-dialog"><form method="dialog" id="edit-form"><h2>Correct source record</h2><p>This creates a new active revision; the prior version remains local history until deletion.</p><textarea id="edit-text" rows="5" required maxlength="10000"></textarea><div class="dialog-footer"><button type="button" class="secondary" id="cancel-edit">Cancel</button><button type="submit" class="primary">Save correction</button></div></form></dialog>
+</body>
+</html>

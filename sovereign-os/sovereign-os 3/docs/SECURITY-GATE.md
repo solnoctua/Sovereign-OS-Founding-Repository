@@ -1,0 +1,23 @@
+# V0 Security Gate — before storing actual private life data
+
+**Current status: NOT PASSED. Synthetic or intentionally non-sensitive demonstrations only.**
+
+## Current concrete protections
+
+- Loopback-only server documented (`127.0.0.1:8765`), fixed host allowlist, deny most cross-origin state-changing requests, JSON-only write operations.
+- API keys read from environment variables rather than database or code. `.gitignore` ignores vault data, secrets and backups.
+- No automatic cloud memory disclosure. Only manually selected source IDs are included, requiring a per-request approval; sensitive sources denied server-side.
+- Local evidence mode never calls a model provider.
+- Imported content treated as data in prompts; no external tool calling enabled.
+
+## Missing security and reliability protections
+
+- User authentication / device binding and comprehensive browser/localhost threat model. No remote exposure permitted.
+- Encrypted vault at rest with key management and tested recovery; OS disk encryption cannot substitute for all application risks.
+- Authenticated offline iPhone capture and protected synchronization.
+- Consent and disclosure receipts with precise provider policy/retention metadata; sensitive-topic classification beyond a user-chosen label.
+- Robust deletion across SQLite WAL, logs, backups, sync, indexes, provider transmissions; secure erasure is NOT claimed.
+- Security reviews, dependency scan, input-size/rate limits, error monitoring and more complete adversarial tests.
+- Backup of encrypted state plus test of restoration to a fresh Mac.
+
+Do not use real sensitive medical/financial/relationship data, third-party conversations, account secrets, or raw personal history until the security gate is passed.

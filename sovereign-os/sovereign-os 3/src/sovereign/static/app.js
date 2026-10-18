@@ -1,0 +1,80 @@
+"use strict";
+const $=id=>document.getElementById(id);
+const state={ records:[], selected:new Set(), providers:[], editId:null};
+function setStatus(message, bad=false){const p=$("capture-status");p.textContent=message;p.style.color=bad?"#e6a9a2":"#9ebda7"}
+async function api(url, options={}){
+  const r=await fetch(url,{...options,headers:{...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})}});
+  const data=await r.json();
+  if(!r.ok)throw new Error(typeof data.detail==="string"?data.detail:`HTTP ${r.status}`);
+  return data;
+}
+function displayDate(date){return (date||"").slice(0,16).replace("T"," ")}
+function el(type,className,text){const node=document.createElement(type);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node}
+function visibleRecords(){return state.records}
+async function refresh(){
+  const q=$("search").value.trim();
+  const data=await api("/api/memories"+(q?"?q="+encodeURIComponent(q):""));
+  state.records=data.records;
+  const available=new Set(data.records.map(x=>x.id));
+  // Keep selected items across searches? No: if a record isn't visible, clear it.
+  state.selected=new Set([...state.selected].filter(x=>available.has(x)));
+  drawRecords();drawContext();
+}
+function drawRecords(){
+  $("count").textContent=`${state.records.length} shown`;
+  const container=$("records");container.replaceChildren();
+  if(!state.records.length){container.append(el("p","empty","No records found. Capture a thought, or search a different phrase."));return}
+  for(const record of visibleRecords()){
+    const wrapper=el("div","record");const top=el("div","record-top");
+    const ck=el("input");ck.type="checkbox";ck.checked=state.selected.has(record.id);
+    ck.setAttribute("aria-label","Include record in context");ck.addEventListener("change",()=>{if(ck.checked){if(state.selected.size>=8){ck.checked=false;alert("Select up to eight sources.");return}state.selected.add(record.id)}else state.selected.delete(record.id);drawContext()});
+    const txt=el("div","record-main",record.content);top.append(ck,txt);wrapper.append(top);
+    const foot=el("div","record-foot");const t=el("span","tag"+(record.sensitivity==="sensitive"?" sensitive":""),record.sensitivity.toUpperCase());
+    const created=el("span","",displayDate(record.created_at));const actions=el("div","record-actions");
+    const edit=el("button","","Correct");edit.addEventListener("click",()=>{$("edit-text").value=record.content;state.editId=record.id;$("edit-dialog").showModal()});
+    const remove=el("button","","Delete");remove.addEventListener("click",async()=>{if(!confirm("Delete this record and prior revisions from the active vault? Backups may retain copies."))return;try{await api(`/api/memories/${record.id}`,{method:"DELETE"});state.selected.delete(record.id);await refresh();setStatus("Deleted from active vault. Backups not covered.")}catch(e){setStatus(e.message,true)}});
+    actions.append(edit,remove);foot.append(t,created,actions);wrapper.append(foot);container.append(wrapper)
+  }
+}
+function selectedRecords(){return state.records.filter(r=>state.selected.has(r.id))}
+function drawContext(){
+  const chosen=selectedRecords();$("context-count").textContent=String(chosen.length);$("selected-count").textContent=`${chosen.length} selected for context`;
+  const preview=$("context-preview");preview.replaceChildren();
+  if(!chosen.length){preview.append(el("p","empty","No records selected. Your question can still be sent without a memory context."));return}
+  for(const r of chosen){const item=el("div","context-item");item.append(el("small","",`${r.sensitivity.toUpperCase()} · ${r.id.slice(0,8)} · ${displayDate(r.created_at)}`),document.createTextNode(r.content));preview.append(item)}
+}
+function updateProvider(){
+ const chosen=$("provider").value;const cloud=chosen!=="local";
+ $("approval").hidden=!cloud;$("allow-cloud").checked=false;
+ const provider=state.providers.find(x=>x.id===chosen);
+ $("provider-note").textContent=!cloud?"No external connection.":provider?.ready?"Cloud model configured.":"Set the key and model in your local environment.";
+}
+async function init(){
+ $("today").textContent=new Date().toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+ const status=await api("/api/status");state.providers=status.providers;
+ const select=$("provider");select.replaceChildren();
+ for(const p of status.providers){const opt=el("option","",p.name+(p.ready?"":" (not configured)"));opt.value=p.id;select.append(opt)}
+ $("provider").addEventListener("change",updateProvider);updateProvider();await refresh();
+ for(const nav of document.querySelectorAll("[data-jump]"))nav.addEventListener("click",()=>{document.getElementById(nav.dataset.jump).scrollIntoView({behavior:"smooth"});document.querySelectorAll(".nav").forEach(n=>n.classList.remove("active"));nav.classList.add("active")});
+ $("save").addEventListener("click",async()=>{const content=$("note").value.trim();if(!content){setStatus("Write a note first.",true);return}$("save").disabled=true;try{await api("/api/memories",{method:"POST",body:JSON.stringify({content,sensitivity:$("sensitivity").value})});$("note").value="";$("search").value="";await refresh();setStatus("Source record saved locally. No model was contacted.")}catch(e){setStatus(e.message,true)}finally{$("save").disabled=false}});
+ $("refresh").addEventListener("click",()=>refresh().catch(e=>alert(e.message)));
+ $("search").addEventListener("keydown",e=>{if(e.key==="Enter")refresh().catch(err=>alert(err.message))});
+ $("edit-form").addEventListener("submit",async e=>{e.preventDefault();try{const original=state.records.find(r=>r.id===state.editId);await api(`/api/memories/${state.editId}/correct`,{method:"POST",body:JSON.stringify({content:$("edit-text").value,sensitivity:original.sensitivity})});state.selected.delete(state.editId);$("edit-dialog").close();$("search").value="";await refresh();setStatus("Correction saved as new active revision.")}catch(err){alert(err.message)}});
+ $("cancel-edit").addEventListener("click",()=>$("edit-dialog").close());
+ $("export").addEventListener("click",()=>{window.location.href="/api/export"});
+ $("ask").addEventListener("click",async()=>{
+  const question=$("question").value.trim();if(!question){renderAnswer("Enter a question first.");return}
+  const provider=$("provider").value;
+  $("ask").disabled=true;renderAnswer("Working...");
+  try{const data=await api("/api/ask",{method:"POST",body:JSON.stringify({question,provider,source_ids:selectedRecords().map(x=>x.id),approve_cloud_disclosure:$("allow-cloud").checked})});
+    renderAnswer(data.answer,data.sources,data.cloud_disclosure?`Sent your question and ${data.sources.length} selected sources to ${provider}.`:"No data sent to any model.");
+    $("allow-cloud").checked=false;
+  }catch(e){renderAnswer(`Request denied or failed: ${e.message}`)}finally{$("ask").disabled=false}
+ });
+}
+function renderAnswer(message,sources=[],disclosure=""){
+ const container=$("answer");container.replaceChildren(el("span","eyebrow","OUTPUT"),el("p","",message));
+ if(disclosure)container.append(el("div","source-label",disclosure));
+ if(sources?.length){container.append(el("div","source-label",`SOURCE RECORDS (${sources.length})`));for(const s of sources)container.append(el("div","context-item",`${s.id.slice(0,8)} · ${s.content}`))}
+}
+init().catch(err=>renderAnswer("Initialization failed: "+err.message));
