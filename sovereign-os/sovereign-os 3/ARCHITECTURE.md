@@ -1,6 +1,6 @@
 # SOVEREIGN — Initial Architecture
 
-**Architecture hypothesis v0.2 · October 16, 2026 · REVIEW BRANCH, NOT RATIFIED · Revisable**
+**Architecture hypothesis v0.2 · October 18, 2026 · REVIEW BRANCH, NOT RATIFIED · Revisable**
 
 **Constitutional authority:** [`CONSTITUTION.md`](CONSTITUTION.md)  
 **Status:** proposed, not an implementation specification or security certification.
