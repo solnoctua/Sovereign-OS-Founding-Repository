@@ -233,7 +233,7 @@ This section describes a **replaceable prototype**, not a locked architecture or
 
 `Browser UI → local FastAPI endpoints → SQLite source records → explicit selected context preview → local evidence or permissioned cloud model adapter → source-linked answer`
 
-The service exposes `/api/memories` (create/list/search), `/api/memories/{id}/correct`, `/api/memories/{id}` (delete), `/api/export`, `/api/import`, `/api/ask`, `/api/status`, `/api/claims` (list/propose/approve/reject/delete) and the browser UI. Prototype records are human-entered **evidence**, not automatically authoritative biographical claims. Source-linked `MemoryClaim`s start `proposed` and change status only by explicit human approval/rejection; their support is derived from current evidence, so corrected or deleted sources make them non-authoritative (see [ADR-0003](docs/adr/0003-memory-claim-authority.md)). No model may create an approved claim; no model has a tool-execution capability.
+The service exposes `/api/memories` (create/list/search), `/api/memories/{id}/correct`, `/api/memories/{id}` (delete), `/api/export`, `/api/import`, `/api/ask`, `/api/status`, `/api/claims` (list/propose/approve/reject/contest/supersede/delete) and the browser UI. Prototype records are human-entered **evidence**, not automatically authoritative biographical claims. Source-linked `MemoryClaim`s start `proposed` and change status (`approved`, `rejected`, `contested`, `superseded`) only by explicit, recorded human decisions; their support is derived from current evidence, so corrected or deleted sources make them non-authoritative (see [ADR-0003](docs/adr/0003-memory-claim-authority.md)). No model may create an approved claim; no model has a tool-execution capability.
 
 ### Boundaries demonstrated
 
@@ -248,7 +248,7 @@ The service exposes `/api/memories` (create/list/search), `/api/memories/{id}/co
 
 - Threat-model-reviewed user/device authentication and all-device capture.
 - Encryption/key recovery, backup/restore and sensitive-data deletion.
-- Automatic claim extraction, promotion policy and contested/superseded claim states; user goals/intentions, timeline semantics, outcome measurement and cognitive modes.
+- Automatic claim extraction, risk classes and promotion policy; user goals/intentions, timeline semantics, outcome measurement and cognitive modes.
 - Embeddings, sophisticated indexing, trained inference, full agent tool execution and Pocket hardware.
 
 The next milestone is a trusted **memory authority/permissions layer** and real-data security gate, followed by a human-value workflow. The implementation layer may be discarded without changing the Constitution.

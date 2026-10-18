@@ -21,25 +21,38 @@ async function refresh(){
   drawRecords();drawContext();await refreshClaims();
 }
 const SUPPORT_LABEL={supported:"EVIDENCE INTACT",stale:"EVIDENCE CORRECTED — RE-CHECK",orphaned:"EVIDENCE DELETED — UNSUPPORTED"};
+const CLAIM_ACTIONS={proposed:["approve","reject","contest","correct"],approved:["contest","correct"],contested:["approve","reject","correct"],rejected:[],superseded:[]};
 async function refreshClaims(){state.claims=(await api("/api/claims")).claims;drawClaims()}
-async function decideClaim(id,decision){try{await api(`/api/claims/${id}/${decision}`,{method:"POST",body:JSON.stringify({confirm:true})});await refreshClaims()}catch(e){alert(e.message)}}
+async function claimAction(c,action){
+  const body={confirm:true};
+  if(action==="approve"&&!confirm("Approve this claim as an accurate interpretation of its evidence?"))return;
+  if(action==="reject"&&!confirm("Reject this claim? Rejection is final."))return;
+  if(action==="contest"){const note=prompt("Why is this claim contested?");if(note===null)return;body.note=note.slice(0,500)||null}
+  if(action==="correct"){
+    const text=prompt("Corrected claim (the old claim is kept as superseded history):",c.text);if(text===null||!text.trim())return;
+    body.text=text;body.source_ids=selectedRecords().length?selectedRecords().map(x=>x.id):c.source_ids;action="supersede";
+  }
+  try{await api(`/api/claims/${c.id}/${action}`,{method:"POST",body:JSON.stringify(body)});await refreshClaims()}catch(e){alert(e.message)}
+}
 function drawClaims(){
   $("claim-count").textContent=`${state.claims.length} claims`;
   const container=$("claims-list");container.replaceChildren();
   if(!state.claims.length){container.append(el("p","empty","No claims yet. Select evidence above and propose an interpretation."));return}
   for(const c of state.claims){
     const wrapper=el("div","record claim "+(c.authoritative?"authoritative":"not-authoritative"));
-    wrapper.append(el("div","record-main",c.text));
-    const foot=el("div","record-foot");const tags=el("div","record-actions");
-    tags.append(el("span","tag claim-"+(c.status==="approved"&&!c.authoritative?"stale":c.status),c.status==="approved"&&!c.authoritative?"APPROVED · NO LONGER AUTHORITATIVE":c.status.toUpperCase()),el("span","tag claim-"+c.support,SUPPORT_LABEL[c.support]),el("span","tag",c.origin==="model"?"MODEL-PROPOSED":"HUMAN-WRITTEN"));
-    const meta=el("span","",`from ${c.source_ids.map(x=>x.slice(0,8)).join(", ")} · ${displayDate(c.created_at)}`);
-    const actions=el("div","record-actions");
-    if(c.status==="proposed"&&c.support==="supported"){
-      const ok=el("button","","Approve");ok.addEventListener("click",()=>{if(confirm("Approve this claim as an accurate interpretation of its evidence?"))decideClaim(c.id,"approve")});
-      const no=el("button","","Reject");no.addEventListener("click",()=>decideClaim(c.id,"reject"));actions.append(ok,no);
-    }
-    const del=el("button","","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this claim? Its evidence is not affected."))return;try{await api(`/api/claims/${c.id}`,{method:"DELETE"});await refreshClaims()}catch(e){alert(e.message)}});
-    actions.append(del);foot.append(tags,meta,actions);wrapper.append(foot);container.append(wrapper)
+    const statusLabel=c.authoritative?"APPROVED MEMORY":c.status==="approved"?"APPROVED · NO LONGER AUTHORITATIVE":c.status.toUpperCase()+" · NOT AUTHORITATIVE";
+    const tags=el("div","record-actions");
+    tags.append(el("span","tag claim-"+(c.authoritative?"approved":c.status==="approved"?"stale":c.status),statusLabel),el("span","tag claim-"+c.support,SUPPORT_LABEL[c.support]),el("span","tag",c.origin==="model"?"MODEL-PROPOSED":"HUMAN-WRITTEN"));
+    wrapper.append(tags,el("div","record-main",c.text));
+    const evidence=el("div","claim-sources");
+    for(const s of c.sources)evidence.append(el("div","",`Evidence ${s.id.slice(0,8)} [${s.state}]: ${s.content??"(deleted — content removed)"}`));
+    const history=c.history.map(e=>`${e.to_status} by ${e.actor} ${displayDate(e.at)}${e.note?` (“${e.note}”)`:""}`).join(" → ");
+    evidence.append(el("div","",`History: ${history}`+(c.supersedes_id?` · replaces ${c.supersedes_id.slice(0,8)}`:"")+(c.superseded_by?` · replaced by ${c.superseded_by.slice(0,8)}`:"")));
+    wrapper.append(evidence);
+    const foot=el("div","record-foot");const actions=el("div","record-actions");
+    for(const action of CLAIM_ACTIONS[c.status]){const btn=el("button","",action[0].toUpperCase()+action.slice(1));btn.addEventListener("click",()=>claimAction(c,action));actions.append(btn)}
+    const del=el("button","","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this claim and its history? Its evidence is not affected."))return;try{await api(`/api/claims/${c.id}`,{method:"DELETE"});await refreshClaims()}catch(e){alert(e.message)}});
+    actions.append(del);foot.append(el("span","",displayDate(c.created_at)),actions);wrapper.append(foot);container.append(wrapper)
   }
 }
 function drawRecords(){

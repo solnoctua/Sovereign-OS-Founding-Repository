@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import providers
+from .claims import STATUSES, TransitionError
 from .store import Vault
 
 
@@ -32,6 +33,12 @@ class ClaimIn(BaseModel):
 class DecisionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     confirm: Literal[True]
+    note: str | None = Field(default=None, max_length=500)
+
+
+class SupersedeIn(DecisionIn):
+    text: str = Field(min_length=1, max_length=2000)
+    source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
 class AskIn(BaseModel):
@@ -101,35 +108,40 @@ def create_app(db_path: str | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Record not found")
         return {"removed": True, "note": "Removed from active SQLite rows; backups/forensic copies not covered."}
 
-    @app.get("/api/claims")
-    def list_claims():
-        return {"claims": vault.list_claims()}
-
-    @app.post("/api/claims", status_code=201)
-    def add_claim(claim: ClaimIn):
+    def claim_errors(action):
         try:
-            return vault.add_claim(claim.text, claim.source_ids, claim.origin)
+            return action()
         except KeyError as e:
-            raise HTTPException(status_code=422, detail=str(e.args[0]))
+            raise HTTPException(status_code=404, detail=str(e.args[0]))
+        except TransitionError as e:
+            raise HTTPException(status_code=409, detail=str(e))
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
-    def decide(claim_id: str, decision: str):
-        try:
-            return vault.decide_claim(claim_id, decision)
-        except KeyError as e:
-            raise HTTPException(status_code=404, detail=str(e.args[0]))
-        except ValueError as e:
-            raise HTTPException(status_code=409, detail=str(e))
+    @app.get("/api/claims")
+    def list_claims(status: Literal[STATUSES] | None = None):
+        return {"claims": vault.list_claims(status)}
 
-    # Approval/rejection is an explicit local human action; no model path calls these.
+    @app.post("/api/claims", status_code=201)
+    def add_claim(claim: ClaimIn):
+        return claim_errors(lambda: vault.add_claim(claim.text, claim.source_ids, claim.origin))
+
+    # Status changes are explicit local human actions; no model code path calls these.
     @app.post("/api/claims/{claim_id}/approve")
     def approve_claim(claim_id: str, body: DecisionIn):
-        return decide(claim_id, "approved")
+        return claim_errors(lambda: vault.transition_claim(claim_id, "approved", body.note))
 
     @app.post("/api/claims/{claim_id}/reject")
     def reject_claim(claim_id: str, body: DecisionIn):
-        return decide(claim_id, "rejected")
+        return claim_errors(lambda: vault.transition_claim(claim_id, "rejected", body.note))
+
+    @app.post("/api/claims/{claim_id}/contest")
+    def contest_claim(claim_id: str, body: DecisionIn):
+        return claim_errors(lambda: vault.transition_claim(claim_id, "contested", body.note))
+
+    @app.post("/api/claims/{claim_id}/supersede")
+    def supersede_claim(claim_id: str, body: SupersedeIn):
+        return claim_errors(lambda: vault.supersede_claim(claim_id, body.text, body.source_ids, body.note))
 
     @app.delete("/api/claims/{claim_id}")
     def remove_claim(claim_id: str):
