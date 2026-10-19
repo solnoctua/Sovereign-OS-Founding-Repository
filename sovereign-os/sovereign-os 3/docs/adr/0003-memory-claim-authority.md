@@ -139,7 +139,7 @@ The triggers enforce the following for any connection issuing INSERT/UPDATE/DELE
 - Schema changes (`DROP TRIGGER`, `writable_schema`) or direct file edits by a process that already controls the vault file.
 - Distinguishing a raw-SQL but lifecycle-legal human-attributed event (or a raw-SQL forget or correction) from a UI action, since there is no authentication.
 - The approval-requires-supported-evidence check is domain-level only. A raw-SQL approval of unsupported evidence is still never *authoritative*: authority is derived on read, and unsupported evidence can never become supported later (it cannot arrive, revert or change identity).
-- Exports hold a read lock for their duration; a concurrent write waits up to the 10 s busy timeout.
+- Locking is SQLite's rollback journal: an export holds a read lock for its duration, so a concurrent write waits up to the 10 s busy timeout; conversely, a continuous unpaced stream of writes can delay a reader up to the same timeout. (WAL mode was not adopted because it would keep forgotten pages in the `-wal` file.)
 
 ### Migration
 - **Versions** (`PRAGMA user_version`): 0 = records-only vaults (ADR-0002); 3 = this schema.
@@ -173,15 +173,17 @@ The triggers enforce the following for any connection issuing INSERT/UPDATE/DELE
 ## Validation
 
 - `tests/test_memory_claims.py` covers behaviour.
-- `tests/test_memory_claims_adversarial.py` covers the `c847f9d` audit blockers.
-- `tests/test_memory_claims_hardening.py` covers the `708e9de` audit blockers. Raw-SQL attacks run under four pragma configurations (foreign keys and recursive triggers on/off):
-  - SQL replacement in three statement forms;
-  - source replacement and sensitivity downgrade;
-  - E vs E′ for each identity field;
-  - raw delete and raw tombstone forget;
-  - the reported partial-restore attack and variants;
-  - export races against decisions, supersession, forget and correction (every export restores and round-trips exactly);
-  - record and claim lineage attacks and malformed payloads;
-  - histories of 260+ events and backups over 10,000 records;
-  - the shared size limit;
-  - randomised operation sequences across two vaults, asserting that import/restore never raise existing authority and that every vault stays coherent and restorable.
+- `tests/adversarial/` holds the permanent adversarial regressions (CI job `memory-adversarial`):
+  - `test_memory_claims_audit1.py` covers the `c847f9d` audit blockers;
+  - `test_memory_claims_blocker_probes.py` reproduces the `708e9de` audit findings (26 of its 27 probes fail against `708e9de`);
+  - `test_memory_claims_audit2.py` covers the `708e9de` audit blockers in depth. Raw-SQL attacks run under four pragma configurations (foreign keys and recursive triggers on/off):
+    - SQL replacement in three statement forms;
+    - source replacement and sensitivity downgrade;
+    - E vs E′ for each identity field;
+    - raw delete and raw tombstone forget;
+    - the reported partial-restore attack and variants;
+    - export races against decisions, supersession, forget and correction (every export restores and round-trips exactly);
+    - record and claim lineage attacks and malformed payloads;
+    - histories of 260+ events and backups over 10,000 records;
+    - the shared size limit;
+    - randomised operation sequences across two vaults, asserting that import/restore never raise existing authority and that every vault stays coherent and restorable.

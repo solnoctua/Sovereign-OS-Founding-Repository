@@ -483,15 +483,18 @@ def test_trusted_payload_cannot_forget_a_live_local_claim_by_rewriting_its_sourc
 
 # --- Blocker 5: export snapshots are coherent under concurrency ---------------------------------
 
-def _race_exports(v, operation, rounds):
+def _race_exports(v, operation, rounds, min_exports=5, max_rounds=1000):
     """Run `operation` repeatedly while another thread exports continuously.
 
-    Writes are paced slightly (as human-driven writes are) so the rollback-journal reader is not
-    starved; a lock timeout is recorded rather than silently killing the exporter."""
+    The overlap is made deterministic rather than scheduling-dependent: the reader is opened
+    before the race, and writing continues until at least `min_exports` exports have completed
+    *during* the writes (bounded by `max_rounds`). Writes are paced (as human-driven writes are)
+    and the gap widens only while the reader has not yet got in, because an unpaced writer can
+    starve rollback-journal readers. A lock timeout fails the test instead of being swallowed."""
     exports, lock_timeouts, stop = [], [], threading.Event()
+    reader = Vault(v.path)
 
     def exporter():
-        reader = Vault(v.path)
         while not stop.is_set():
             try:
                 exports.append(reader.export())
@@ -501,16 +504,19 @@ def _race_exports(v, operation, rounds):
     thread = threading.Thread(target=exporter)
     thread.start()
     try:
-        for i in range(rounds):
+        i = 0
+        while i < rounds or (len(exports) < min_exports and i < max_rounds):
             try:
                 operation(i)
             except (TransitionError, KeyError, ValueError):   # a lost race is fine; corruption is not
                 pass
-            time.sleep(0.003)
+            time.sleep(0.003 if len(exports) >= min_exports else 0.02)
+            i += 1
     finally:
         stop.set()
         thread.join()
     assert not lock_timeouts
+    assert len(exports) >= min_exports, f"only {len(exports)} exports overlapped {i} write rounds"
     return exports
 
 
@@ -541,7 +547,6 @@ def test_every_concurrent_export_is_a_restorable_snapshot(vault, kind):
             vault.add(f"Invented note {i} corrected again", supersedes_id=r2["id"])
 
     exports = _race_exports(vault, operation, rounds=40)
-    assert len(exports) >= 5
     for n, exported in enumerate(exports[::max(1, len(exports) // 60)]):
         replica = fresh_like(vault, f"replica-{kind}-{n}.db")
         replica.restore_trusted(exported)

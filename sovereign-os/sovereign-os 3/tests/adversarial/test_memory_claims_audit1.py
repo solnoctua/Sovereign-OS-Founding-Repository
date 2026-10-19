@@ -409,13 +409,16 @@ def test_concurrent_http_decisions_exactly_one_wins(tmp_path):
     path=str(tmp_path / "http.db")
     seed=TestClient(create_app(path))
     rec=create(seed)
+    # Two app instances over one vault (like two server processes). Apps are built up front:
+    # FastAPI/pydantic app construction is not thread-safe and is not what this test races.
+    servers={a:TestClient(create_app(path)) for a in ("approve","reject")}
     for i in range(25):
         c=claim(seed,[rec["id"]],f"Claim {i}")
         results, barrier = {}, threading.Barrier(2)
         def worker(action):
-            http=TestClient(create_app(path)); barrier.wait()
-            results[action]=http.post(f"/api/claims/{c['id']}/{action}",
-                                      json={**CONFIRM,"expected_status":"proposed"}).status_code
+            barrier.wait()
+            results[action]=servers[action].post(f"/api/claims/{c['id']}/{action}",
+                                                 json={**CONFIRM,"expected_status":"proposed"}).status_code
         threads=[threading.Thread(target=worker,args=(a,)) for a in ("approve","reject")]
         for t in threads: t.start()
         for t in threads: t.join()
