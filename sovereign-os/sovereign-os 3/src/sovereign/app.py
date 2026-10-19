@@ -8,14 +8,14 @@ import sqlite3
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import providers, store
 from .claims import STATUSES, TransitionError
-from .store import Vault
+from .store import ForgetImpactChanged, Vault
 
 
 class NoteIn(BaseModel):
@@ -112,17 +112,33 @@ def create_app(db_path: str | None = None) -> FastAPI:
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
-    @app.post("/api/memories/{record_id}/correct")
+    # `:path` because ADR-0002 accepted record ids of any text, including "/"; such a legacy record
+    # must still be previewable, correctable and above all forgettable.
+    @app.post("/api/memories/{record_id:path}/correct")
     def correct(record_id: str, note: NoteIn):
         try:
             return vault.add(note.content, note.sensitivity, supersedes_id=record_id)
         except KeyError as e:
             raise HTTPException(status_code=404, detail=str(e))
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
-    @app.delete("/api/memories/{record_id}")
-    def remove(record_id: str):
-        # Forget: the record, its earlier revisions and every claim derived from them.
-        result = vault.delete(record_id)
+    @app.get("/api/memories/{record_id:path}/forget-preview")
+    def forget_preview(record_id: str):
+        # Server-authoritative: exactly what DELETE would remove now (same plan, same code path).
+        plan = vault.forget_preview(record_id)
+        if plan is None:
+            raise HTTPException(status_code=404, detail="Record not found")
+        return plan
+
+    @app.delete("/api/memories/{record_id:path}")
+    def remove(record_id: str, expected_impact: str | None = None):
+        # Forget: the record, its earlier revisions and every claim derived from them. With the
+        # preview's token the request fails (409) if the effect changed since it was confirmed.
+        try:
+            result = vault.delete(record_id, expected_impact)
+        except ForgetImpactChanged as e:
+            raise HTTPException(status_code=409, detail=str(e))
         if result is None:
             raise HTTPException(status_code=404, detail="Record not found")
         return {"removed": True, **result,
@@ -141,31 +157,37 @@ def create_app(db_path: str | None = None) -> FastAPI:
             raise HTTPException(status_code=422, detail=str(e))
 
     @app.get("/api/claims")
-    def list_claims(status: Literal[STATUSES] | None = None):
-        return {"claims": vault.list_claims(status)}
+    def list_claims(status: Literal[STATUSES] | None = None, cursor: str | None = None,
+                    limit: int = Query(default=100, ge=1, le=store.MAX_PAGE)):
+        # Newest first; follow `next_cursor` until it is null to reach every claim.
+        try:
+            return vault.claims_page(status, limit, cursor)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
     @app.post("/api/claims", status_code=201)
     def add_claim(claim: ClaimIn):
         return claim_errors(lambda: vault.add_claim(claim.text, claim.source_ids, "human"))
 
     # Status changes are explicit local human actions; no model code path calls these.
-    @app.post("/api/claims/{claim_id}/approve")
+    # `:path`: a trusted restore accepts any 1-200 character claim id, so every listed claim stays actionable.
+    @app.post("/api/claims/{claim_id:path}/approve")
     def approve_claim(claim_id: str, body: DecisionIn):
         return claim_errors(lambda: vault.transition_claim(claim_id, "approved", body.note, body.expected_status))
 
-    @app.post("/api/claims/{claim_id}/reject")
+    @app.post("/api/claims/{claim_id:path}/reject")
     def reject_claim(claim_id: str, body: DecisionIn):
         return claim_errors(lambda: vault.transition_claim(claim_id, "rejected", body.note, body.expected_status))
 
-    @app.post("/api/claims/{claim_id}/contest")
+    @app.post("/api/claims/{claim_id:path}/contest")
     def contest_claim(claim_id: str, body: DecisionIn):
         return claim_errors(lambda: vault.transition_claim(claim_id, "contested", body.note, body.expected_status))
 
-    @app.post("/api/claims/{claim_id}/supersede")
+    @app.post("/api/claims/{claim_id:path}/supersede")
     def supersede_claim(claim_id: str, body: SupersedeIn):
         return claim_errors(lambda: vault.supersede_claim(claim_id, body.text, body.source_ids, body.note, body.expected_status))
 
-    @app.delete("/api/claims/{claim_id}")
+    @app.delete("/api/claims/{claim_id:path}")
     def remove_claim(claim_id: str):
         if not vault.delete_claim(claim_id):
             raise HTTPException(status_code=404, detail="Claim not found")

@@ -53,7 +53,7 @@
           <p class="micro">Source records are <b>evidence</b>: what was actually captured. A claim is an <b>interpretation</b> linked to evidence. Only an <b>approved</b> claim with intact evidence counts as approved memory; proposed, contested, rejected and superseded claims do not, an approved claim stops counting if its evidence is corrected, and forgetting a source also forgets the claims derived from it. Every decision is kept in the claim's history. Claims are never sent to a model.</p>
           <label for="claim-text">Propose a claim from the <span id="claim-source-count">0</span> records selected above</label>
           <div class="search-row"><input id="claim-text" maxlength="2000" placeholder="e.g. The garden project starts in May"/><button class="secondary" id="add-claim">Propose claim</button></div>
-          <div class="records" id="claims-list"><p class="empty">No claims yet.</p></div>
+          <div class="records" id="claims-list"><p class="empty">No claims yet.</p></div><button class="text-button" id="more-claims" hidden>Load older claims ↓</button>
         </section>
         <section class="panel ask-panel"><div class="panel-header"><div><span class="eyebrow">03 / REASON</span><h2>Ask Sovereign</h2></div><span class="muted-symbol">⌁</span></div>
           <div class="ask-layout"><div class="ask-main"><label for="question">What would you like to understand?</label><textarea id="question" rows="3" maxlength="2000" placeholder="What do my selected records actually say about...?"></textarea>

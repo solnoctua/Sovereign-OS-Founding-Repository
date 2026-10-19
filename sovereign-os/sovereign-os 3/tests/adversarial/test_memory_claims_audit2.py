@@ -369,9 +369,11 @@ def test_forgetting_old_revision_keeps_newer_revision_but_forgets_its_claims(vau
     c1 = vault.add_claim("About v1", [r1["id"]], "human")
     r2 = vault.add("Invented note v2", supersedes_id=r1["id"])
     c2 = vault.add_claim("About v2", [r2["id"]], "human")
-    assert vault.delete(r1["id"]) == {"records_forgotten": 1, "claims_forgotten": 1}
+    assert vault.delete(r1["id"]) == {"records_forgotten": 1, "claims_forgotten": 1,
+                                      "record_ids": [r1["id"]], "claim_ids": [c1["id"]]}
     assert set(claims_of(vault)) == {c2["id"]} and vault.get(r2["id"])
-    assert vault.delete(r2["id"]) == {"records_forgotten": 1, "claims_forgotten": 1}
+    assert vault.delete(r2["id"]) == {"records_forgotten": 1, "claims_forgotten": 1,
+                                      "record_ids": [r2["id"]], "claim_ids": [c2["id"]]}
     assert claims_of(vault) == {}
     assert_coherent(vault)
 

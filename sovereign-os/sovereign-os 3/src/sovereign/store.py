@@ -13,6 +13,7 @@ including backups/WAL is NOT provided.
 """
 from __future__ import annotations
 
+import base64
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
@@ -24,12 +25,13 @@ from uuid import UUID, uuid4, uuid5
 
 from . import claims as rules
 
-# PRAGMA user_version. 0 = records-only vaults (ADR-0002). 1, 2 = unreleased drafts (c847f9d, 708e9de).
-SCHEMA_VERSION = 3
+# PRAGMA user_version. 0 = records-only vaults (ADR-0002). 1, 2, 3 = unreleased drafts (c847f9d, 708e9de, 36c9bbc).
+SCHEMA_VERSION = 4
 EXPORT_SCHEMAS = ("sovereign.v0.records.1", "sovereign.v0.records.2")
 # One explicit size policy shared by export, import and restore: anything export produces is restorable.
 MAX_BACKUP_BYTES = 128 * 1024 * 1024
 MAX_ID, MAX_CONTENT, MAX_SOURCE = 200, 10000, 200
+MAX_PAGE = 200   # claims per listing page (pages are complete via the cursor, not capped)
 # Ordinary import gives claims deterministic ids in this namespace, so a file can never occupy
 # (squat) the id of a genuine claim and block its later trusted restore.
 IMPORT_NAMESPACE = UUID("8a6c9a1e-5b7d-4f3e-9d2a-0c1b2e3f4a5b")
@@ -58,6 +60,15 @@ def _abort(message: str) -> str:
     return f"BEGIN SELECT RAISE(ABORT, '{message}'); END;"
 
 
+# Records that existed before the claims era (migrated from an ADR-0002 vault, or restored from a
+# backup of one) carry legacy = 1. They are preserved exactly as the ADR-0002 restore accepted them:
+# within the bounds below, and exempt from the newer lineage rules. Everything written now is
+# legacy = 0 and must meet the current bounds. Ordinary import never creates legacy rows.
+LEGACY_SCHEMA = """
+    ALTER TABLE records ADD COLUMN legacy INTEGER NOT NULL DEFAULT 0 CHECK(legacy IN (0, 1));
+    UPDATE records SET legacy = 1;
+"""
+
 _ALLOWED = ", ".join(f"'{key}'" for key in rules.transition_keys())
 _TERMINAL = ", ".join(f"'{s}'" for s, targets in rules.TRANSITIONS.items() if not targets)
 _CLAIM_FORGOTTEN = "EXISTS (SELECT 1 FROM claim_tombstones WHERE id = {})"
@@ -77,7 +88,8 @@ CLAIMS_SCHEMA = f"""
         status TEXT NOT NULL CHECK(status IN ('proposed', 'approved', 'rejected', 'contested', 'superseded')),
         created_at TEXT NOT NULL CHECK(typeof(created_at) = 'text'),
         supersedes_id TEXT,
-        CHECK(supersedes_id IS NULL OR (typeof(supersedes_id) = 'text' AND supersedes_id <> id))
+        CHECK(supersedes_id IS NULL OR (typeof(supersedes_id) = 'text' AND length(supersedes_id) BETWEEN 1 AND {MAX_ID}
+                                        AND supersedes_id <> id))
     );
     -- No foreign key to records: the link must survive so support can derive as orphaned.
     -- evidence_sha256 pins the exact evidence the claim was made from (NULL = never seen).
@@ -101,7 +113,7 @@ CLAIMS_SCHEMA = f"""
         CHECK(from_status IS NULL OR actor = 'human')
     );
     CREATE TABLE claim_tombstones (
-        id TEXT PRIMARY KEY CHECK(typeof(id) = 'text'),
+        id TEXT PRIMARY KEY CHECK(typeof(id) = 'text' AND length(id) BETWEEN 1 AND {MAX_ID}),
         deleted_at TEXT NOT NULL CHECK(typeof(deleted_at) = 'text')
     );
     CREATE INDEX ix_claims_supersedes ON claims(supersedes_id);
@@ -183,13 +195,15 @@ CLAIMS_SCHEMA = f"""
 
     -- Evidence: insert-only identity (never replaced or resurrected, never introduced under an id that
     -- claims already cite or after its own correction), immutable apart from being superseded by an
-    -- inserted correction, strictly linear lineage, removed only by forgetting.
+    -- inserted correction, strictly linear lineage, removed only by forgetting. Legacy rows keep the
+    -- ADR-0002 bounds and are exempt from the lineage rules (they are preserved, never re-shaped).
     CREATE TRIGGER records_well_formed BEFORE INSERT ON records WHEN
-        typeof(NEW.id) <> 'text' OR length(NEW.id) NOT BETWEEN 1 AND {MAX_ID}
-        OR typeof(NEW.content) <> 'text' OR length(NEW.content) NOT BETWEEN 1 AND {MAX_CONTENT}
-        OR typeof(NEW.source) <> 'text' OR length(NEW.source) NOT BETWEEN 1 AND {MAX_SOURCE}
-        OR typeof(NEW.created_at) <> 'text'
+        typeof(NEW.id) <> 'text' OR typeof(NEW.content) <> 'text' OR length(NEW.content) > {MAX_CONTENT}
+        OR typeof(NEW.source) <> 'text' OR typeof(NEW.created_at) <> 'text'
         OR (NEW.supersedes_id IS NOT NULL AND typeof(NEW.supersedes_id) <> 'text')
+        OR (NEW.legacy = 0 AND (length(NEW.id) NOT BETWEEN 1 AND {MAX_ID} OR length(NEW.content) < 1
+                                OR length(NEW.source) NOT BETWEEN 1 AND {MAX_SOURCE}
+                                OR (NEW.supersedes_id IS NOT NULL AND length(NEW.supersedes_id) NOT BETWEEN 1 AND {MAX_ID})))
     {_abort('malformed source record')}
     CREATE TRIGGER records_no_replace BEFORE INSERT ON records WHEN EXISTS (SELECT 1 FROM records WHERE id = NEW.id)
     {_abort('record id already exists; evidence is never replaced')}
@@ -198,15 +212,21 @@ CLAIMS_SCHEMA = f"""
     CREATE TRIGGER records_not_after_claims BEFORE INSERT ON records
     WHEN EXISTS (SELECT 1 FROM claim_sources WHERE record_id = NEW.id)
     {_abort('evidence cannot appear after claims that cite it')}
+    -- Current rows: strictly linear and built oldest-first. Legacy rows may keep ADR-0002 lineage
+    -- anomalies, but only among legacy rows: a legacy row never supersedes a current row, never joins
+    -- a lineage that already has a current correction, and never appears after a current correction.
     CREATE TRIGGER records_not_after_correction BEFORE INSERT ON records
-    WHEN EXISTS (SELECT 1 FROM records WHERE supersedes_id = NEW.id)
+    WHEN EXISTS (SELECT 1 FROM records s WHERE s.supersedes_id = NEW.id AND (NEW.legacy = 0 OR s.legacy = 0))
     {_abort('a record cannot appear after its correction')}
     CREATE TRIGGER records_linear_lineage BEFORE INSERT ON records WHEN NEW.supersedes_id IS NOT NULL AND (
-        NEW.supersedes_id = NEW.id OR EXISTS (SELECT 1 FROM records WHERE supersedes_id = NEW.supersedes_id))
+        (NEW.legacy = 0 AND (NEW.supersedes_id = NEW.id
+                             OR EXISTS (SELECT 1 FROM records s WHERE s.supersedes_id = NEW.supersedes_id)))
+        OR (NEW.legacy = 1 AND (EXISTS (SELECT 1 FROM records s WHERE s.supersedes_id = NEW.supersedes_id AND s.legacy = 0)
+                                OR EXISTS (SELECT 1 FROM records p WHERE p.id = NEW.supersedes_id AND p.legacy = 0))))
     {_abort('a record is corrected at most once and never by itself')}
-    CREATE TRIGGER records_correction_supersedes AFTER INSERT ON records WHEN NEW.supersedes_id IS NOT NULL
+    CREATE TRIGGER records_correction_supersedes AFTER INSERT ON records WHEN NEW.legacy = 0 AND NEW.supersedes_id IS NOT NULL
     BEGIN UPDATE records SET status = 'superseded' WHERE id = NEW.supersedes_id AND status = 'active'; END;
-    CREATE TRIGGER records_immutable BEFORE UPDATE OF id, content, source, sensitivity, created_at, supersedes_id ON records
+    CREATE TRIGGER records_immutable BEFORE UPDATE OF id, content, source, sensitivity, created_at, supersedes_id, legacy ON records
     {_abort('source records are immutable evidence')}
     CREATE TRIGGER records_superseded_only_by_correction BEFORE UPDATE OF status ON records
     WHEN NOT (OLD.status = 'active' AND NEW.status = 'superseded'
@@ -231,10 +251,28 @@ CLAIMS_SCHEMA = f"""
 """
 
 
+class ForgetImpactChanged(Exception):
+    """The effect of a Forget changed between its preview and its execution."""
+
+
 def evidence_hash(record: Mapping) -> str:
     """Fingerprint of a record's identity: id, content, provenance, sensitivity, time and lineage."""
     canonical = json.dumps([record[k] for k in EVIDENCE_FIELDS], ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _encode_cursor(created_at: str, claim_id: str) -> str:
+    return base64.urlsafe_b64encode(json.dumps([created_at, claim_id]).encode("utf-8")).decode("ascii")
+
+
+def _decode_cursor(cursor: str) -> tuple[str, str]:
+    try:
+        key = json.loads(base64.urlsafe_b64decode(cursor.encode("ascii")))
+    except (ValueError, UnicodeError):
+        raise ValueError("Invalid cursor.") from None
+    if not (isinstance(key, list) and len(key) == 2 and all(isinstance(k, str) for k in key)):
+        raise ValueError("Invalid cursor.")
+    return key[0], key[1]
 
 
 def stamp() -> str:
@@ -301,7 +339,7 @@ class Vault:
                 # Only unreleased benchmark drafts created these; refuse rather than guess.
                 raise RuntimeError("Vault was created by a pre-release claims build; export records and restore into a new vault.")
             # One transaction: either the vault is fully at the new version or unchanged.
-            for statement in _statements(BASE_SCHEMA + CLAIMS_SCHEMA):
+            for statement in _statements(BASE_SCHEMA + LEGACY_SCHEMA + CLAIMS_SCHEMA):
                 db.execute(statement)
             db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             db.execute("COMMIT")
@@ -353,6 +391,10 @@ class Vault:
         with self.connection(write=True) as db:
             if supersedes_id and not self._exists(db, "SELECT 1 FROM records WHERE id=? AND status='active'", supersedes_id):
                 raise KeyError("Record to correct was not found or is already superseded.")
+            if supersedes_id and (len(supersedes_id) > MAX_ID
+                                  or self._exists(db, "SELECT 1 FROM records WHERE supersedes_id=?", supersedes_id)):
+                # A new correction obeys the current rules even for a legacy predecessor.
+                raise ValueError("This record cannot be corrected: its legacy id or lineage is outside current V0 rules.")
             # Inserting the correction is what supersedes its predecessor (storage trigger).
             db.execute("INSERT INTO records(id,content,sensitivity,status,created_at,supersedes_id) VALUES(?,?,?,?,?,?)",
                        (record_id, content, sensitivity, "active", stamp(), supersedes_id))
@@ -375,29 +417,64 @@ class Vault:
                 rows = db.execute("SELECT * FROM records WHERE status='active' ORDER BY created_at DESC,id DESC LIMIT ?", (min(limit, 100),)).fetchall()
             return [self._record(row) for row in rows]
 
-    @staticmethod
-    def _forget_records(db: sqlite3.Connection, ids: list[str], at: str) -> int:
-        """Tombstone records; the storage trigger removes each record and forgets every claim citing it."""
-        marks = ",".join("?" * len(ids))
-        claims = db.execute(f"SELECT count(DISTINCT claim_id) FROM claim_sources WHERE record_id IN ({marks})", ids).fetchone()[0]
-        db.executemany("INSERT INTO tombstones (id,deleted_at) VALUES (?,?)", [(rid, at) for rid in ids])
-        return claims
+    def _forget_plan(self, db: sqlite3.Connection, record_id: str) -> dict | None:
+        """The exact effect of forgetting `record_id` in the current state; None if it does not exist.
 
-    def delete(self, record_id: str) -> dict | None:
-        """Forget a source record, its earlier revisions and all dependent claims."""
+        This is the single source of truth for Forget: the preview returns it and `delete` executes
+        it, so what the user confirms and what the vault does cannot drift apart. Forget covers the
+        record, every earlier revision still present (lineage walks backward), and every claim that
+        cites any of them (the storage trigger forgets exactly those claims).
+        """
+        if not self._exists(db, "SELECT 1 FROM records WHERE id=?", record_id):
+            return None
+        ids = [record_id]
+        while True:
+            previous = db.execute("SELECT r.id FROM records r JOIN records s ON s.supersedes_id = r.id WHERE s.id=?",
+                                  (ids[-1],)).fetchone()
+            if previous is None or previous["id"] in ids:
+                break
+            ids.append(previous["id"])
+        marks = ",".join("?" * len(ids))
+        claim_rows = db.execute(f"""SELECT * FROM claims WHERE id IN (SELECT claim_id FROM claim_sources WHERE record_id IN ({marks}))
+                                    ORDER BY created_at DESC, id DESC""", ids).fetchall()
+        claims = [self._claim(db, row) for row in claim_rows]
+        # The token covers what is removed *and* its authority: a decision taken after the preview
+        # (e.g. approving a listed claim) also invalidates the confirmation.
+        impact = hashlib.sha256(json.dumps([sorted(ids), sorted([c["id"], c["status"], c["authoritative"]] for c in claims)])
+                                .encode()).hexdigest()
+        return {"record_id": record_id, "impact_token": impact,
+                "records_forgotten": len(ids), "claims_forgotten": len(claims),
+                "records": [self._record(db.execute("SELECT * FROM records WHERE id=?", (rid,)).fetchone()) for rid in ids],
+                "claims": [{k: c[k] for k in ("id", "text", "status", "origin", "authoritative", "source_ids")} for c in claims]}
+
+    def forget_preview(self, record_id: str) -> dict | None:
+        """What Forget would remove right now (read-only)."""
+        with self.connection() as db:
+            return self._forget_plan(db, record_id)
+
+    def delete(self, record_id: str, expected_impact: str | None = None) -> dict | None:
+        """Forget a source record, its earlier revisions and all dependent claims.
+
+        With `expected_impact` (the preview's token) the operation refuses to run if its effect has
+        changed since the preview, so a confirmation can never understate what is removed.
+        """
         with self.connection(write=True) as db:
-            if not self._exists(db, "SELECT 1 FROM records WHERE id=?", record_id):
+            plan = self._forget_plan(db, record_id)
+            if plan is None:
                 return None
-            # This revision and every earlier one still present (lineage is linear and acyclic).
-            ids = [record_id]
-            while True:
-                previous = db.execute("SELECT r.id FROM records r JOIN records s ON s.supersedes_id = r.id WHERE s.id=?",
-                                      (ids[-1],)).fetchone()
-                if previous is None or previous["id"] in ids:
-                    break
-                ids.append(previous["id"])
+            if expected_impact is not None and expected_impact != plan["impact_token"]:
+                raise ForgetImpactChanged("What Forget would remove changed since the preview; review it again.")
+            claims_before = db.execute("SELECT count(*) FROM claims").fetchone()[0]
+            ids = [r["id"] for r in plan["records"]]
+            # The storage trigger removes each record and forgets every claim citing it.
+            db.executemany("INSERT INTO tombstones (id,deleted_at) VALUES (?,?)", [(rid, stamp()) for rid in ids])
+            removed = claims_before - db.execute("SELECT count(*) FROM claims").fetchone()[0]
+            survivors = [c["id"] for c in plan["claims"] if self._exists(db, "SELECT 1 FROM claims WHERE id=?", c["id"])]
+            if removed != plan["claims_forgotten"] or survivors:
+                raise RuntimeError("Forget effect diverged from its plan; nothing was changed.")   # rolls back
             # Do not claim backup/WAL/forensic secure deletion here.
-            return {"records_forgotten": len(ids), "claims_forgotten": self._forget_records(db, ids, stamp())}
+            return {"records_forgotten": len(ids), "claims_forgotten": removed,
+                    "record_ids": ids, "claim_ids": [c["id"] for c in plan["claims"]]}
 
     # --- Memory claims -----------------------------------------------------
 
@@ -443,6 +520,8 @@ class Vault:
             raise ValueError("Invalid claim origin.")
         if not source_ids or len(source_ids) > rules.MAX_SOURCES or len(set(source_ids)) != len(source_ids):
             raise ValueError("A claim needs 1-8 distinct source record IDs.")
+        if not all(1 <= len(rid) <= MAX_ID for rid in source_ids):
+            raise ValueError("A claim cannot cite a record whose (legacy) id is outside current V0 bounds.")
         return text
 
     def _insert_claim(self, db, claim_id: str, text: str, source_hashes: dict[str, str | None], origin: str,
@@ -489,12 +568,36 @@ class Vault:
         with self.connection(write=True) as db:
             return self._get_claim(db, self._new_claim(db, text, source_ids, origin, None))
 
-    def list_claims(self, status: str | None = None, limit: int = 100) -> list[dict]:
+    def claims_page(self, status: str | None = None, limit: int = 100, cursor: str | None = None) -> dict:
+        """One page of claims, newest first, with an opaque keyset cursor for the next page.
+
+        The order (created_at DESC, id DESC) is total and deterministic, and the cursor is the last
+        row's key, so paging never repeats a claim and reaches every claim that exists throughout
+        the paging. Claims added meanwhile appear at their own place in the order (new ones before
+        the first page) and are seen on refresh.
+        """
+        if not 1 <= limit <= MAX_PAGE:
+            raise ValueError(f"limit must be between 1 and {MAX_PAGE}.")
+        where, args = [], []
+        if status:
+            where.append("status = ?"); args.append(status)
+        if cursor:
+            where.append("(created_at, id) < (?, ?)"); args.extend(_decode_cursor(cursor))
+        sql = ("SELECT * FROM claims" + (" WHERE " + " AND ".join(where) if where else "")
+               + " ORDER BY created_at DESC, id DESC LIMIT ?")
         with self.connection() as db:
-            if status:
-                rows = db.execute("SELECT * FROM claims WHERE status=? ORDER BY created_at DESC,id DESC LIMIT ?", (status, min(limit, 200)))
-            else:
-                rows = db.execute("SELECT * FROM claims ORDER BY created_at DESC,id DESC LIMIT ?", (min(limit, 200),))
+            rows = db.execute(sql, (*args, limit + 1)).fetchall()
+            page = rows[:limit]
+            more = len(rows) > limit
+            return {"claims": [self._claim(db, row) for row in page],
+                    "next_cursor": _encode_cursor(page[-1]["created_at"], page[-1]["id"]) if more else None}
+
+    def list_claims(self, status: str | None = None, limit: int | None = None) -> list[dict]:
+        """Every claim (or the newest `limit`), newest first. HTTP clients page with `claims_page`."""
+        with self.connection() as db:
+            where, args = ("WHERE status=?", [status]) if status else ("", [])
+            tail, extra = ("LIMIT ?", [limit]) if limit is not None else ("", [])
+            rows = db.execute(f"SELECT * FROM claims {where} ORDER BY created_at DESC,id DESC {tail}", (*args, *extra))
             return [self._claim(db, row) for row in rows.fetchall()]
 
     def transition_claim(self, claim_id: str, target: str, note: str | None = None,
@@ -560,6 +663,11 @@ class Vault:
 
         Returns normalised records and claims ordered predecessors-first. There is no count
         limit; size is bounded once, by MAX_BACKUP_BYTES at the HTTP boundary and on export.
+
+        Records flagged `legacy` (pre-claims ADR-0002 data) are accepted only by a *trusted*
+        restore, under the ADR-0002 bounds and without the newer lineage rules, and come first so
+        they are preserved exactly. Ordinary import ignores the flag: every record it accepts meets
+        the current rules, so legacy compatibility cannot be used to forge new malformed state.
         """
         if not isinstance(payload, dict) or payload.get("schema") not in EXPORT_SCHEMAS:
             raise ValueError("Unsupported export schema.")
@@ -568,21 +676,36 @@ class Vault:
         for items in (raw_records, tombs, raw_claims, claim_tombs):
             if not isinstance(items, list):
                 raise ValueError("Invalid export lists.")
-        for tomb in tombs + claim_tombs:
+        for tomb in tombs:
+            # Record tombstones accept any text id, as storage does: ADR-0002 accepted record ids of any
+            # length, and forgetting such a legacy record writes a tombstone with that id.
+            if not isinstance(tomb, dict) or not _is_text(tomb.get("id")) or not _is_text(tomb.get("deleted_at")):
+                raise ValueError("Invalid tombstone in import.")
+        for tomb in claim_tombs:
+            # Claim ids are always 1-MAX_ID, and so are claim tombstones (storage CHECK).
             if not isinstance(tomb, dict) or not _is_text(tomb.get("id"), 1, MAX_ID) or not _is_text(tomb.get("deleted_at")):
                 raise ValueError("Invalid tombstone in import.")
         records = []
         for row in raw_records:
             if not isinstance(row, dict):
                 raise ValueError("Invalid record in import.")
+            flagged = row.get("legacy") in (True, 1)
             record = {"id": row.get("id"), "content": row.get("content"), "source": row.get("source", "manual"),
                       "sensitivity": row.get("sensitivity"), "status": row.get("status"),
-                      "created_at": row.get("created_at"), "supersedes_id": row.get("supersedes_id")}
-            if (not _is_text(record["id"], 1, MAX_ID) or not _is_text(record["content"], 1, MAX_CONTENT)
-                    or not _is_text(record["source"], 1, MAX_SOURCE) or record["sensitivity"] not in ("private", "sensitive")
-                    or record["status"] not in ("active", "superseded") or not _is_text(record["created_at"])
-                    or not (record["supersedes_id"] is None or _is_text(record["supersedes_id"], 1, MAX_ID))):
-                raise ValueError("Invalid record in import.")
+                      "created_at": row.get("created_at"), "supersedes_id": row.get("supersedes_id"),
+                      "legacy": 1 if trusted and flagged else 0}
+            common = (record["sensitivity"] in ("private", "sensitive") and record["status"] in ("active", "superseded")
+                      and _is_text(record["created_at"]))
+            if record["legacy"]:   # ADR-0002 bounds: what its restore accepted and migration preserved
+                valid = (common and _is_text(record["id"]) and _is_text(record["content"], 0, MAX_CONTENT)
+                         and _is_text(record["source"]) and (record["supersedes_id"] is None or _is_text(record["supersedes_id"])))
+            else:
+                valid = (common and _is_text(record["id"], 1, MAX_ID) and _is_text(record["content"], 1, MAX_CONTENT)
+                         and _is_text(record["source"], 1, MAX_SOURCE)
+                         and (record["supersedes_id"] is None or _is_text(record["supersedes_id"], 1, MAX_ID)))
+            if not valid:
+                raise ValueError("Legacy record outside current V0 bounds: only a trusted restore of your own backup accepts it."
+                                 if flagged and not trusted else "Invalid record in import.")
             records.append(record)
         claims = []
         for row in raw_claims:
@@ -608,7 +731,10 @@ class Vault:
                 if claim["history"] and not source_ids:
                     raise ValueError("A claim with a recorded history needs evidence links.")
             claims.append(claim)
-        records = _lineage_order(records, lambda r: r["status"])
+        if len({r["id"] for r in records}) != len(records):
+            raise ValueError("Duplicate id in import.")
+        legacy_rows = [r for r in records if r["legacy"]]   # preserved exactly, in file order
+        records = legacy_rows + _lineage_order([r for r in records if not r["legacy"]], lambda r: r["status"])
         if trusted:
             claims = _lineage_order(claims, lambda c: c["status"])
         elif len({c["id"] for c in claims}) != len(claims):
@@ -620,13 +746,23 @@ class Vault:
         rid, predecessor = record["id"], record["supersedes_id"]
         if (self._exists(db, "SELECT 1 FROM records WHERE id=?", rid)          # evidence is never replaced
                 or self._exists(db, "SELECT 1 FROM tombstones WHERE id=?", rid)   # forgotten stays forgotten
-                or self._exists(db, "SELECT 1 FROM claim_sources WHERE record_id=?", rid)  # would change claims' support
-                or self._exists(db, "SELECT 1 FROM records WHERE supersedes_id=?", rid)):  # already corrected here
+                or self._exists(db, "SELECT 1 FROM claim_sources WHERE record_id=?", rid)):  # would change claims' support
             return False
+
+        def blocking_successors(of: str) -> list[str]:
+            # Current rows follow strictly linear lineage. A legacy row mirrors its backup's (possibly
+            # anomalous) ADR-0002 lineage, so only evidence that was here *before* this operation blocks it.
+            found = [r["id"] for r in db.execute("SELECT id FROM records WHERE supersedes_id=?", (of,))]
+            return [f for f in found if f not in inserted] if record["legacy"] else found
+
+        if blocking_successors(rid):
+            return False   # already corrected here
         if predecessor is None:
             return True
-        if self._exists(db, "SELECT 1 FROM records WHERE supersedes_id=?", predecessor):
+        if blocking_successors(predecessor):
             return False   # lineage is linear: the predecessor (present or not) already has a correction here
+        if record["legacy"] and self._exists(db, "SELECT 1 FROM records WHERE id=? AND legacy=0", predecessor):
+            return False   # legacy lineage never reaches into current evidence
         if predecessor not in inserted and self._exists(db, "SELECT 1 FROM records WHERE id=?", predecessor):
             return allow_correction   # correcting local evidence: never from an untrusted file
         return True
@@ -638,8 +774,8 @@ class Vault:
             if record["id"] in skip_ids or not self._can_introduce(db, record, inserted, allow_correction):
                 skipped += 1
                 continue
-            db.execute("INSERT INTO records(id,content,source,sensitivity,status,created_at,supersedes_id) VALUES (?,?,?,?,?,?,?)",
-                       tuple(record[k] for k in ("id", "content", "source", "sensitivity", "status", "created_at", "supersedes_id")))
+            db.execute("INSERT INTO records(id,content,source,sensitivity,status,created_at,supersedes_id,legacy) VALUES (?,?,?,?,?,?,?,?)",
+                       tuple(record[k] for k in ("id", "content", "source", "sensitivity", "status", "created_at", "supersedes_id", "legacy")))
             inserted.add(record["id"])
         return len(inserted), skipped
 

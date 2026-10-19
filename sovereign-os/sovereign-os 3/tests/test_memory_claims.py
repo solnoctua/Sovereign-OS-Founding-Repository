@@ -309,12 +309,14 @@ def base_vault(path):
 
 def test_existing_vault_migrates_without_touching_evidence(tmp_path):
     path=base_vault(str(tmp_path / "old.db"))
-    db=sqlite3.connect(path); before=(db.execute("SELECT * FROM records ORDER BY id").fetchall(),
+    columns="id,content,source,sensitivity,status,created_at,supersedes_id"   # every ADR-0002 column
+    db=sqlite3.connect(path); before=(db.execute(f"SELECT {columns} FROM records ORDER BY id").fetchall(),
                                       db.execute("SELECT * FROM tombstones").fetchall()); db.close()
     vault=Vault(path)
     db=sqlite3.connect(path)
-    assert db.execute("PRAGMA user_version").fetchone()[0]==SCHEMA_VERSION==3
-    assert (db.execute("SELECT * FROM records ORDER BY id").fetchall(),db.execute("SELECT * FROM tombstones").fetchall())==before
+    assert db.execute("PRAGMA user_version").fetchone()[0]==SCHEMA_VERSION==4
+    assert (db.execute(f"SELECT {columns} FROM records ORDER BY id").fetchall(),db.execute("SELECT * FROM tombstones").fetchall())==before
+    assert db.execute("SELECT DISTINCT legacy FROM records").fetchall()==[(1,)]   # pre-claims rows are flagged legacy
     db.close()
     assert [r["id"] for r in vault.search()]==["r2"] and vault.list_claims()==[]
     c=vault.add_claim("Derived",["r2"],"model")
@@ -338,6 +340,7 @@ def test_migration_rolls_back_on_failure(tmp_path,monkeypatch):
 @pytest.mark.parametrize("setup,match",[(f"PRAGMA user_version={SCHEMA_VERSION+1}","newer"),
                                         ("PRAGMA user_version=1","pre-release"),
                                         ("PRAGMA user_version=2","pre-release"),
+                                        ("PRAGMA user_version=3","pre-release"),
                                         ("CREATE TABLE claims (id TEXT)","pre-release")])
 def test_newer_and_prerelease_vaults_are_refused(tmp_path,setup,match):
     path=base_vault(str(tmp_path / "v.db"))

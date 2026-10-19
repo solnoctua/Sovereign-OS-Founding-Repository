@@ -86,6 +86,9 @@ Two adversarial audits shaped this revision:
   - Tombstones are permanent, content-free and idempotent; `REPLACE` cannot rewrite them.
   - Claims can never cite forgotten evidence.
 - **`DELETE /api/memories/{id}`** forgets that record and every earlier revision still present (lineage walks backward). A newer revision survives if only an older one is forgotten.
+- **The preview is the plan.** `GET /api/memories/{id}/forget-preview` returns exactly what Forget would remove now: every affected revision, every dependent claim (across all those revisions, counted once, including claims that also cite other evidence), and an `impact_token`.
+  - `DELETE` computes the same plan with the same function inside its write transaction, executes it, and verifies the removed set equals the plan (otherwise it rolls back).
+  - Given `?expected_impact=<token>`, it refuses with 409 if the effect changed since the preview. The UI always sends the token, so a confirmation never understates what is removed. API callers that skip the preview get no such guarantee.
 - **`DELETE /api/claims/{id}`** forgets one claim.
 - **Not claimed:** WAL, backup and forensic erasure. API forgets run with `secure_delete`; raw-SQL connections may not.
 - **Deferred:** a separate future operation, *remove evidence, retain derived memory* (orphaning), is deliberately not offered in V0.
@@ -110,7 +113,24 @@ Two adversarial audits shaped this revision:
 - **One explicit limit, `MAX_BACKUP_BYTES` (128 MiB), is shared by all three paths:**
   - export refuses (413) to produce a larger file;
   - import and restore refuse larger bodies (413) and bodies without `Content-Length` (411).
-- **Restore accepts everything storage accepts.** Storage CHECKs and triggers enforce the same well-formedness rules restore validates: text types, lengths, ≤ 8 links, notes ≤ 500, legal histories. So any state Sovereign can hold within the size limit exports and restores, exactly, with the same software version.
+- **Restore accepts everything storage accepts.** Storage CHECKs and triggers enforce the same well-formedness rules restore validates: text types, lengths, ≤ 8 links, notes ≤ 500, legal histories. So any state Sovereign can hold within the size limit exports and restores, exactly, with the same software version, including migrated legacy records (below).
+  - Identifiers are bounded identically in both: current-tier record IDs and `supersedes_id`, claim IDs and `supersedes_id`, claim-link record IDs and claim tombstone IDs are all 1–200 characters.
+  - Record tombstone IDs accept any text in both, because forgetting a legacy record whose ADR-0002 ID is empty or over 200 characters writes a tombstone with that ID.
+
+### Legacy (ADR-0002) records
+- **What ADR-0002 accepted.** Its restore validated only enums and content ≤ 10,000 characters. A records-only vault can therefore hold rows that current writes would refuse: empty content, empty or over-200-character IDs and sources, numeric values stored as text, and any lineage (self-supersession, forks, cycles, two active revisions, dangling or long pointers), plus tombstones with any text ID.
+- **Preserved exactly, never reshaped.** Migration to `user_version` 4 adds an immutable `legacy` column and sets it on **every pre-migration record**. Nothing is normalised, renamed or dropped.
+  - Legacy rows are held to the ADR-0002 bounds (text, content ≤ 10,000) and are exempt only from the newer lineage triggers.
+  - Exports carry `legacy: 1`; a trusted restore accepts legacy rows under those bounds and inserts them first, in file order, so they round-trip exactly. Within one restore, legacy lineage anomalies among the backup's own rows are allowed; evidence already in the vault still blocks them as for any record.
+  - Tombstone IDs accept any text in both validation and storage.
+- **New writes stay strict.** Everything written now is `legacy = 0` and meets the current bounds and lineage rules. A new correction of a legacy record or a claim citing one must meet them too, and is refused with 422 otherwise (for example a legacy ID over 200 characters, or a predecessor that already has a legacy successor).
+- **No forging through import.** Ordinary import ignores the `legacy` flag. A file whose rows fail the current rules is refused whole ("only a trusted restore of your own backup accepts it"); conforming rows enter as `legacy = 0`.
+
+### Claim listing
+- **Complete and paged.** `GET /api/claims?limit=&cursor=&status=` returns claims newest first, ordered by `(created_at DESC, id DESC)` (a total, deterministic order), plus an opaque keyset `next_cursor`; `limit` is 1–200 (default 100). Following `next_cursor` until it is null reaches every claim.
+- **Concurrency semantics.** Paging never repeats a claim and never skips one that exists throughout. Claims added meanwhile take their own place in the order (normally before page one) and appear on refresh; deleted ones simply disappear.
+- **UI.** "Load older claims" fetches the next page, and refreshes keep already-loaded pages, so decisions remain possible on claims older than the first page.
+- **Every listed item is actionable.** Record and claim routes accept any stored ID, including "/" (ADR-0002 record IDs and trusted-restore claim IDs are arbitrary text), and the UI URL-encodes IDs.
 
 ### Storage contract (SQLite triggers, `store.py` `CLAIMS_SCHEMA`)
 
@@ -142,9 +162,9 @@ The triggers enforce the following for any connection issuing INSERT/UPDATE/DELE
 - Locking is SQLite's rollback journal: an export holds a read lock for its duration, so a concurrent write waits up to the 10 s busy timeout; conversely, a continuous unpaced stream of writes can delay a reader up to the same timeout. (WAL mode was not adopted because it would keep forgotten pages in the `-wal` file.)
 
 ### Migration
-- **Versions** (`PRAGMA user_version`): 0 = records-only vaults (ADR-0002); 3 = this schema.
-- **Migration 0 → 3** is additive (new tables, indexes and triggers; existing rows byte-identical) and runs in one `BEGIN IMMEDIATE` transaction.
-- **Refused:** vaults newer than this version, and vaults from the unreleased drafts (`user_version` 1 = `c847f9d`, 2 = `708e9de`, or an unversioned `claims` table).
+- **Versions** (`PRAGMA user_version`): 0 = records-only vaults (ADR-0002); 4 = this schema.
+- **Migration 0 → 4** is additive and runs in one `BEGIN IMMEDIATE` transaction: new tables, indexes and triggers, plus the `legacy` column set on every existing record. Every original column of every existing row stays byte-identical.
+- **Refused:** vaults newer than this version, and vaults from the unreleased drafts (`user_version` 1 = `c847f9d`, 2 = `708e9de`, 3 = `36c9bbc`/`35ce01b`, or an unversioned `claims` table).
 
 ## Alternatives considered
 
@@ -158,7 +178,7 @@ The triggers enforce the following for any connection issuing INSERT/UPDATE/DELE
 
 ## Consequences and risks
 
-- **Forget is broad:** one source deletion removes every claim citing it, including multi-source claims. The UI states the count before confirming.
+- **Forget is broad:** one source deletion removes every claim citing any of its revisions, including multi-source claims. The UI shows the server's exact plan (counts and the claims) before confirming.
 - **Trusted restore trusts its file:** a user who restores a backup from an attacker-supplied file grants that file authority. The explicit confirmation and the wording of the restore UI are the V0 mitigation.
 - **Record IDs can still be squatted:** ordinary import keeps record IDs (pre-existing behaviour, covered by the original tests). An untrusted file can occupy a record ID before a genuine trusted restore arrives. That cannot raise authority (identity hashes differ) but can leave genuine claims `unverified`.
 - **No authentication:** anyone able to make local same-origin JSON requests can approve.
@@ -166,15 +186,23 @@ The triggers enforce the following for any connection issuing INSERT/UPDATE/DELE
 
 ## Migration and reversibility
 
-- **To reverse:** drop the four claim tables, the triggers on `records`/`tombstones` and `ix_records_supersedes`, then set `PRAGMA user_version = 0`.
+- **To reverse:** drop the four claim tables, the triggers on `records`/`tombstones` and `ix_records_supersedes`, run `ALTER TABLE records DROP COLUMN legacy` (SQLite ≥ 3.35), then set `PRAGMA user_version = 0`. Every ADR-0002 row is then exactly as it was.
 - **Alternatively:** export and restore records into an older build after stripping the `claims` keys and setting `schema` to `.1`.
-- **Tested:** migration of a records-only vault, rollback on forced failure, and refusal of newer and pre-release vaults.
+- **Tested:**
+  - migration of a records-only vault, rollback on forced failure, and refusal of newer and pre-release vaults;
+  - an ADR-0002 vault written by that release's own restore loop with its accepted edge cases, then migrated, exported and restored into a fresh vault, round-tripping exactly over two generations, with and without new post-migration work.
 
 ## Validation
 
 - `tests/test_memory_claims.py` covers behaviour.
 - `tests/adversarial/` holds the permanent adversarial regressions (CI job `memory-adversarial`):
   - `test_memory_claims_audit1.py` covers the `c847f9d` audit blockers;
+  - `test_memory_claims_codex_review.py` covers the Codex PR-review findings on `36c9bbc` and `35ce01b`:
+    - the exact Forget preview: claims on earlier revisions, many revisions, multi-source claims, over 100 claims, and an effect or authority that changed since the preview;
+    - legacy ADR-0002 vaults round-tripping after migration, while current APIs and ordinary import still refuse malformed rows, and every legacy record (including IDs that are empty or contain "/") staying exactly previewable and forgettable;
+    - complete claim paging (over 100 claims, identical timestamps, concurrent additions/deletions, decisions beyond the first page), and every listed claim staying actionable whatever its restored ID;
+    - every stored identifier bounded exactly as restore validates (raw-SQL boundary values for each record, claim, link and tombstone identifier: whatever storage accepts, restore round-trips).
+    - Against `35ce01b`, 126 of its 131 cases fail. The 5 that pass are the token-less Forget compatibility check and four boundary values `35ce01b` already handled. Many of the 105 also need API surface `35ce01b` lacks (the preview endpoint, the cursor, the `legacy` column), so PR #1 also records a direct reproduction of each finding against `35ce01b`;
   - `test_memory_claims_blocker_probes.py` reproduces the `708e9de` audit findings (26 of its 27 probes fail against `708e9de`);
   - `test_memory_claims_audit2.py` covers the `708e9de` audit blockers in depth. Raw-SQL attacks run under four pragma configurations (foreign keys and recursive triggers on/off):
     - SQL replacement in three statement forms;

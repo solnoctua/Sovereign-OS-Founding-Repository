@@ -1,6 +1,6 @@
 "use strict";
 const $=id=>document.getElementById(id);
-const state={ records:[], claims:[], selected:new Set(), providers:[], editId:null};
+const state={ records:[], claims:[], claimsCursor:null, selected:new Set(), providers:[], editId:null};
 function setStatus(message, bad=false){const p=$("capture-status");p.textContent=message;p.style.color=bad?"#e6a9a2":"#9ebda7"}
 async function api(url, options={}){
   const r=await fetch(url,{...options,headers:{...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})}});
@@ -22,7 +22,17 @@ async function refresh(){
 }
 const SUPPORT_LABEL={supported:"EVIDENCE INTACT",stale:"EVIDENCE CORRECTED — RE-CHECK",orphaned:"EVIDENCE MISSING OR UNVERIFIED — UNSUPPORTED"};
 const CLAIM_ACTIONS={proposed:["approve","reject","contest","correct"],approved:["contest","reject","correct"],contested:["approve","reject","correct"],rejected:[],superseded:[]};
-async function refreshClaims(){state.claims=(await api("/api/claims")).claims;drawClaims()}
+const claimsPage=cursor=>api("/api/claims"+(cursor?`?cursor=${encodeURIComponent(cursor)}`:""));
+async function refreshClaims(){
+  // Reload as many pages as were already shown, so older claims stay visible after a decision.
+  const want=Math.max(state.claims.length,1);let claims=[],cursor=null;
+  do{const page=await claimsPage(cursor);claims=claims.concat(page.claims);cursor=page.next_cursor}while(cursor&&claims.length<want);
+  state.claims=claims;state.claimsCursor=cursor;drawClaims();
+}
+async function loadOlderClaims(){
+  const page=await claimsPage(state.claimsCursor);const seen=new Set(state.claims.map(c=>c.id));
+  state.claims=state.claims.concat(page.claims.filter(c=>!seen.has(c.id)));state.claimsCursor=page.next_cursor;drawClaims();
+}
 async function claimAction(c,action){
   const body={confirm:true,expected_status:c.status};
   if(action==="approve"&&!confirm("Approve this claim as an accurate interpretation of its evidence?"))return;
@@ -32,10 +42,10 @@ async function claimAction(c,action){
     const text=prompt("Corrected claim (the old claim is kept as superseded history):",c.text);if(text===null||!text.trim())return;
     body.text=text;body.source_ids=selectedRecords().length?selectedRecords().map(x=>x.id):c.source_ids;action="supersede";
   }
-  try{await api(`/api/claims/${c.id}/${action}`,{method:"POST",body:JSON.stringify(body)});await refreshClaims()}catch(e){alert(e.message)}
+  try{await api(`/api/claims/${encodeURIComponent(c.id)}/${action}`,{method:"POST",body:JSON.stringify(body)});await refreshClaims()}catch(e){alert(e.message)}
 }
 function drawClaims(){
-  $("claim-count").textContent=`${state.claims.length} claims`;
+  $("claim-count").textContent=`${state.claims.length}${state.claimsCursor?"+":""} claims`;$("more-claims").hidden=!state.claimsCursor;
   const container=$("claims-list");container.replaceChildren();
   if(!state.claims.length){container.append(el("p","empty","No claims yet. Select evidence above and propose an interpretation."));return}
   for(const c of state.claims){
@@ -51,7 +61,7 @@ function drawClaims(){
     wrapper.append(evidence);
     const foot=el("div","record-foot");const actions=el("div","record-actions");
     for(const action of CLAIM_ACTIONS[c.status]){const btn=el("button","",action[0].toUpperCase()+action.slice(1));btn.addEventListener("click",()=>claimAction(c,action));actions.append(btn)}
-    const del=el("button","","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this claim and its history? Its evidence is not affected."))return;try{await api(`/api/claims/${c.id}`,{method:"DELETE"});await refreshClaims()}catch(e){alert(e.message)}});
+    const del=el("button","","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this claim and its history? Its evidence is not affected."))return;try{await api(`/api/claims/${encodeURIComponent(c.id)}`,{method:"DELETE"});await refreshClaims()}catch(e){alert(e.message)}});
     actions.append(del);foot.append(el("span","",displayDate(c.created_at)),actions);wrapper.append(foot);container.append(wrapper)
   }
 }
@@ -67,7 +77,18 @@ function drawRecords(){
     const foot=el("div","record-foot");const t=el("span","tag"+(record.sensitivity==="sensitive"?" sensitive":""),record.sensitivity.toUpperCase());
     const created=el("span","",displayDate(record.created_at));const actions=el("div","record-actions");
     const edit=el("button","","Correct");edit.addEventListener("click",()=>{$("edit-text").value=record.content;state.editId=record.id;$("edit-dialog").showModal()});
-    const remove=el("button","","Forget");remove.addEventListener("click",async()=>{const dependent=state.claims.filter(c=>c.source_ids.includes(record.id)).length;if(!confirm(`Forget this record, its prior revisions and ${dependent} claim(s) derived from them? They are removed from the active vault and will not return on import or restore. Backups may retain copies.`))return;try{const r=await api(`/api/memories/${record.id}`,{method:"DELETE"});state.selected.delete(record.id);await refresh();setStatus(`Forgot ${r.records_forgotten} record revision(s) and ${r.claims_forgotten} derived claim(s). Backups not covered.`)}catch(e){setStatus(e.message,true)}});
+    const remove=el("button","","Forget");remove.addEventListener("click",async()=>{
+      try{
+        // The server computes exactly what Forget will remove (same plan it executes); never estimate it here.
+        const plan=await api(`/api/memories/${encodeURIComponent(record.id)}/forget-preview`);
+        const older=plan.records_forgotten-1;
+        const shown=plan.claims.slice(0,5).map(c=>`  • [${c.status}] ${c.text}`).join("\n");
+        const rest=plan.claims_forgotten>5?`\n  …and ${plan.claims_forgotten-5} more`:"";
+        if(!confirm(`Forget this record${older?` and its ${older} earlier revision(s)`:""}, and ${plan.claims_forgotten} claim(s) derived from them?${plan.claims_forgotten?"\n\n"+shown+rest:""}\n\nThey are removed from the active vault and will not return on import or restore. Backups may retain copies.`))return;
+        const r=await api(`/api/memories/${encodeURIComponent(record.id)}?expected_impact=${plan.impact_token}`,{method:"DELETE"});
+        state.selected.delete(record.id);await refresh();setStatus(`Forgot ${r.records_forgotten} record revision(s) and ${r.claims_forgotten} derived claim(s). Backups not covered.`);
+      }catch(e){setStatus(e.message,true)}
+    });
     actions.append(edit,remove);foot.append(t,created,actions);wrapper.append(foot);container.append(wrapper)
   }
 }
@@ -92,10 +113,11 @@ async function init(){
  $("provider").addEventListener("change",updateProvider);updateProvider();await refresh();
  for(const nav of document.querySelectorAll("[data-jump]"))nav.addEventListener("click",()=>{document.getElementById(nav.dataset.jump).scrollIntoView({behavior:"smooth"});document.querySelectorAll(".nav").forEach(n=>n.classList.remove("active"));nav.classList.add("active")});
  $("save").addEventListener("click",async()=>{const content=$("note").value.trim();if(!content){setStatus("Write a note first.",true);return}$("save").disabled=true;try{await api("/api/memories",{method:"POST",body:JSON.stringify({content,sensitivity:$("sensitivity").value})});$("note").value="";$("search").value="";await refresh();setStatus("Source record saved locally. No model was contacted.")}catch(e){setStatus(e.message,true)}finally{$("save").disabled=false}});
+ $("more-claims").addEventListener("click",()=>loadOlderClaims().catch(e=>alert(e.message)));
  $("add-claim").addEventListener("click",async()=>{const text=$("claim-text").value.trim();const source_ids=selectedRecords().map(x=>x.id);if(!text||!source_ids.length){alert("Select at least one source record and write the claim.");return}try{await api("/api/claims",{method:"POST",body:JSON.stringify({text,source_ids})});$("claim-text").value="";await refreshClaims()}catch(e){alert(e.message)}});
  $("refresh").addEventListener("click",()=>refresh().catch(e=>alert(e.message)));
  $("search").addEventListener("keydown",e=>{if(e.key==="Enter")refresh().catch(err=>alert(err.message))});
- $("edit-form").addEventListener("submit",async e=>{e.preventDefault();try{const original=state.records.find(r=>r.id===state.editId);await api(`/api/memories/${state.editId}/correct`,{method:"POST",body:JSON.stringify({content:$("edit-text").value,sensitivity:original.sensitivity})});state.selected.delete(state.editId);$("edit-dialog").close();$("search").value="";await refresh();setStatus("Correction saved as new active revision.")}catch(err){alert(err.message)}});
+ $("edit-form").addEventListener("submit",async e=>{e.preventDefault();try{const original=state.records.find(r=>r.id===state.editId);await api(`/api/memories/${encodeURIComponent(state.editId)}/correct`,{method:"POST",body:JSON.stringify({content:$("edit-text").value,sensitivity:original.sensitivity})});state.selected.delete(state.editId);$("edit-dialog").close();$("search").value="";await refresh();setStatus("Correction saved as new active revision.")}catch(err){alert(err.message)}});
  $("cancel-edit").addEventListener("click",()=>$("edit-dialog").close());
  $("export").addEventListener("click",()=>{window.location.href="/api/export"});
  const loadFile=async(trusted)=>{const file=$("import-file").files[0];if(!file){alert("Choose an export file first.");return}
