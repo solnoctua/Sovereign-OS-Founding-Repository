@@ -63,6 +63,12 @@ def excluded(plan):
     return {e["id"]: e["reason"] for e in plan["excluded"]}
 
 
+def disclosed_ids(plan):
+    """The durable ids of the disclosed items, resolved locally: outbound carries labels, never ids."""
+    by_label = {i["label"]: i["id"] for i in plan["included"]}
+    return [by_label[i["label"]] for i in plan["outbound"]["items"]]
+
+
 @pytest.fixture
 def acceptance(client):
     """Benchmark 0002's core example."""
@@ -86,7 +92,7 @@ def test_acceptance_example_local(client, acceptance):
 
 def test_acceptance_example_cloud(client, acceptance, cloud):
     plan = compile_(client, provider="kimi")
-    assert [i["id"] for i in plan["outbound"]["items"]] == [acceptance["memory"]["id"], acceptance["a"]["id"]]
+    assert disclosed_ids(plan) == [acceptance["memory"]["id"], acceptance["a"]["id"]]
     assert plan["disclosure"]["outbound_sensitivities"] == ["private"]
     payload = json.dumps(plan["outbound"]["messages"])
     assert "Sovereign should remain local-first." in payload and "local-first memory" in payload
@@ -184,7 +190,8 @@ def test_source_and_claim_stay_distinguishable_in_bundle_and_prompt(client, acce
                                     "captured": acceptance["a"]["created_at"][:10]}]
     sent = json.dumps(plan["outbound"]["messages"])
     assert acceptance["memory"]["id"] not in sent and acceptance["a"]["id"] not in sent      # durable ids stay local
-    assert [i["id"] for i in plan["outbound"]["items"]] == [acceptance["memory"]["id"], acceptance["a"]["id"]]
+    assert [i["label"] for i in plan["outbound"]["items"]] == ["M1", "E1"]                 # outbound: labels only
+    assert [i["id"] for i in plan["included"]] == [acceptance["memory"]["id"], acceptance["a"]["id"]]   # ids: local
     assert "APPROVED MEMORY" in plan["outbound"]["messages"][0]["content"]
 
 
@@ -266,7 +273,7 @@ def test_duplicate_relationships_never_duplicate_outbound_content(client, cloud)
     twin = note(client, "Invented:   Sovereign keeps evidence.")                  # same text, other record
     both = approved(client, [a, b], "Sovereign keeps evidence and claims.")         # cites two candidates
     plan = compile_(client, "What does Sovereign keep?", "kimi", [a["id"]])         # a: pinned and lexical
-    ids = [i["id"] for i in plan["outbound"]["items"]]
+    ids = disclosed_ids(plan)
     assert len(ids) == len(set(ids)) and ids.count(a["id"]) == 1 and ids.count(both["id"]) == 1
     assert excluded(plan)[twin["id"]] == "duplicate"
     assert next(e for e in plan["excluded"] if e["id"] == twin["id"])["duplicate_of"] == a["id"]

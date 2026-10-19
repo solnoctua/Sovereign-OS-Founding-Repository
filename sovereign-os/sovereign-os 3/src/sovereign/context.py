@@ -183,11 +183,16 @@ class ContextBundle:
 
     @property
     def outbound(self) -> dict | None:
-        """Exactly what would leave the device; None for the local boundary."""
+        """The disclosure boundary: exactly what would leave the device; None for the local boundary.
+
+        `messages` is the exact provider payload. `items` summarises the disclosed items for the local
+        reviewer using only request-scoped labels: like the messages, it carries no durable Sovereign
+        IDs, which stay in `included`, `excluded` and the receipt (the label links an item to them).
+        """
         if self.boundary != "cloud":
             return None
         return {"provider": self.provider, "question": self.question,
-                "items": [{"id": i.candidate.id, "type": i.candidate.type, "role": i.role,
+                "items": [{"label": i.label, "type": i.candidate.type, "role": i.role,
                            "sensitivity": i.candidate.sensitivity} for i in self.included],
                 "messages": [dict(m) for m in self.messages]}
 

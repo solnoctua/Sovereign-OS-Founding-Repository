@@ -114,11 +114,18 @@ included[]                          {id, label: M# | E#, type: source | claim, r
 excluded[]                          {same descriptive fields, reason, reasons[], duplicate_of?}
 budget                              {max_items, max_chars, used_items, used_chars}
 disclosure                          {boundary, transmits, requires_approval, blocked, outbound_sensitivities}
-outbound                            cloud only: {provider, question, items[{id, type, role, sensitivity}], messages[]}; null for local
+outbound                            cloud only, the disclosure boundary: {provider, question, items[{label, type, role, sensitivity}], messages[]};
+                                    null for local; never contains durable IDs
 context_token
 ```
 
 - **Internal representations:** `RetrievalCandidate`, `ContextItem`, `Excluded`, `ContextBundle`, `ContextPolicy` (the version, budget, retrieval limit and cloud-eligible sensitivities).
+- **Local provenance vs. the disclosure boundary.**
+  - `included[]` and `excluded[]` are the **local governance and provenance representation**. They carry durable record and claim IDs and claim `source_ids`.
+  - `outbound` is the **disclosure boundary**: exactly what would leave the device. It contains **no durable Sovereign IDs**:
+    - `outbound.items[]` is a local summary of the externally disclosed items using only request-scoped labels. Each label maps to exactly one `included[]` item;
+    - `outbound.messages[]` is the exact provider payload, the only thing `providers.generate` receives.
+  - The receipt and the local UI resolve labels to durable IDs locally.
 - **`ContextReceipt`** (returned by `/api/ask` as `receipt`) is content-free: `policy_version, provider, boundary, context_token, transmitted, included[{id, type, role}], excluded[{id, type, reason}]`. It is shaped for a future durable form but is not persisted in V0.
 
 ### Exact-plan approval: `context_token`
@@ -169,7 +176,7 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
   - The model receives request-scoped labels (`M1`, `M2`… for approved memory; `E1`, `E2`… for evidence) and the authorised text, and is instructed to cite those labels.
   - Durable Sovereign IDs never enter provider messages: record IDs, claim IDs and claim `source_ids`. ADR-0002 legacy record IDs can be arbitrary, meaningful text, so sending them would be needless metadata disclosure.
   - **Local governance and provenance use durable IDs; the external reasoning payload carries the minimum necessary data and ephemeral labels.**
-  - Each included item in the local bundle carries both its `id` and its `label`, so a citation in the model's answer maps back to the local item.
+  - Each included item in the local bundle carries both its `id` and its `label`, so a citation in the model's answer maps back to the local item. `outbound.items[]` carries the label only.
 - **Separate arrays.** The JSON context has separate arrays:
   - `approved_memory` entries: `label`, `text`, and `evidence`, the labels of the evidence the claim rests on that is itself in the bundle;
   - `evidence` entries: `label`, `text`, and `captured`, sent only when the record's time is an ISO date, because legacy `created_at` values can be arbitrary text.
@@ -256,5 +263,6 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
     - ADR-0002 legacy IDs with meaningful text, `/`, `?`, `%`, spaces, and over 200 characters;
     - escaped forms, UUID prefixes, and arbitrary legacy `created_at` text.
     - Only `M#`/`E#` labels and authorised text are sent, with provenance through labels and nothing about evidence outside the bundle. The IDs remain in the local bundle and receipt, and every label maps back to its item;
+  - **outbound contract:** `outbound.items[]` holds only `label`, `type`, `role` and `sensitivity`, and no durable ID appears anywhere in `outbound`. Each label maps to exactly one `included[]` item, the provider receives exactly `outbound.messages`, and `included[]`, `excluded[]` and the receipt keep the durable IDs;
   - **execution point:** an exclusive vault lock is acquired inside the mocked provider call, so no transaction spans it. A Forget committed during the call does not alter the authorised payload, and the old token then gets 409.
 - **Mutation check:** 26 deliberately injected policy bugs were each caught by at least one of these tests. Five of them are egress bugs: claim IDs, record IDs or claim `source_ids` in messages; evidence outside the bundle mentioned by ID; arbitrary capture text sent.

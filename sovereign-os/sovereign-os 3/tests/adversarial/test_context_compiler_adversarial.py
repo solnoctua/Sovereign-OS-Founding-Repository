@@ -123,7 +123,7 @@ def test_provider_receives_exactly_the_approved_bundle_and_no_sentinel(client, p
     assert [e["text"] for e in payload["evidence"]] == evidence and poisoned["good"]["content"] in evidence
     assert [m["label"] for m in payload["approved_memory"]] == ["M1"]
     assert [e["label"] for e in payload["evidence"]] == [f"E{n}" for n in range(1, len(evidence) + 1)]
-    assert {i["id"] for i in plan["outbound"]["items"]} == {i["id"] for i in plan["included"]}   # ids stay local...
+    assert {i["label"] for i in plan["outbound"]["items"]} == {i["label"] for i in plan["included"]}   # ids stay local...
     assert [i["id"] for i in plan["included"] if i["id"] in sent] == []                        # ...and are never sent
 
 
@@ -248,6 +248,38 @@ def test_durable_ids_remain_visible_locally(id_vault, provider):
     assert sent == {i["label"]: i["content"] for i in plan["included"]}     # every cited label maps back to its item
 
 
+def test_outbound_is_the_disclosure_boundary_and_carries_no_durable_ids(id_vault, provider):
+    """included[] = local governance/provenance (durable ids); outbound.items[] = local summary of what is
+    disclosed, request-scoped labels only; outbound.messages[] = exact provider payload."""
+    client, current, unretrieved, claims = id_vault
+    plan = preview(client)
+    ids = durable_ids(client)
+    leaked = lambda text: [i for i in ids if i in text or json.dumps(i)[1:-1] in text or (len(i) == 36 and i[:8] in text)]
+    # 1. included[] still carries durable ids and full provenance.
+    assert set(LEGACY_IDS) | {current["id"]} | {c["id"] for c in claims} <= {i["id"] for i in plan["included"]}
+    assert unretrieved["id"] in {s for i in plan["included"] for s in i.get("source_ids", [])}
+    # 3. outbound.items[]: labels and request-scoped fields only, no durable id anywhere in outbound.
+    items = plan["outbound"]["items"]
+    assert items and all(set(i) == {"label", "type", "role", "sensitivity"} for i in items)
+    assert leaked(json.dumps(plan["outbound"])) == []
+    # 4. outbound.messages[]: no durable id.
+    assert leaked("\n".join(m["content"] for m in plan["outbound"]["messages"])) == []
+    # 5. every outbound label maps to exactly one included item (and every included item is disclosed once).
+    labels = [i["label"] for i in items]
+    assert len(labels) == len(set(labels)) and sorted(labels) == sorted(i["label"] for i in plan["included"])
+    for item in items:
+        match = [i for i in plan["included"] if i["label"] == item["label"]]
+        assert len(match) == 1 and (match[0]["type"], match[0]["role"], match[0]["sensitivity"]) == \
+            (item["type"], item["role"], item["sensitivity"])
+    # 6. the mocked provider receives exactly outbound.messages; 2. the receipt still carries durable ids.
+    resp = ask(client, plan)
+    assert resp.status_code == 200 and provider == [{"provider": "kimi", "messages": plan["outbound"]["messages"]}]
+    receipt = resp.json()["receipt"]
+    assert {i["id"] for i in receipt["included"]} == {i["id"] for i in plan["included"]} and set(LEGACY_IDS) <= {
+        i["id"] for i in receipt["included"]}
+    assert resp.json()["context"]["outbound"] == plan["outbound"]
+
+
 def test_verification_is_the_execution_point_and_no_vault_lock_spans_the_call(client, poisoned, monkeypatch):
     """ADR-0004 linearization: the plan is recompiled and token-verified just before the provider call;
     that verification is its execution point. No SQLite transaction is open during the network call,
@@ -365,7 +397,8 @@ def test_selected_sensitive_record_blocks_cloud_even_with_a_valid_token(client, 
 @pytest.mark.parametrize("which", ["secret_memory", "mixed"])
 def test_claims_backed_by_sensitive_evidence_never_leave(client, poisoned, provider, which):
     plan = preview(client)
-    assert poisoned[which]["id"] not in {i["id"] for i in plan["outbound"]["items"]}
+    by_label = {i["label"]: i["id"] for i in plan["included"]}
+    assert poisoned[which]["id"] not in {by_label[i["label"]] for i in plan["outbound"]["items"]}
     local = preview(client, provider="local")
     item = next(i for i in local["included"] if i["id"] == poisoned[which]["id"])
     assert item["sensitivity"] == "sensitive"                           # inherited from current evidence
