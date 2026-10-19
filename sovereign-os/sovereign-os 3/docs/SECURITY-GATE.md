@@ -9,6 +9,7 @@
 - No automatic cloud memory disclosure. Only manually selected source IDs are included, requiring a per-request approval; sensitive sources denied server-side.
 - Local evidence mode never calls a model provider.
 - Imported content treated as data in prompts; no external tool calling enabled.
+- Memory claims: ordinary import cannot create approved claims or delete local data; trusted restore requires explicit confirmation; claim lifecycle, history and evidence links are enforced by SQLite triggers for DML (not against schema changes by a process controlling the vault file). See ADR-0003.
 
 ## Missing security and reliability protections
 
@@ -17,6 +18,7 @@
 - Authenticated offline iPhone capture and protected synchronization.
 - Consent and disclosure receipts with precise provider policy/retention metadata; sensitive-topic classification beyond a user-chosen label.
 - Robust deletion across SQLite WAL, logs, backups, sync, indexes, provider transmissions; secure erasure is NOT claimed.
+- Signed/integrity-checked backups (trusted restore currently trusts the file it is given) and authenticated user/device identity for claim decisions.
 - Security reviews, dependency scan, input-size/rate limits, error monitoring and more complete adversarial tests.
 - Backup of encrypted state plus test of restoration to a fresh Mac.
 

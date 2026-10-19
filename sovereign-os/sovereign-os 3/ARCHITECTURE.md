@@ -233,7 +233,7 @@ This section describes a **replaceable prototype**, not a locked architecture or
 
 `Browser UI → local FastAPI endpoints → SQLite source records → explicit selected context preview → local evidence or permissioned cloud model adapter → source-linked answer`
 
-The service exposes `/api/memories` (create/list/search), `/api/memories/{id}/correct`, `/api/memories/{id}` (delete), `/api/export`, `/api/import`, `/api/ask`, `/api/status`, `/api/claims` (list/propose/approve/reject/contest/supersede/delete) and the browser UI. Prototype records are human-entered **evidence**, not automatically authoritative biographical claims. Source-linked `MemoryClaim`s start `proposed` and change status (`approved`, `rejected`, `contested`, `superseded`) only by explicit, recorded human decisions; their support is derived from current evidence, so corrected or deleted sources make them non-authoritative (see [ADR-0003](docs/adr/0003-memory-claim-authority.md)). No model may create an approved claim; no model has a tool-execution capability.
+The service exposes `/api/memories` (create/list/search), `/api/memories/{id}/correct`, `/api/memories/{id}` (delete), `/api/export`, `/api/import`, `/api/ask`, `/api/status`, `/api/claims` (list/propose/approve/reject/contest/supersede/delete), `/api/restore` (explicitly confirmed trusted restore) and the browser UI. Prototype records are human-entered **evidence**, not automatically authoritative biographical claims. Source-linked `MemoryClaim`s start `proposed` and change status (`approved`, `rejected`, `contested`, `superseded`) only by explicit, recorded human decisions; their support is derived from current, hash-pinned evidence, so corrected sources make them non-authoritative, and forgetting a source forgets the claims derived from it. Ordinary import is untrusted and yields only proposed claims; only an explicitly confirmed trusted restore preserves prior approvals (see [ADR-0003](docs/adr/0003-memory-claim-authority.md)). No model may create an approved claim; no model has a tool-execution capability.
 
 ### Boundaries demonstrated
 
@@ -242,7 +242,7 @@ The service exposes `/api/memories` (create/list/search), `/api/memories/{id}/co
 - The server, not the UI alone, rejects requests missing an explicit approval.
 - Source IDs and original evidence are returned to the interface. Generative model citations are not verified; source evidence can be manually inspected.
 - Offline local evidence reads never call a model. API keys are process environment variables.
-- SQLite schema export/restore with tombstones supports a first portability smoke test. It does **not** guarantee secure removal from backups or forensic images.
+- SQLite schema export/restore with tombstones supports a first portability smoke test; tombstones from a trusted restore dominate live state, while an untrusted import cannot delete local data. It does **not** guarantee secure removal from backups or forensic images.
 
 ### Deliberately unfinished
 

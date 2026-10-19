@@ -4,6 +4,7 @@ from __future__ import annotations
 from importlib.resources import files
 import json
 import os
+import sqlite3
 from pathlib import Path
 from typing import Literal
 
@@ -27,18 +28,27 @@ class ClaimIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str = Field(min_length=1, max_length=2000)
     source_ids: list[str] = Field(min_length=1, max_length=8)
-    origin: Literal["human", "model"] = "human"
+    # No `origin` field: provenance is assigned by the server, never by the browser.
 
 
 class DecisionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     confirm: Literal[True]
     note: str | None = Field(default=None, max_length=500)
+    # Required compare-and-set: the decision applies only if the claim is still in the state
+    # the human was looking at; otherwise 409, so two conflicting decisions never both succeed.
+    expected_status: Literal[STATUSES]
 
 
 class SupersedeIn(DecisionIn):
     text: str = Field(min_length=1, max_length=2000)
     source_ids: list[str] = Field(min_length=1, max_length=8)
+
+
+class RestoreIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    confirm_trusted_restore: Literal[True]
+    backup: dict
 
 
 class AskIn(BaseModel):
@@ -104,9 +114,12 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     @app.delete("/api/memories/{record_id}")
     def remove(record_id: str):
-        if not vault.delete(record_id):
+        # Forget: the record, its earlier revisions and every claim derived from them.
+        result = vault.delete(record_id)
+        if result is None:
             raise HTTPException(status_code=404, detail="Record not found")
-        return {"removed": True, "note": "Removed from active SQLite rows; backups/forensic copies not covered."}
+        return {"removed": True, **result,
+                "note": "Forgotten from active SQLite rows with dependent claims; backups/forensic copies not covered."}
 
     def claim_errors(action):
         try:
@@ -115,6 +128,8 @@ def create_app(db_path: str | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(e.args[0]))
         except TransitionError as e:
             raise HTTPException(status_code=409, detail=str(e))
+        except sqlite3.IntegrityError as e:
+            raise HTTPException(status_code=409, detail=f"Rejected by vault integrity rules: {e}")
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
@@ -124,24 +139,24 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     @app.post("/api/claims", status_code=201)
     def add_claim(claim: ClaimIn):
-        return claim_errors(lambda: vault.add_claim(claim.text, claim.source_ids, claim.origin))
+        return claim_errors(lambda: vault.add_claim(claim.text, claim.source_ids, "human"))
 
     # Status changes are explicit local human actions; no model code path calls these.
     @app.post("/api/claims/{claim_id}/approve")
     def approve_claim(claim_id: str, body: DecisionIn):
-        return claim_errors(lambda: vault.transition_claim(claim_id, "approved", body.note))
+        return claim_errors(lambda: vault.transition_claim(claim_id, "approved", body.note, body.expected_status))
 
     @app.post("/api/claims/{claim_id}/reject")
     def reject_claim(claim_id: str, body: DecisionIn):
-        return claim_errors(lambda: vault.transition_claim(claim_id, "rejected", body.note))
+        return claim_errors(lambda: vault.transition_claim(claim_id, "rejected", body.note, body.expected_status))
 
     @app.post("/api/claims/{claim_id}/contest")
     def contest_claim(claim_id: str, body: DecisionIn):
-        return claim_errors(lambda: vault.transition_claim(claim_id, "contested", body.note))
+        return claim_errors(lambda: vault.transition_claim(claim_id, "contested", body.note, body.expected_status))
 
     @app.post("/api/claims/{claim_id}/supersede")
     def supersede_claim(claim_id: str, body: SupersedeIn):
-        return claim_errors(lambda: vault.supersede_claim(claim_id, body.text, body.source_ids, body.note))
+        return claim_errors(lambda: vault.supersede_claim(claim_id, body.text, body.source_ids, body.note, body.expected_status))
 
     @app.delete("/api/claims/{claim_id}")
     def remove_claim(claim_id: str):
@@ -157,10 +172,23 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     @app.post("/api/import")
     def import_data(payload: dict):
+        # Untrusted: evidence and *proposed* claims only; never authority, never local deletions.
         try:
-            return vault.restore(payload)
+            return vault.import_untrusted(payload)
         except (ValueError, KeyError, TypeError) as exc:
             raise HTTPException(status_code=422, detail=str(exc))
+        except sqlite3.IntegrityError as exc:
+            raise HTTPException(status_code=422, detail=f"Import rejected by vault integrity rules: {exc}")
+
+    @app.post("/api/restore")
+    def restore_backup(body: RestoreIn):
+        # Trusted restore of the user's own Sovereign backup: preserves authority, applies tombstones.
+        try:
+            return vault.restore_trusted(body.backup)
+        except (ValueError, KeyError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        except sqlite3.IntegrityError as exc:
+            raise HTTPException(status_code=422, detail=f"Backup rejected by vault integrity rules: {exc}")
 
     @app.post("/api/ask")
     def ask(question: AskIn):

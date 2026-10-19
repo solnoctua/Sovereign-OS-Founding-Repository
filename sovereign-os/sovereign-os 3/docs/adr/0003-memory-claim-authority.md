@@ -1,69 +1,126 @@
 # ADR-0003 — Source evidence versus derived memory claims (V0)
 
-- Status: Proposed (Benchmark 0001 implementation; Tier 2 — requires independent review and founder approval)
-- Date: 2026-10-18
+- Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audit of `c847f9d`; requires delta audit and founder approval)
+- Date: 2026-10-19
 - Decision owner: Human project owner
 
 ## Context
 
-Constitution Article IV.4: *persistence is not authority* — evidence may be retained without being believed, an extracted claim may exist without being approved, and an approved claim may later be contested or superseded. ARCHITECTURE §4A/§5 require that a derived interpretation never silently becomes fact. ADR-0002 listed the claim schema as an immediate next decision; Benchmark 0001 specifies the first slice.
+Constitution Article IV.4: *persistence is not authority* — evidence may be retained without being believed, an extracted claim may exist without being approved, and an approved claim may later be contested or superseded. Article III.2 requires that the user can delete personal data **and derived records**. ARCHITECTURE §4A/§5 require that a derived interpretation never silently becomes fact. An adversarial audit of `c847f9d` reproduced forged authority via import, claim resurrection across vaults, derived text surviving source deletion, raw-SQL lifecycle bypasses, source-link manipulation and concurrent decisions producing unreplayable history. This revision closes those.
 
 ## Decision
 
-**Evidence vs. claims.** Source records (`records`) are unchanged evidence. A `MemoryClaim` (`claims`) is a separate, immutable row linked via `claim_sources` to 1–8 source-record IDs. Claims are never included in model context; `/api/ask` accepts only active source-record IDs.
+### Evidence and claims
+- Source records (`records`) are evidence. After creation they are immutable except `active → superseded` (correction), enforced by triggers.
+- A `MemoryClaim` (`claims`) is a separate, immutable row linked via `claim_sources` to 1–8 records. Each link pins the SHA-256 of the evidence content it was made from (`evidence_sha256`).
+- Claims are never sent to a model; `/api/ask` accepts only active source-record IDs.
 
-**Provenance.** Each claim stores `origin` (`human` | `model` — a provider-neutral provenance class; no provider or model name enters the core schema), `created_at`, its source IDs, `supersedes_id` for corrections, and an append-only `claim_events` history (`from_status`, `to_status`, `actor`, optional `note`, `at`) — the V0 form of `MemoryPromotionDecision`.
+### Provenance
+- `origin` is a provider-neutral class: `human` (local UI/API), `model` (reserved for a future internal extraction path, `Vault.add_claim(..., "model")`; not reachable from HTTP), or `imported` (ordinary import).
+- The browser cannot supply `origin`: the create API forbids extra fields, so a client-supplied `origin`, `status` or `history` is a 422.
+- `claim_events` is an append-only history (`from_status`, `to_status`, `actor`, `note`, `at`), the V0 form of `MemoryPromotionDecision`.
+- V0 has **no authenticated user or device identity**, so `actor = 'human'` means "via the local decision path", not a verified person.
 
-**Lifecycle** (`src/sovereign/claims.py`, pure domain rules):
+### Lifecycle (`claims.py`, compiled into the triggers)
 
 | From | Allowed to |
 | --- | --- |
 | *(create)* | `proposed` only |
 | `proposed` | `approved`, `rejected`, `contested`, `superseded` |
-| `approved` | `contested`, `superseded` |
+| `approved` | `contested`, `rejected`, `superseded` |
 | `contested` | `approved`, `rejected`, `superseded` |
-| `rejected` | — terminal |
-| `superseded` | — terminal |
+| `rejected`, `superseded` | — terminal |
 
-- Every claim, whether human-written or model-proposed, is created `proposed`. The create API forbids extra fields, so a client-supplied `status` is a 422, not ignored.
-- Every status change is an explicit human action (`POST /api/claims/{id}/approve|reject|contest|supersede` with `{"confirm": true}`, behind the existing same-origin/JSON-only middleware), and is recorded as an event with `actor = 'human'`. No model code path calls these endpoints.
-- Approval requires intact evidence (`support == supported`).
-- Retracting an approved claim takes two visible steps: contest, then reject.
-- **Supersession is the only correction path.** The old claim becomes `superseded`, and a new `proposed` claim with `supersedes_id` is created atomically, so a correction must itself be approved. The old text, sources and history are kept.
-- A rejected claim cannot be reactivated, contested, superseded or overwritten by import. Re-proposing the same idea creates a new, visibly separate `proposed` claim.
+- Every claim, of any origin, is created `proposed`.
+- Human authority is immediately revocable: `approved → rejected` needs no contest step.
+- Approval requires intact evidence (checked in the domain layer).
+- Correction happens only by supersession. In one transaction, the old claim → `superseded` and a new `proposed` claim with `supersedes_id` and new evidence links is created.
+- **Authoritative = `approved` AND every link's evidence is present, active, and hash-identical.**
+  - A corrected source makes a claim `stale`.
+  - A missing, substituted or never-seen source makes it `orphaned` (shown per source as `missing` or `unverified`).
 
-**Storage-level guards** (SQLite triggers, independent of the API): inserts must be `proposed`; terminal statuses cannot change; a status change must match the latest recorded event; claim text/origin/sources-of-record fields are immutable; events cannot be updated; a non-creation event must have a human actor.
+### Concurrency
+- Every decision HTTP request must carry `expected_status` (the state the human saw). Writes run in `BEGIN IMMEDIATE` transactions.
+- The storage trigger additionally requires each event's `from_status` to equal the claim's current status (compare-and-set).
+- Two conflicting decisions from the same state therefore never both succeed: one commits, the other gets 409 and leaves no event.
 
-**Derived support and authority.** On every read each claim computes `support` from its current evidence — `supported` (all sources active), `stale` (a source was corrected), or `orphaned` (a source was deleted or is absent) — and `authoritative = status == approved AND support == supported`. Nothing is cached, so evidence changes take effect immediately.
+### Forget (the default meaning of Delete)
+`DELETE /api/memories/{id}` forgets:
+- the record and its earlier revisions (record tombstones);
+- every claim linked to any of them, including that claim's text, links, history and notes (claim tombstones).
 
-**Source deletion policy: orphan, do not cascade.** Deleting a source record leaves dependent claims in place with their status and history, but they derive as `orphaned`, can never be authoritative or approved, and show the source as `deleted` with no content. Claims can be deleted explicitly (`DELETE /api/claims/{id}`), which removes their history and writes a content-free claim tombstone.
+`DELETE /api/claims/{id}` forgets one claim. Tombstones are permanent, content-free, and block re-insertion of the same IDs. WAL, backup and forensic erasure is **not** claimed.
 
-**Portability.** Export schema `sovereign.v0.records.2` adds `claims` (with full history and source IDs) and `claim_tombstones`; `.1` exports still import.
-- Import replays each claim's history through the same lifecycle rules. It rejects the whole import if a history doesn't start with creation as `proposed` by the claim's origin, has a non-human decision, makes an illegal transition (e.g. `rejected → approved`), or doesn't end at the stated status.
-- Import never overwrites an existing local claim, so it cannot change a local decision.
-- Record and claim tombstones win, so deleted evidence and claims are not resurrected. Claims citing deleted evidence import as `orphaned`.
+A separate future operation — *remove evidence, retain derived memory* (orphaning) — is deliberately not offered in V0.
 
-**Migration.** The vault schema is versioned with `PRAGMA user_version` (0 = records-only vaults from ADR-0002; 1 = claims). Migration is additive and runs in one transaction. It refuses vaults newer than the software, and refuses an unversioned `claims` table left by the unreleased first benchmark draft, rather than guessing.
+### Import vs trusted restore
+
+| | `POST /api/import` (ordinary, untrusted) | `POST /api/restore` (trusted, `{"confirm_trusted_restore": true, "backup": …}`) |
+| --- | --- | --- |
+| Records | imported as evidence (local tombstones win) | imported (tombstones win) |
+| Claims | live claims (`proposed`/`approved`/`contested` in the file) become new `proposed` claims, `origin = imported`; supplied history and approvals ignored and noted; `rejected`/`superseded` skipped | history validated and replayed through the lifecycle triggers; prior authority preserved |
+| File tombstones | only filter the file's own content; **cannot delete local data** | **dominate**: matching local records are forgotten with dependent claims; matching local claims are forgotten |
+| Claims on forgotten evidence | skipped | skipped and tombstoned |
+| Existing local claim | never overwritten | never overwritten |
+
+Backup signing is deferred, so trusted restore trusts the file the user explicitly confirms.
+
+### Storage contract (SQLite triggers, `store.py` `CLAIMS_SCHEMA`)
+
+For any connection issuing INSERT/UPDATE/DELETE, with or without `PRAGMA foreign_keys`, the triggers enforce the following.
+- **Claims:**
+  - Created only as `proposed`; never reusing a tombstoned ID.
+  - `text`, `origin`, `created_at` and `supersedes_id` are immutable.
+  - Status changes only via an event: the event trigger applies it, and a direct `UPDATE` must match the latest event.
+  - Terminal statuses are final.
+  - Removed only through a tombstone.
+- **Events:**
+  - Exactly one creation event, by the claim's origin, after its links exist.
+  - Transitions only by `human`, only along the table, only from the current status.
+  - No update; no delete except by tombstone.
+- **Links:** fixed once the creation event exists; no update; no delete except by tombstone.
+- **Tombstones** (record and claim): no update or delete.
+- **Records:** immutable except `active → superseded`; no re-insert of a tombstoned ID.
+
+**Not guaranteed:**
+- Schema changes (`DROP TRIGGER`, `writable_schema`) or direct file edits by a process that already controls the vault file.
+- Distinguishing a raw-SQL but lifecycle-legal human-attributed event from a UI decision, since there is no authentication.
+- The approval-requires-supported-evidence check is domain-level only. A raw-SQL approval of unsupported evidence is still never *authoritative*, because authority is derived on read.
+
+### Migration
+- `PRAGMA user_version`: 0 = records-only vaults (ADR-0002); 2 = this schema.
+- Migration 0 → 2 is additive (new tables and triggers; existing rows byte-identical) and runs in one `BEGIN IMMEDIATE` transaction.
+- It refuses newer vaults, and refuses vaults from the unreleased drafts (`user_version = 1` from `c847f9d`, or an unversioned `claims` table).
 
 ## Alternatives considered
 
-- *Stored `invalidated` flag at delete time* — another write path that import must maintain; derivation cannot drift.
-- *Cascade-delete claims with their evidence* — strongest privacy outcome but silently destroys human interpretations and decision history. Kept as an open founder decision (see risks).
-- *Demote imported approvals to proposed* — safer against forged files, but breaks "export/import preserves claim state" for the user's own backups.
-- *Allow `approved → rejected` directly / `rejected → proposed`* — fewer clicks, but weakens the "rejected stays rejected" and "retraction is visible" guarantees.
-- *Naming:* ARCHITECTURE §4A sketches `proposed → active → contested/superseded/deleted`; this ADR uses the benchmark's `approved` for `active`, and models deletion as removal + tombstone rather than a status.
+- *Orphan instead of forget* (the `c847f9d` behaviour): rejected for V0 because it keeps derived personal text after the user deleted its evidence. It remains a possible future, explicitly named operation.
+- *Signed backups*: the right long-term mechanism for trusted restore; deferred because key custody is not designed yet.
+- *Demote everything on restore*: would break the user's own backups.
+- *Optional `expected_status`*: lets approve-then-reject both succeed under a race (legal, but two conflicting user actions both "win"). Required at the HTTP boundary instead.
 
 ## Consequences and risks
 
-- **Claim text may restate deleted evidence.** Orphaned claims keep their text until explicitly deleted. Whether evidence deletion should cascade to (or prompt about) dependent claims is a privacy/epistemic trade-off for the founder.
-- **Imports trust the file.** A hand-crafted but lifecycle-legal export can restore `approved` claims into a vault that lacks them. Mitigations: local-only JSON endpoint; existing claims never overwritten; the response reports `approved_claims_restored`; such claims are non-authoritative if their evidence is absent. Signed exports are deferred.
-- **`origin` and `actor` are self-declared** in V0 (no authentication; no automatic model extraction exists yet). They record provenance; every origin requires the same explicit human approval.
-- No risk classes, promotion policy, automatic promotion, or confidence fields (out of scope). Claim history is deleted with its claim.
+- Forget is broad: one source deletion removes every claim citing it, including multi-source claims. The UI states the count before confirming.
+- A user who restores a backup from an attacker-supplied file grants that file authority. The explicit confirmation and the wording of the restore UI are the V0 mitigation.
+- Approval with no authentication: anyone able to make local same-origin JSON requests can approve.
+- Claim history is removed with its claim on forget (by design).
 
 ## Migration and reversibility
 
-Version 0 → 1 only creates new tables, indexes and triggers; `records`/`tombstones` rows are byte-for-byte unchanged (tested). A forced failure mid-migration leaves the vault at version 0 with no new tables (tested). Reversal: drop `claims`, `claim_sources`, `claim_events`, `claim_tombstones` (triggers drop with their tables) and set `PRAGMA user_version = 0`; or export and restore records into an older build after stripping the `claims` keys and setting `schema` to `.1`.
+- To reverse, drop the four claim tables and the triggers on `records`/`tombstones`, then set `PRAGMA user_version = 0`.
+- Alternatively, export and restore records into an older build after stripping the `claims` keys and setting `schema` to `.1`.
+- Tested: migration of a records-only vault, rollback on forced failure, and refusal of newer and pre-release vaults.
 
 ## Validation
 
-`tests/test_memory_claims.py` (35 tests) covers: model-origin defaults to `proposed`; smuggled authority fields rejected; only approved-and-supported claims are authoritative; explicit, confirmed, recorded approval/rejection; cross-origin/form-encoded refusal; terminal rejection (API, transition table, and SQLite triggers); contest → resolve; supersession linkage and atomicity; source correction → stale; invalid source IDs; deletion → orphaned; export/import round-trip equality including history; non-resurrection; import cannot change decisions; illegal imported histories rejected atomically; `.1` compatibility; migration of a records-only vault, rollback on failure, refusal of newer/pre-release vaults; claims never sent to cloud; sensitive/approval cloud gates intact.
+- `tests/test_memory_claims.py` covers behaviour.
+- `tests/test_memory_claims_adversarial.py` holds one or more regression tests for each audit blocker:
+  - forged ordinary import;
+  - restore-confirmation bypass and illegal histories;
+  - cross-vault tombstones and restore ordering;
+  - forget → export → restore → old-export replay;
+  - 23 raw-SQL attacks × FK on/off;
+  - evidence-link surgery and evidence substitution;
+  - storage compare-and-set;
+  - threaded vault-level races and HTTP races with a replay check.

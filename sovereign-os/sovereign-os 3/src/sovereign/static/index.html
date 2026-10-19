@@ -46,10 +46,11 @@
             <div class="search-row"><input type="search" id="search" placeholder="Search memories (exact phrase)..." aria-label="Search memories"/><button class="secondary" id="refresh">Search</button></div>
             <div class="records" id="records"><p class="empty">No source records yet. Capture a thought to begin.</p></div>
             <div class="library-footer"><span id="selected-count">0 selected for context</span><button class="text-button" id="export">Export JSON ↗</button></div>
+            <div class="library-footer"><input type="file" id="import-file" accept="application/json" aria-label="Export file"/><span><button class="text-button" id="import" title="Untrusted: claims arrive as unverified proposals">Import</button> <button class="text-button" id="restore" title="Your own backup: restores approvals and deletions">Restore backup</button></span></div>
           </section>
         </div>
         <section class="panel claims-panel" id="claims"><div class="panel-header"><div><span class="eyebrow">02B / INTERPRETATION</span><h2>Memory claims</h2></div><span class="counter" id="claim-count">0 claims</span></div>
-          <p class="micro">Source records are <b>evidence</b>: what was actually captured. A claim is an <b>interpretation</b> linked to evidence. Only an <b>approved</b> claim with intact evidence counts as approved memory; proposed, contested, rejected and superseded claims do not, and an approved claim stops counting if its evidence is corrected or deleted. Every decision is kept in the claim's history. Claims are never sent to a model.</p>
+          <p class="micro">Source records are <b>evidence</b>: what was actually captured. A claim is an <b>interpretation</b> linked to evidence. Only an <b>approved</b> claim with intact evidence counts as approved memory; proposed, contested, rejected and superseded claims do not, an approved claim stops counting if its evidence is corrected, and forgetting a source also forgets the claims derived from it. Every decision is kept in the claim's history. Claims are never sent to a model.</p>
           <label for="claim-text">Propose a claim from the <span id="claim-source-count">0</span> records selected above</label>
           <div class="search-row"><input id="claim-text" maxlength="2000" placeholder="e.g. The garden project starts in May"/><button class="secondary" id="add-claim">Propose claim</button></div>
           <div class="records" id="claims-list"><p class="empty">No claims yet.</p></div>
