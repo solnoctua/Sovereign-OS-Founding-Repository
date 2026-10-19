@@ -32,7 +32,7 @@ python -m pip install -e '.[dev]'
 python -m sovereign
 ```
 
-Open **http://127.0.0.1:8765** in your Mac's browser. The server creates a local SQLite database in `./data/sovereign.db` (excluded from Git). Press Ctrl+C in Terminal to stop it.
+Open **http://127.0.0.1:8765** in your Mac's browser. The server creates a local SQLite database in `./data/sovereign.db`. That path is meant to be excluded from Git, but the repository currently has no `.gitignore` and tracks an empty `data/sovereign.db` (see [`docs/SECURITY-GATE.md`](docs/SECURITY-GATE.md)): **never commit it after use**, and check `git status` before every commit. Press Ctrl+C in Terminal to stop it.
 
 Run checks:
 
@@ -59,7 +59,7 @@ No key is stored in the database; **never paste secrets into chat or commit `.en
 
 ## Git and public/private state
 
-`main` retains the original v0.1 founding proposal. The review branch retained v0.2. This feature branch proposes Constitution v0.3 **and** includes the first prototype; it has not been merged or ratified. Push only to a **private** GitHub repository after review. Vault data, secrets, images, recordings, and personal archives must never enter the source code repository.
+This folder is the canonical active project. `main` carries the prototype, MemoryClaim authority (PR #1) and the Context Compiler (PR #2); the Constitution here is the **v0.3 candidate, not ratified**. The original v0.1 founding drafts that used to sit one level up (`sovereign-os/*.md`) are retained only in Git history — added unchanged in commit `37553c0` (for example `git show 37553c0:sovereign-os/CONSTITUTION.md`) — and are not live instructions. Push only to a **private** GitHub repository after review. Vault data, secrets, images, recordings, and personal archives must never enter the source code repository.
 
 ## Next development tickets
 
@@ -75,6 +75,6 @@ The Pocket hardware and sophisticated world model remain important research trac
 
 Sovereign's next knowledge capability is a **governed second brain**, combining structured project/wiki views (Levels 1–2), local hybrid semantic discovery (Level 3) and source-backed provenance/domain graphs (Level 4). It must preserve the existing canonical vault, MemoryClaim authority, the Context Compiler and exact disclosure approvals. **Level 5 always-on agents and continuous ingestion are deferred** pending demonstrated value, security, and operating-cost budgets.
 
-An **Obsidian-compatible, one-way Markdown graph projection** is an explicit future interface requirement. For an immediately viewable **synthetic** Obsidian graph, open [`docs/second-brain/obsidian-demo-vault/`](docs/second-brain/obsidian-demo-vault/) as a local Obsidian vault. This is a demonstration, **not** a working exporter or a place to put personal memory.
+An **Obsidian-compatible, one-way Markdown graph projection** is an explicit future interface requirement ([projection spec](docs/second-brain/OBSIDIAN-PROJECTION.md)). For an immediately viewable **synthetic** Obsidian graph, copy [`docs/second-brain/obsidian-demo-vault/`](docs/second-brain/obsidian-demo-vault/) out of the repository, open it as an Obsidian vault and start at `_Navigation/Start Here`. This is a demonstration, **not** a working exporter or a place to put personal memory.
 
-Read [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md), [the five-level/Obsidian guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md) and [Benchmark 0003](docs/benchmarks/0003-second-brain-retrieval-evaluation.md). These describe a proposed workstream, not currently running retrieval, graph or sync features.
+Read [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) (PROPOSED; founder decisions D1–D11), [the five-level guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md) and [Benchmark 0003](docs/benchmarks/0003-second-brain-retrieval-evaluation.md). These describe a proposed workstream, not currently running retrieval, graph or sync features.

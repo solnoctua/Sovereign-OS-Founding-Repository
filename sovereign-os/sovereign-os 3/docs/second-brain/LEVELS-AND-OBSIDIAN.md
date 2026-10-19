@@ -1,144 +1,121 @@
 # Second-Brain Levels, Retrieval Strategy and Obsidian Graph
 
-**Status:** architecture guide / planned capability, not implemented product instructions. Start with [ADR-0005](../adr/0005-governed-second-brain-architecture.md). Sovereign's active project root is the directory containing `AGENTS.md`, `src/sovereign` and this `docs/` tree.
+**Status:** architecture guide for a planned capability; nothing here is implemented. Decisions and invariants live in [ADR-0005](../adr/0005-governed-second-brain-architecture.md) (PROPOSED); the Obsidian format contract lives in [OBSIDIAN-PROJECTION.md](OBSIDIAN-PROJECTION.md). Sovereign's active project root is the directory containing `AGENTS.md`, `src/sovereign` and this `docs/` tree.
 
 ## 1. Why the five levels matter
 
-The source video defines **five interoperable techniques**. They are not a universal standard and do not imply that higher level means better quality. A single Sovereign project may have L1 source folders, an L2 wiki, L3 semantic retrieval and a small L4 graph simultaneously. A long-lived personal brain needs the *right lookup for the question*, not one index for everything.
+The source video describes **five interoperable techniques**. They are not a standard, and a higher level does not mean better quality. One Sovereign project may use L1 folders, an L2 wiki, L3 semantic retrieval and a small L4 graph at once. A lifelong personal brain needs the *right lookup for the question*, not one index for everything.
 
-### Level 1 — folders and routing
+Keep three numbering schemes apart: **M0–M5** are product milestones (ROADMAP §C), **L1–L5** are these techniques, and **SB-0…SB-9** are the delivery slices of this workstream (ADR-0005 §11, ROADMAP §G).
 
-**Shape:** stable directory tree, Markdown documentation, indexes, agents' orientation files. A human and an AI can traverse from a project overview to its notes or original document.
+### Level 1 — structured files and routing
 
-**Strengths:** cheap, human-verifiable, portable, readable offline, no embedding bill. **Failure modes:** unknown filenames, stale pointers, drift between summaries and source evidence. **Use in Sovereign:** canonical code/docs routing and generated human-readable project indexes. Do not make `AGENTS.md` or `CLAUDE.md` personal-memory authority.
+**Shape:** stable directory tree, Markdown documentation, indexes, orientation files. A human or an agent can walk from an overview to the note or original document.
 
-### Level 2 — linked wiki and memory pages
+**Strengths:** cheap, human-verifiable, portable, readable offline, no embedding bill. **Failure modes:** unknown filenames, stale pointers, summaries drifting from their sources. **In Sovereign:** repository routing (`AGENTS.md`, READMEs) and generated index pages inside the Obsidian projection. `AGENTS.md` and `CLAUDE.md` are never personal-memory authority.
 
-**Shape:** concept pages with links, source indexes, backlinks and topic hierarchies, usually Markdown. Obsidian's Graph view visualizes `[[links]]` among pages.
+### Level 2 — linked wiki
 
-**Strengths:** inspectable navigation and cross-project orientation; easy export. **Failure modes:** backlinks are not predicates; a link between two companies does not mean they compete. Auto-generated wiki prose can summarize incorrectly. **Use in Sovereign:** opt-in rebuildable Markdown pages with canonical references and explicit source attribution.
+**Shape:** concept and project pages, source indexes, backlinks and topic hierarchies, usually Markdown. Obsidian's Graph view draws the `[[links]]` between pages.
+
+**Strengths:** inspectable navigation and cross-project orientation; easy export. **Failure modes:** a backlink is not a predicate (a link between two companies does not mean they compete); generated wiki prose can misstate its sources. **In Sovereign:** deterministic hub and index pages built from canonical items — lists, timelines and status tables, not generated prose. Project and concept hubs need **human-declared organization**, which does not exist yet (SB-3, decision D2).
 
 ### Level 3 — semantic and hybrid retrieval (near-term core)
 
-**Shape:** lexical/FTS terms plus optionally local embeddings over source text or bounded segments; candidate reranking; document expansion.
+**Shape:** lexical/FTS terms plus optional local embeddings over records or bounded segments; rank fusion; whole-document expansion.
 
-**Strengths:** search by meaning even when wording differs; can find similar episodes. **Failure modes:** top-k segment retrieval may miss the rest of a meeting; a similar vector does not establish a legal/financial fact; dates/IDs need exact matching; index can be stale. **Use in Sovereign:** discovery of canonical IDs, never authority or independent cloud context.
+**Strengths:** finds material by meaning when wording differs, including across languages with a multilingual model. **Failure modes:** top-k segments omit the rest of a document; similarity does not establish a fact; IDs and dates need exact matching; indexes go stale; vectors can be partially inverted back into text. **In Sovereign:** discovery of candidate canonical IDs only. It is *not* a drop-in: the Context Compiler's relevance gate is lexical, so adopting L3 is a compiler policy and disclosure change (ADR-0005 §6).
 
-Use **full document** for "summarize this entire meeting"; **structured calculation** for numeric extrema; **exact lookup** for an ID/date; **hybrid search** for conceptual discovery. Chunking strategy should preserve parent document and provenance.
+Use **whole-record access** for "the entire note", **exact lookup** for an ID or date, **timeline ordering** for "what changed", **hybrid search** for conceptual discovery. A Sovereign record holds at most 10,000 characters, so whole-record retrieval needs no chunking today.
 
 ### Level 4 — typed knowledge/relationship graph (near-term extension)
 
-**Shape:** nodes for evidence/claims/projects/entities; edges with relationship types, source references, valid time and review state. A query can traverse `Project -> DEPENDS_ON -> Technology -> DISCUSSED_IN -> Source`.
+**Shape:** nodes for evidence, claims, projects and other entities; edges with a relationship type, source references, valid time and review status. A query can traverse `Project → DEPENDS_ON → Project → SUPPORTED_BY → Source`.
 
-**Strengths:** multi-hop reasoning, dependencies, finding contradictory assumptions, tracing a conclusion to sources. **Failure modes:** invented predicates, conflated entities, stale edges, dense unreadable visualizations. **Use in Sovereign:** deterministic MemoryClaim provenance graph first, then benchmarked typed domain edges. Model-extracted relationships remain hypotheses until governed review.
+**Strengths:** multi-hop connections, dependencies, contradictory assumptions, tracing a conclusion to its sources. **Failure modes:** invented predicates, conflated entities, stale edges, unreadable dense visuals, and *authority laundering* — an edge looking approved because the claim beside it is. **In Sovereign:** first a deterministic provenance graph computed from existing links (SB-2); later typed relations as **structured MemoryClaims** (SB-7) with the normal approval lifecycle. Model-extracted relations remain `proposed` until a human approves them.
 
 ### Level 5 — continuously maintained intelligence (eventual goal)
 
-**Shape:** scheduled ingestion/sync, ongoing indexing, refresh of changing operational data, autonomous or proactive agents.
+**Shape:** scheduled ingestion and sync, ongoing indexing, refresh of changing operational data, proactive or autonomous agents.
 
-**Strengths:** up-to-date, less manual capture, notifications/action candidates. **Failure modes:** continual token/API/infrastructure costs, runaway noise, unintended storage of third-party data, stale auto-memory, invisible permissions and disclosure. **Use in Sovereign:** future permissioned, stoppable, budgeted option **after** Level 3–4 proves useful; not a default daemon now.
+**Strengths:** current, less manual capture, timely prompts. **Failure modes:** continual token, API and infrastructure cost; noise; unintended storage of third-party data; stale or compounding auto-memory; invisible permissions and disclosure. **In Sovereign:** a future permissioned, stoppable, budgeted option **after** L3–L4 prove useful in daily life. Re-running an exporter or updating a local index on write is *not* Level 5.
 
 ### Practical selection guide
 
-| Query/user need | Prefer |
-| --- | --- |
-| Locate exact decision, named file or record ID | L1/L2 + exact/lexical lookup |
-| Browse how a project developed | L2 project index + chronology |
-| Find a discussion described using different words | L3 hybrid semantic + lexical |
-| Summarize full transcript | Locate by L1/L3; then fetch entire authorized original |
-| Compare years or calculate maxima | Structured/time-indexed sources, deterministic computation |
-| Show why a claim is approved | L4 evidence/provenance graph (live MemoryClaim support) |
-| Find project-to-project dependency chains | L4 typed graph with evidence checks |
-| Ask about live app or inbox state | Future authorized connector, not blindly durable memory |
-| Run autonomous refresh daily | L5, deferred until approved costs/permissions/security |
+| Question or need | Prefer | Available on today's canonical data? |
+| --- | --- | --- |
+| Locate an exact decision, named item or record ID | Exact/lexical lookup | Yes |
+| Read a whole note | Locate (L1/L3), then fetch the entire authorized record | Yes (records ≤ 10,000 chars) |
+| Find a discussion described in other words, or another language | L3 hybrid semantic + lexical | After SB-5, if justified |
+| See how something changed over time | Timeline ordering + revision and supersession lineage | Partly: capture/decision times only; valid time needs SB-6 |
+| Show why a claim is believed | Provenance graph: claim → sources → revisions, plus decision history | Yes (SB-2) |
+| Browse a project | L2 project hub | After SB-3 |
+| Summarize a multi-part meeting | Group of records, then whole-record expansion | After SB-3 grouping |
+| Compute a maximum or total | Structured data and deterministic computation | No structured sources exist; expect abstention |
+| Find dependency chains between projects | L4 typed relations with evidence | After SB-7 |
+| Ask about live app or inbox state | A future authorized connector queried at use time | No |
+| Refresh everything daily | L5 | Deferred |
 
 ## 2. Two views, not two truths
 
-**Evidence graph** uses only canonical source and claim links that already exist. Example: `Claim A --SUPPORTED_BY--> Source B`; `Claim A --SUPERSEDED_BY--> Claim C`. Validity is read from the source vault, not inferred from note names.
+**Provenance graph** uses only links Sovereign already stores: `Claim —SUPPORTED_BY→ Source`, `Revision —CORRECTS→ earlier revision`, `Claim —SUPERSEDES→ earlier claim`. Status and support are read from the vault, never from note names.
 
-**Domain graph** maps topic/project/entity relationships. Example: `Project A --DEPENDS_ON--> Concept B`, but only as a grounded, status-labeled assertion. "Related" is not "caused" or "approved". Distinguish human decision, observed event, model hypothesis and contested proposition.
+**Domain graph** connects projects, concepts and other entities: `Project Harbor —DEPENDS_ON→ Project Lantern`, but only as a structured, status-labeled claim with evidence. "Related" is not "caused" or "approved". Keep human decisions, observed events, model hypotheses and contested propositions visibly distinct.
 
-Both may be visualized together after controls permit it; local source evidence always wins over generated graph data.
+Both may be drawn together; canonical evidence always wins over generated graph data.
 
-## 3. Obsidian requirement and constraints
+## 3. Time: correction is not change
 
-The user explicitly wants Sovereign's brain visible as an **Obsidian graph**. A planned exporter shall generate a **local Markdown vault with `[[wikilinks]]` and YAML metadata**, usable in Obsidian's built-in Graph view without proprietary dependencies.
+Sovereign records **when something was captured** and **when a human decided about a claim**, but not **when a proposition was true**. A corrected typo and a reversed project decision both end in `superseded`. Until the temporal claim extension (SB-6, D10) exists, read `superseded` as "no longer the current approved interpretation", never as "was false", and answer "what did we decide then vs now" from capture and decision times. Benchmark 0003 tests both cases separately.
 
-**Important limitation:** built-in Graph view shows note-links. It does **not** inherently show edge labels, arrow directions, per-edge timestamps, confidence or provenance enforcement. Put typed relationships in sections/frontmatter or dedicated relation notes. A rich typed graph renderer is a later optional enhancement. An Obsidian graph is *a view*, not a truth engine.
+## 4. Obsidian: requirement, constraints and demo
+
+The user explicitly wants to **browse Sovereign's brain as an Obsidian graph**. A planned exporter (SB-2) writes a **local, one-way Markdown vault** with `[[wikilinks]]` and YAML properties that works in Obsidian's core Graph view, Local graph and Backlinks pane with no plugin. The format, naming, scope, Forget and acceptance rules are in [OBSIDIAN-PROJECTION.md](OBSIDIAN-PROJECTION.md).
+
+**What Obsidian can and cannot show** (core features):
+
+| Can | Cannot |
+| --- | --- |
+| Draw a line for every link between notes; show its **direction** with the *Arrows* display option | Label a line, type it, or attach evidence, time or confidence to it |
+| Color nodes by search query (folder, tag, property) | Distinguish two kinds of line between the same notes |
+| Local graph of one note at a chosen depth | Show validity intervals or filter by date |
+| *Animate*: replay notes appearing in **file-creation** order | Replay real history unless the exporter writes a fresh projection oldest-first |
+| Backlinks pane: every note that links here | Validate anything, or query Sovereign live |
+| Node labels from **filenames** | Use a title property as the graph label (without a plugin) |
+
+So: **every line comes from exactly one link in one note, under a heading that names the relationship, followed by its evidence and time.** That is how a reader finds out *why* a connection exists. An Obsidian graph is a view, not a truth engine, and every exported status is a dated snapshot.
 
 ### Demo available now (synthetic only)
 
-The directory [`obsidian-demo-vault/`](obsidian-demo-vault/) is a small **synthetic Markdown sample**, not an exporter and not real memories.
+[`obsidian-demo-vault/`](obsidian-demo-vault/) is a small, **fictional** vault that shows the target projection, including elements that require future slices (each marked in its note). It is not an exporter and contains no real memories.
 
-1. In Obsidian, choose **Open folder as vault**, then select the `obsidian-demo-vault` folder from a local copy of this repository.
-2. Open `_Start Here.md`; click **Graph view**.
-3. Follow a project, a claim and its source; notice wiki backlinks.
-4. Inspect the `SUPPORTED_BY` section of the example claim: Graph view draws a line, the note text supplies the typed meaning.
-5. Use Graph view filters/grouping and Local graph to avoid the full graph becoming unreadable.
+1. Copy the `obsidian-demo-vault` folder **out of the Git checkout** (Obsidian writes its own settings into a vault folder), then in Obsidian choose **Open folder as vault**.
+2. Open `_Navigation/Start Here`, then **Graph view**. The bundled `.obsidian/graph.json` hides navigation notes, turns tags off, turns arrows on and colors nodes by kind and status; the Start Here note lists the same settings to apply by hand if your Obsidian version ignores the file.
+3. Open a project and choose **Open local graph**, depth 2.
+4. Walk the five paths in Start Here: why a decision is believed, what changed, a corrected source, a contested claim, and why two projects are connected — including one deliberately wrong, unreviewed model proposal.
 
-No plugin, model account or online service is required to view the synthetic notes.
+No plugin, account or online service is needed.
 
-### Planned generated-vault structure (proposal, no exporter yet)
+## 5. Prior art: what to borrow, what not to adopt
 
-```text
-Sovereign-Obsidian-Projection/          (outside Git; private directory)
-  _Start Here.md
-  Projects/
-    p-<stable-safe-id>.md
-  Topics/
-    t-<stable-safe-id>.md
-  Sources/
-    s-<stable-safe-id>.md
-  Claims/
-    c-<stable-safe-id>.md
-  Relationships/                      (optional typed-edge notes)
-  .sovereign-projection-manifest.json   (mapping + generation, private)
-```
+"Maturity" distinguishes proven designs from speculation. Nothing below is adopted; each would need a measured Sovereign problem first (ADR-0005 §13).
 
-A projection file might look like:
+| Technique / project | Maturity | Borrow | Do not adopt now, because |
+| --- | --- | --- | --- |
+| BM25 / SQLite FTS5 | Proven | In-vault lexical candidates (SB-4) | — (planned; needs FTS5 `secure-delete` for Forget) |
+| Dense + lexical hybrid with Reciprocal Rank Fusion | Proven | Fusion rule for SB-5 | Only if SB-1/SB-4 show paraphrase misses |
+| Parent-document ("small-to-big") retrieval | Established practice | Chunk hits resolve to the whole record | Records are already ≤ 10,000 chars |
+| Approximate-NN indexes (HNSW etc.) | Proven at scale | — | Non-reproducible candidate universe breaks exact-plan tokens; personal scale fits brute force |
+| LLM-generated chunk context ("contextual retrieval") | Vendor-reported gains | — | One model call per chunk; creates derived text; cloud use is disclosure |
+| Microsoft GraphRAG (entity graph, communities, summaries) | Published; costly indexing | Idea of global summaries for very large corpora | Model authors the graph; community summaries mix many sources, so one Forget forces re-summarization |
+| LightRAG | Published, active | Incremental graph update idea | Extraction-dependent authority; no Sovereign-grade provenance or Forget |
+| HippoRAG / HippoRAG 2 (personalized PageRank) | Research | Deterministic graph ranking over a *governed* graph (SB-8) | Built on open information extraction triples |
+| Graphiti / Zep temporal knowledge graph | Published, product | Bitemporal edges, episodes as provenance, invalidate rather than delete (SB-6/SB-7) | Model resolves contradictions automatically; needs an external graph DB |
+| Mem0, Letta (MemGPT) agent memory | Products; vendor benchmarks contested | Negative reference; evaluation ideas | A model decides what to add, update or delete in memory |
+| LongMemEval, LoCoMo (memory benchmarks) | Published benchmarks | Category design: knowledge updates, temporal reasoning, abstention | Their chat-history data is not Sovereign's record/claim model |
+| W3C PROV | Standard | Edge vocabulary for provenance export | No interchange need yet |
+| Obsidian community plugins (Smart Connections, Dataview, Breadcrumbs, Juggl, ExcaliBrain) | Community | Possible typed-edge rendering later | Not required; some send note content to cloud APIs; each is an exfiltration surface |
 
-```markdown
----
-sovereign_id: "synthetic-claim-id"
-kind: "claim"
-status: "approved"
-source_refs: ["synthetic-source-id"]
-projection_version: 1
-tags: [sovereign/claim]
----
-# Synthetic memory: local-first
+## 6. Delivery
 
-## SUPPORTED_BY
-- [[s-example-source|Evidence: design note]]
-
-## ABOUT
-- [[p-example-project|Example project]]
-
-This is example content, not verified personal data.
-```
-
-Use YAML quoted fields; avoid identifiers/paths that expose raw personal content. Use stable collision-safe path mapping so aliases or title changes do not silently merge entities. Generated backlinks must survive ordinary reopen in Obsidian. Preserve date/valid-time fields only when supported by canonical sources.
-
-### Export semantics and safety (implementation requirements)
-
-- **Opt in:** the person chooses source scope and output folder after inspecting what will be materialized. Existence of graph nodes may itself reveal sensitive information.
-- **Local only by default:** no automatic Git check-in, cloud embedding, Obsidian Sync, third-party graph plugin or remote note publishing. Clarify that merely opening the vault in an environment with user-configured sync/plugins may copy data.
-- **One way:** generated notes are read-only projections. Editing a Markdown note cannot approve/correct a MemoryClaim until a separate explicit governed import path exists.
-- **Atomic reconciliation:** maintain a manifest; on correction/Forget, remove stale derived note bodies, filenames, links, previews and aliases, then rebuild. Test restart and interrupted export. Canonical Forget cannot promise deletion of unmanaged copies, filesystem backups or synced mirrors.
-- **No hidden credentials/URLs:** no private filesystem paths or secret IDs in cloud prompts; provider only sees exactly compiled, authorized context.
-- **Graph quality:** use small neighborhood expansions, source-first labels, filtering by note type/approval state, dedicated start/index pages. Do not make all transcripts permanent densely linked graph nodes by default.
-- **Portability:** every note remains ordinary Markdown; removing Obsidian leaves canonical memory intact.
-
-## 4. Retrieval and graph roadmap
-
-**R0 — synthetic evaluation:** benchmark current lexical behavior, no new index or cloud calls.
-
-**R1 — local search:** measure FTS5 and optional embeddings on paraphrase queries; handle exact, timeline, full document and numerical questions correctly.
-
-**R2 — provenance graph and Obsidian:** read-only projection of real stored source/claim/supersession edges, scoped local view and opt-in export; demonstrate Forget cleanup and no authority change.
-
-**R3 — domain graph:** typed/temporal relationship extraction from synthetic evidence and a human-review process. Store new graph data only after a schema/deletion ADR.
-
-**R4 — Level 5 someday:** selective, consented, capped background maintenance and agentic work after testing usefulness, security and recurring budget.
-
-Details and non-negotiable boundaries: [ADR-0005](../adr/0005-governed-second-brain-architecture.md). Acceptance/evaluation: [Benchmark 0003](../benchmarks/0003-second-brain-retrieval-evaluation.md).
+The slices are defined once, in [ADR-0005 §11](../adr/0005-governed-second-brain-architecture.md#11-delivery-slices) and ROADMAP §G: SB-1 benchmark → SB-2 provenance graph and Obsidian projection → SB-3 human-declared organization → SB-4 FTS5 → SB-5 conditional embeddings → SB-6 temporal claims → SB-7 typed relations → SB-8 graph-assisted retrieval → SB-9 Level 5 research. Evaluation: [Benchmark 0003](../benchmarks/0003-second-brain-retrieval-evaluation.md).

@@ -85,20 +85,26 @@ Tier 2/3 changes (state schemas, memory authority, permissions/disclosure, delet
 - Prototype local app is implemented under `src/sovereign`.
 - API for save/search/correct/delete/export/import is implemented and tested on synthetic records.
 - UI previews the compiled context and requires approval of that exact context before any cloud request; no cloud model is contacted by default.
-- MemoryClaim authority (ADR-0003, Benchmark 0001) is merged. **Context Compiler V0 / governed retrieval** (ADR-0004, Benchmark 0002) is in review: deterministic local retrieval, MemoryClaim-derived authority, inherited sensitivity and exact-plan cloud approval (M2).
+- MemoryClaim authority (ADR-0003, Benchmark 0001) is merged (PR #1). **Context Compiler V0 / governed retrieval** (ADR-0004, Benchmark 0002) is merged to `main` (PR #2, `4fbecbe`): deterministic local retrieval, MemoryClaim-derived authority, inherited sensitivity and exact-plan cloud approval (M2). Both ADRs remain *Proposed* pending founder approval.
 - One provider adapter supports Moonshot/Kimi and OpenAI Chat Completions if separately configured. Live provider calls are **not** verified here without credentials.
 - `python -m sovereign` serves at `127.0.0.1:8765`.
 - **Not yet safe for sensitive real-world data:** unencrypted database, no app login, backups/recovery and audit trails incomplete.
 
 ## G. Governed second-brain track (proposed; complementary to M0–M5)
 
-See [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) and [the five-level/Obsidian design](docs/second-brain/LEVELS-AND-OBSIDIAN.md). This track **extends memory and the context pipeline**, not the kernel's permissions or goals. **Target Levels 3–4**, incorporating Levels 1–2 as readable routing/wiki views; Level 5 continuous intelligence stays a later option, with cost/consent/security gates.
+See [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) (PROPOSED), [the five-level guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md) and [the Obsidian projection spec](docs/second-brain/OBSIDIAN-PROJECTION.md). This track **extends memory and the context pipeline**, not the kernel's permissions or goals. **Target Levels 3–4**, with Levels 1–2 as readable routing/wiki views; Level 5 continuous intelligence stays a later option behind cost, consent and security gates. L1–L5 are techniques; the slices below are this track's only numbering (acceptance details in ADR-0005 §11).
 
-1. **SB-01 — Evaluation foundation:** [Benchmark 0003](docs/benchmarks/0003-second-brain-retrieval-evaluation.md), synthetic canonical source corpus, exact/paraphrase/full-document/temporal/graph query expectations, current baseline measurements.
-2. **SB-02 — Local hybrid retrieval:** measure SQLite FTS and optionally a local embedding adapter; accept only proven improvements; preserve authority, snapshot and preview semantics.
-3. **SB-03 — Read-only evidence graph:** sources, claims, supporting evidence and supersession lineage; bounded local navigation, provenance-first; no new personal-memory authority.
-4. **SB-04 — Obsidian view:** opt-in local, one-way Markdown export with wikilinks, stable IDs, metadata and manifest reconciliation after Forget/correction. A synthetic demo vault is already documented, but production export is not implemented.
-5. **SB-05 — Typed domain graph and elicitation:** test grounded entities/relationships, time-aware edges and structured project elicitation on synthetic corpora; approve schema/review workflow separately.
-6. **SB-06 — Level 5 research only:** explore bounded, permissioned, stoppable refresh and proactive synthesis when real utility, recovery, privacy and recurring costs have been demonstrated.
+| Slice | Delivers | Gate |
+| --- | --- | --- |
+| **SB-0** | Direction docs, Obsidian spec and synthetic demo vault (PR #3) | Founder decisions D1–D11 (ADR-0005 §15) |
+| **SB-1** | [Benchmark 0003](docs/benchmarks/0003-second-brain-retrieval-evaluation.md) Stage A: synthetic fixtures, runner, baseline report on the current compiler | Tier 1; no production change |
+| **SB-2** | Provenance graph computed on read + one-way Obsidian projection CLI (sources, claims, revisions, decision histories) with Forget/correction cleanup — **first user-visible slice** | Tier 2; no schema change |
+| **SB-3** | Human-declared projects/concepts and membership → project/concept hubs | Tier 2 schema ADR |
+| **SB-4** | In-vault FTS5/BM25 candidates, measured against SB-1 | Tier 2 compiler policy version |
+| **SB-5** | Local embeddings + rank fusion, **only if** SB-1/SB-4 data justify it | Tier 2; semantic relevance and cloud eligibility decided first |
+| **SB-6** | Temporal claim extension: valid time, correction vs change | Tier 2 (extends ADR-0003) |
+| **SB-7** | Typed relations as structured MemoryClaims; human-authored first | Tier 2/3 |
+| **SB-8** | Graph-assisted context retrieval | Revisits ADR-0004 decision 3 |
+| **SB-9** | Level 5 research only | Measured utility, budget, consent, security |
 
-**Delivery discipline:** distinct, reviewable changes; do not conflate visualization with evidence verification. Maintaining user agency, capture/recovery and security work remains a prerequisite for live personal data, independent of this track.
+**Delivery discipline:** distinct, reviewable changes; do not conflate visualization with evidence verification. User agency, capture/recovery and security work remain prerequisites for live personal data, independent of this track.

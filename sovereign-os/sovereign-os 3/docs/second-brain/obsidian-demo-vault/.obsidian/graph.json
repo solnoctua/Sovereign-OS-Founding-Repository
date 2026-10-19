@@ -1,0 +1,93 @@
+{
+  "collapse-filter": false,
+  "search": "-path:_Navigation",
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "tag:#sovereign/status/superseded",
+      "color": {
+        "a": 1,
+        "rgb": 10395294
+      }
+    },
+    {
+      "query": "tag:#sovereign/support/stale",
+      "color": {
+        "a": 1,
+        "rgb": 16361509
+      }
+    },
+    {
+      "query": "tag:#sovereign/status/contested",
+      "color": {
+        "a": 1,
+        "rgb": 15092249
+      }
+    },
+    {
+      "query": "tag:#sovereign/status/proposed",
+      "color": {
+        "a": 1,
+        "rgb": 9315498
+      }
+    },
+    {
+      "query": "path:Projects",
+      "color": {
+        "a": 1,
+        "rgb": 2001125
+      }
+    },
+    {
+      "query": "path:Concepts",
+      "color": {
+        "a": 1,
+        "rgb": 4431943
+      }
+    },
+    {
+      "query": "path:Sources",
+      "color": {
+        "a": 1,
+        "rgb": 9268835
+      }
+    },
+    {
+      "query": "path:Decisions",
+      "color": {
+        "a": 1,
+        "rgb": 12986408
+      }
+    },
+    {
+      "query": "path:Claims",
+      "color": {
+        "a": 1,
+        "rgb": 35195
+      }
+    },
+    {
+      "query": "path:Relationships",
+      "color": {
+        "a": 1,
+        "rgb": 14162784
+      }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": true,
+  "centerStrength": 0.5,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 250,
+  "scale": 1,
+  "close": false
+}

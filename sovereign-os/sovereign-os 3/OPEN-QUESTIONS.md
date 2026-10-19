@@ -49,10 +49,18 @@ The founding build is **not a secure personal vault**. Local server is loopback 
 
 ## D. Governed second-brain extension — scoped future decisions
 
-Architectural vocabulary, Level 3–4 target, and Obsidian requirement are documented in [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) and [the detailed guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md). They are proposed direction, not deployed functionality or a change to memory authority.
+Architectural vocabulary, Level 3–4 target, and Obsidian requirement are documented in [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md), [the levels guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md) and [the Obsidian projection spec](docs/second-brain/OBSIDIAN-PROJECTION.md). They are proposed direction, not deployed functionality or a change to memory authority. Founder decisions requested, with recommendations in [ADR-0005 §15](docs/adr/0005-governed-second-brain-architecture.md#15-decisions-requested-from-the-founder):
 
-- **Retrieval quality:** What improvement over deterministic lexical retrieval justifies FTS5 or optional local embeddings, on which query categories and at what compute cost?
-- **Graph data model:** Which relationship predicates and time rules can be extracted without inflating claims or conflating entities? What review policy, if any, would allow persistence?
-- **Obsidian export:** Which user-selected scopes, output location, ownership/authentication and reconciliation manifest ensure links are useful while respecting correction/Forget and sensitive metadata? Obsidian Sync/plugins/backups create external-retention risks.
-- **Index validity:** How do candidate snapshots, truncated result metadata and projection generations interact with exact cloud context approval?
-- **Future Level 5:** Which measured daily-use gains and monthly budget, permission model and interruption controls would justify scheduled sync/agents? No default always-on ingestion.
+- **D1** Approve the L3–L4 target, deferred L5, and the slice order (benchmark and provenance/Obsidian before retrieval changes)?
+- **D2** Where do project and concept nodes come from — human-declared organization, model suggestions, or both?
+- **D3** Are typed relationships structured MemoryClaims, or a separate lifecycle?
+- **D4** May semantic-only candidates (no shared term) enter cloud plans, and from which evidence threshold?
+- **D5** May graph traversal admit context items (revisits ADR-0004 decision 3)?
+- **D6** Do derived indexes live inside the vault database (same-transaction Forget) or beside it?
+- **D7** Obsidian filenames: readable titles with a short ID, or opaque IDs?
+- **D8** On Forget, does Sovereign delete its exported Obsidian files automatically?
+- **D9** Manual projection rebuilds first, or automatic local rebuilds?
+- **D10** Add valid time and a correction-vs-change supersession reason to MemoryClaims?
+- **D11** Which local embedding model and runtime, if the benchmark justifies one?
+
+Level 5 remains deferred: which measured daily-use gains, monthly budget, permission model and interruption controls would justify scheduled sync or agents is a later question. No default always-on ingestion.
