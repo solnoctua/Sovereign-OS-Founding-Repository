@@ -671,3 +671,78 @@ def test_relevant_claim_added_below_the_cutoff_invalidates_the_approval(client, 
     assert fresh["retrieval"]["claims_matched"] == limit + 6 and "older-claim" not in dict(decisions(fresh)[1])
     assert ask(client, plan).status_code == 409 and provider == []
     assert ask(client, fresh).status_code == 200
+
+
+# --- The fingerprint binds the policy state of below-cutoff candidates, not only membership (Codex P1 on 8a9e625)
+
+def restore_old_claim(client, cid, text, record, approved=False):
+    """A relevant claim older than all others (so it ranks below the cutoff), citing `record`."""
+    history = [{"from_status": None, "to_status": "proposed", "actor": "human", "note": None, "at": OLD}]
+    if approved:
+        history.append({"from_status": "proposed", "to_status": "approved", "actor": "human", "note": None, "at": OLD})
+    backup = {"schema": "sovereign.v0.records.2", "records": [], "tombstones": [], "claim_tombstones": [],
+              "claims": [{"id": cid, "text": text, "origin": "human", "status": "approved" if approved else "proposed",
+                          "created_at": OLD, "supersedes_id": None, "source_ids": [record["id"]],
+                          "source_hashes": {record["id"]: store.evidence_hash(record)}, "history": history}]}
+    restored = client.post("/api/restore", json={"confirm_trusted_restore": True, "backup": backup})
+    assert restored.json()["claims_restored"] == 1
+
+
+def candidate_ids(plan):
+    included, excluded = decisions(plan)
+    return {i for i, _ in included} | {i for i, _ in excluded}
+
+
+@pytest.fixture
+def many_claims(client):
+    cited = note(client, "Invented note about bicycles.")             # not relevant: no provenance expansion
+    for i in range(context.POLICY.retrieval_limit + 2):
+        claim(client, [cited], f"Sovereign vault claim {i:02d}")
+    return client, cited
+
+
+def test_below_cutoff_claim_approval_invalidates_the_approval(many_claims, provider):
+    client, cited = many_claims
+    restore_old_claim(client, "below-cutoff-claim", "Older Sovereign vault claim", cited)
+    irrelevant = claim(client, [cited], "Bicycles need oil.")
+    plan = preview(client)
+    assert "below-cutoff-claim" not in candidate_ids(plan)                  # outside the top-50 candidates
+    decide(client, irrelevant, "approve")                                   # an irrelevant decision: still valid
+    assert preview(client)["context_token"] == plan["context_token"]
+    decide(client, {"id": "below-cutoff-claim"}, "approve")                 # proposed -> approved, below the cutoff
+    fresh = preview(client)
+    assert_only_retrieval_state_changed(plan, fresh)
+    assert fresh["retrieval"]["claims_matched"] == plan["retrieval"]["claims_matched"]
+    assert ask(client, plan).status_code == 409 and provider == []
+    assert ask(client, fresh).status_code == 200 and provider[0]["messages"] == fresh["outbound"]["messages"]
+
+
+def test_below_cutoff_claim_losing_support_invalidates_the_approval(many_claims, provider):
+    client, cited = many_claims
+    own = note(client, "Invented note about gardening.")                    # its own, irrelevant evidence
+    restore_old_claim(client, "below-cutoff-approved", "Older approved Sovereign vault claim", own, approved=True)
+    plan = preview(client)
+    assert "below-cutoff-approved" not in candidate_ids(plan)
+    fixed = client.post(f"/api/memories/{own['id']}/correct", json={"content": "Invented note about gardening, corrected."})
+    assert fixed.status_code == 200
+    now = next(c for c in client.app.state.vault.list_claims() if c["id"] == "below-cutoff-approved")
+    assert (now["status"], now["support"]) == ("approved", "stale")         # authority lost through its evidence
+    fresh = preview(client)
+    assert_only_retrieval_state_changed(plan, fresh)
+    assert fresh["retrieval"]["claims_matched"] == plan["retrieval"]["claims_matched"]
+    assert ask(client, plan).status_code == 409 and provider == []
+    assert ask(client, fresh).status_code == 200
+
+
+def test_below_cutoff_record_superseded_invalidates_the_approval(truncated, provider):
+    client = truncated
+    import_old_record(client, "below-cutoff-record", "Invented older Sovereign vault note.")
+    plan = preview(client)
+    assert "below-cutoff-record" not in candidate_ids(plan)
+    fixed = client.post("/api/memories/below-cutoff-record/correct", json={"content": "Invented note about gardening."})
+    assert fixed.status_code == 200                                         # old evidence superseded; correction irrelevant
+    fresh = preview(client)
+    assert_only_retrieval_state_changed(plan, fresh)
+    assert fresh["retrieval"]["records_matched"] == plan["retrieval"]["records_matched"]
+    assert ask(client, plan).status_code == 409 and provider == []
+    assert ask(client, fresh).status_code == 200

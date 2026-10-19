@@ -140,9 +140,17 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
   - every excluded candidate (ID, type, reasons);
   - the **complete relevant retrieval state behind any truncation**:
     - the match counts and `limit_per_kind`;
-    - a fingerprint, computed in the same read snapshot, over every lexically matching record and claim **before** the per-kind cutoff (ID, score, `created_at`), and every provenance-linked claim before its limit.
+    - a fingerprint, computed in the same read snapshot, over the **policy-relevant state** of the complete relevant candidate universe before truncation: every lexically matching record and claim **before** the per-kind cutoff, and every provenance-linked claim before its limit. It covers each candidate's policy projection, not merely its membership and ranking:
+      - **records:** ID, score, `created_at`, current status (`active`/`superseded`), sensitivity, and the immutable evidence hash, which pins content, source, sensitivity, time and lineage without raw content. Records are otherwise immutable (ADR-0003), so this is their complete eligibility and disclosure state;
+      - **claims:** ID, score, `created_at`, lifecycle status, and the support, inherited sensitivity and authority derived from current evidence, never from stored authority. It also includes each supporting source's ID, current state (`active`/`superseded`/`missing`/`unverified`), sensitivity, and the evidence hash its link pins.
     - The fingerprint is derived from local IDs and state only. It never enters `outbound` or provider messages.
-- **What approving a truncated plan means.** Approval binds not only the visible selected candidates and the exact messages, but also the relevant candidate universe the compiler observed at preview time. If that universe changes, the old cloud approval fails with 409, even when the change lies below the top-50 cutoff and the messages happen to be identical. Examples include an older relevant item imported or restored, or one removed and another added with the count unchanged. Hashing the counters alone would miss an equal-count swap.
+- **What approving a truncated plan means.** Approval binds not only the visible selected candidates and the exact messages, but also the relevant candidate universe the compiler observed at preview time, **and the policy-relevant state of every member of it**. If either changes, the old cloud approval fails with 409, even when the change lies below the top-50 cutoff and the messages happen to be identical. Examples:
+  - an older relevant item imported or restored;
+  - an equal-count swap (one item removed, another added);
+  - a below-cutoff claim approved, rejected or contested, or losing support because its evidence was corrected;
+  - a below-cutoff record superseded by a correction.
+  - Hashing the counters alone would miss an equal-count swap, and hashing membership alone would miss authority or support changes.
+  - Irrelevant vault changes (records and claims that match no question term and are not provenance-linked) still do not invalidate. Not every vault mutation revokes an approval.
 - **Properties:** deterministic (unchanged state and request give the same token), recomputed on every request, never stored, and not a credential.
 - **How `/api/ask` uses it:**
   - it recompiles in one snapshot and compares;
@@ -275,6 +283,11 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
     - so does an older relevant claim restored below the claim cutoff;
     - in each case the top candidates and exact messages are unchanged, and a fresh preview succeeds;
     - an irrelevant change under truncation keeps the token valid;
+    - **policy state below the cutoff:** each of the following gives 409 for the old token, with no provider call, while the top candidates, exact messages and match counts are unchanged:
+      - a below-cutoff claim approved (proposed → approved);
+      - a below-cutoff approved claim made stale by correcting its own evidence;
+      - a below-cutoff record superseded by an irrelevant correction.
+      - An irrelevant claim decision keeps the token valid;
   - **outbound contract:** `outbound.items[]` holds only `label`, `type`, `role` and `sensitivity`, and no durable ID appears anywhere in `outbound`. Each label maps to exactly one `included[]` item, the provider receives exactly `outbound.messages`, and `included[]`, `excluded[]` and the receipt keep the durable IDs;
   - **execution point:** an exclusive vault lock is acquired inside the mocked provider call, so no transaction spans it. A Forget committed during the call does not alter the authorised payload, and the old token then gets 409.
 - **Mutation check:** 26 deliberately injected policy bugs were each caught by at least one of these tests. Five of them are egress bugs: claim IDs, record IDs or claim `source_ids` in messages; evidence outside the bundle mentioned by ID; arbitrary capture text sent.
