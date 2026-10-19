@@ -23,3 +23,7 @@
 - Backup of encrypted state plus test of restoration to a fresh Mac.
 
 Do not use real sensitive medical/financial/relationship data, third-party conversations, account secrets, or raw personal history until the security gate is passed.
+
+## Proposed second-brain/graph exposure risks — not yet mitigated
+
+ADR-0005 proposes optional FTS/embedding indexes, typed relationship projections and an Obsidian-compatible local Markdown export. **None is an implemented security control or safe real-data capability.** Generated filenames, note links, graph topology, entity names, vectors, preview snippets and export manifests may reveal private information even without full source text. New derived stores must be protected, export-scoped and removed on Forget/correction; unauthorized cloud uploads, Obsidian Sync/plugin leakage, residual backups and local UI/API access all require explicit threat models and tests before real personal use. No change to the current NOT PASSED status.

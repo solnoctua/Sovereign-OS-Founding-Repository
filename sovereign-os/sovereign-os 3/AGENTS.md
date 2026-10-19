@@ -9,6 +9,7 @@ Sovereign is a personal-first AI operating environment. Optimize for correctness
 3. `ROADMAP.md` — current milestones and priority order.
 4. `docs/SECURITY-GATE.md` — restrictions before real sensitive data use.
 5. Relevant ADRs in `docs/adr/`.
+6. For memory/retrieval, also read `docs/adr/0005-governed-second-brain-architecture.md`, `docs/second-brain/LEVELS-AND-OBSIDIAN.md`, and the benchmark for the feature's phase.
 
 ## Engineering rules
 
@@ -57,3 +58,12 @@ Durable Sovereign invariants. In changes touching memory authority, deletion, re
 
 - Flag raw SQL, upsert, REPLACE, cascade, or concurrency paths that can mutate immutable evidence/claims, erase decision history, alter source provenance, reactivate terminal states, or produce unreplayable histories.
 - Memory authority transitions must remain legal when bypassing the HTTP/API layer.
+
+## Second-brain architecture rules (proposed workstream)
+
+- Learn **all five second-brain levels** from `docs/second-brain/LEVELS-AND-OBSIDIAN.md` before planning new retrieval or knowledge features: L1 routing/files, L2 wiki/backlinks, L3 semantic/hybrid, L4 typed graph, L5 always-on. Levels are mixable, not a simplistic upgrade ladder.
+- Near-term **target L3–L4** (with L1/L2 views); L5 stays a costly, governed end-state hypothesis, not a reason to add crons, cloud ingestion or agent swarms.
+- Source records, MemoryClaims, history and Forget are canonical. Markdown, vector/FTS indexes, relationship graphs, Obsidian views and generated project pages are disposable projections.
+- Search and graph tools produce candidate canonical IDs; enforce authority, sensitivity, provenance and disclosure in the existing Context Compiler. Do not use inferred graph edges as facts or send graph text/IDs to cloud providers outside an exact approved bundle.
+- The user **must be able to browse the brain in Obsidian** through an optional local Markdown/wikilink projection. Its built-in graph lines are untyped backlinks: store edge semantics/provenance in note content; never market them as automatically validated relationships.
+- Design Forget/correction reconciliation **before** storing personal derived indexes/graphs. No sensitive personal-data testing until SECURITY-GATE is passed. Do not change canonical schemas or constitutional language as an incidental graph implementation.

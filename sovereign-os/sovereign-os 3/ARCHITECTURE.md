@@ -254,3 +254,13 @@ The service exposes `/api/memories` (create/list/search), `/api/memories/{id}/co
 - Embeddings, sophisticated indexing, trained inference, full agent tool execution and Pocket hardware.
 
 The next milestone is a trusted **memory authority/permissions layer** and real-data security gate, followed by a human-value workflow. The implementation layer may be discarded without changing the Constitution.
+
+## 12. Governed second-brain extension — proposed
+
+[ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) defines a future **Level 3–4 knowledge architecture** without replacing the six core domains or changing their authority boundaries. The levels are complementary: **L1** structured files/routing, **L2** linked wiki/backlinks, **L3** semantic/hybrid retrieval, **L4** source-backed typed knowledge/provenance graph, **L5** always-on/scheduled intelligence (deferred). For exact definitions, decision rules, risks and Obsidian constraints see [the detailed guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md).
+
+Canonical records, approved MemoryClaims, correction/Forget and governance remain the durable state. All wiki pages, full-text/vector indexes, source/claim graph edges, domain relationship hypotheses and Obsidian notes are **derived local projections**. Only source/claim IDs discovered by those projections may be submitted to canonical vault hydration and the single Context Compiler; the projection itself cannot grant authority or cloud disclosure.
+
+A first **read-only evidence/provenance graph** can show the existing source-to-claim and supersession relationships. A later **typed domain graph** can connect projects, ideas and decisions with explicit, time-aware, reviewed evidence. The user must also be able to inspect a corresponding graph in **Obsidian**, using a controlled, one-way local Markdown/`[[wikilink]]` projection. Its normal Graph view has untyped edges; meaningful predicates and provenance remain in the underlying notes.
+
+Do not turn this proposed direction into background agents, new persistent schemas, uploads, cloud embeddings or model-driven memory changes without separate review. The main kernel's action/cognitive/security roadmap remains intact; [Benchmark 0003](docs/benchmarks/0003-second-brain-retrieval-evaluation.md) specifies the first narrow evaluation step.

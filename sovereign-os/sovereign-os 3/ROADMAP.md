@@ -89,3 +89,16 @@ Tier 2/3 changes (state schemas, memory authority, permissions/disclosure, delet
 - One provider adapter supports Moonshot/Kimi and OpenAI Chat Completions if separately configured. Live provider calls are **not** verified here without credentials.
 - `python -m sovereign` serves at `127.0.0.1:8765`.
 - **Not yet safe for sensitive real-world data:** unencrypted database, no app login, backups/recovery and audit trails incomplete.
+
+## G. Governed second-brain track (proposed; complementary to M0–M5)
+
+See [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) and [the five-level/Obsidian design](docs/second-brain/LEVELS-AND-OBSIDIAN.md). This track **extends memory and the context pipeline**, not the kernel's permissions or goals. **Target Levels 3–4**, incorporating Levels 1–2 as readable routing/wiki views; Level 5 continuous intelligence stays a later option, with cost/consent/security gates.
+
+1. **SB-01 — Evaluation foundation:** [Benchmark 0003](docs/benchmarks/0003-second-brain-retrieval-evaluation.md), synthetic canonical source corpus, exact/paraphrase/full-document/temporal/graph query expectations, current baseline measurements.
+2. **SB-02 — Local hybrid retrieval:** measure SQLite FTS and optionally a local embedding adapter; accept only proven improvements; preserve authority, snapshot and preview semantics.
+3. **SB-03 — Read-only evidence graph:** sources, claims, supporting evidence and supersession lineage; bounded local navigation, provenance-first; no new personal-memory authority.
+4. **SB-04 — Obsidian view:** opt-in local, one-way Markdown export with wikilinks, stable IDs, metadata and manifest reconciliation after Forget/correction. A synthetic demo vault is already documented, but production export is not implemented.
+5. **SB-05 — Typed domain graph and elicitation:** test grounded entities/relationships, time-aware edges and structured project elicitation on synthetic corpora; approve schema/review workflow separately.
+6. **SB-06 — Level 5 research only:** explore bounded, permissioned, stoppable refresh and proactive synthesis when real utility, recovery, privacy and recurring costs have been demonstrated.
+
+**Delivery discipline:** distinct, reviewable changes; do not conflate visualization with evidence verification. Maintaining user agency, capture/recovery and security work remains a prerequisite for live personal data, independent of this track.

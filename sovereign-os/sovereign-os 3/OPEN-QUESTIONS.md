@@ -46,3 +46,13 @@ The full pinned AI chat, Kimi `Sovereign` folder, complete `Estimate Kimi Costs`
 ## Prototype trust note
 
 The founding build is **not a secure personal vault**. Local server is loopback only; API has no user authentication and SQLite data is unencrypted at application layer. API keys come from environment variables; never store them in Git. Real personal or third-party data must wait for security and recovery acceptance tests.
+
+## D. Governed second-brain extension — scoped future decisions
+
+Architectural vocabulary, Level 3–4 target, and Obsidian requirement are documented in [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) and [the detailed guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md). They are proposed direction, not deployed functionality or a change to memory authority.
+
+- **Retrieval quality:** What improvement over deterministic lexical retrieval justifies FTS5 or optional local embeddings, on which query categories and at what compute cost?
+- **Graph data model:** Which relationship predicates and time rules can be extracted without inflating claims or conflating entities? What review policy, if any, would allow persistence?
+- **Obsidian export:** Which user-selected scopes, output location, ownership/authentication and reconciliation manifest ensure links are useful while respecting correction/Forget and sensitive metadata? Obsidian Sync/plugins/backups create external-retention risks.
+- **Index validity:** How do candidate snapshots, truncated result metadata and projection generations interact with exact cloud context approval?
+- **Future Level 5:** Which measured daily-use gains and monthly budget, permission model and interruption controls would justify scheduled sync/agents? No default always-on ingestion.

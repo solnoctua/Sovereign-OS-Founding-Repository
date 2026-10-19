@@ -70,3 +70,11 @@ No key is stored in the database; **never paste secrets into chat or commit `.en
 - `SOV-006`: iPhone local/offline capture and authenticated sync.
 
 The Pocket hardware and sophisticated world model remain important research tracks, not blockers to a useful, safe software baseline.
+
+## Governed second brain — planned Level 3–4 extension
+
+Sovereign's next knowledge capability is a **governed second brain**, combining structured project/wiki views (Levels 1–2), local hybrid semantic discovery (Level 3) and source-backed provenance/domain graphs (Level 4). It must preserve the existing canonical vault, MemoryClaim authority, the Context Compiler and exact disclosure approvals. **Level 5 always-on agents and continuous ingestion are deferred** pending demonstrated value, security, and operating-cost budgets.
+
+An **Obsidian-compatible, one-way Markdown graph projection** is an explicit future interface requirement. For an immediately viewable **synthetic** Obsidian graph, open [`docs/second-brain/obsidian-demo-vault/`](docs/second-brain/obsidian-demo-vault/) as a local Obsidian vault. This is a demonstration, **not** a working exporter or a place to put personal memory.
+
+Read [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md), [the five-level/Obsidian guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md) and [Benchmark 0003](docs/benchmarks/0003-second-brain-retrieval-evaluation.md). These describe a proposed workstream, not currently running retrieval, graph or sync features.
