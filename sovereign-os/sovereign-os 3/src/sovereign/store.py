@@ -1,10 +1,11 @@
 """Local source record vault.
 
 Source records are evidence. Memory claims are separate, source-linked
-interpretations governed by `claims.py` (ADR-0003): created `proposed`, changed
-only by explicit, recorded human decisions, and never sent to a model. Claim
-support is derived at read time from current evidence, so correcting a source
-record immediately stops dependent claims presenting as supported.
+interpretations governed by `claims.py` (ADR-0003): created `proposed` and changed
+only by explicit, recorded human decisions. A claim reaches a model only through
+the Context Compiler (`context.py`, ADR-0004), and only when approved with intact
+evidence. Claim support is derived at read time from current evidence, so
+correcting a source record immediately stops dependent claims presenting as supported.
 
 Deleting a source record means *forget*: the record, its earlier revisions and
 every claim derived from them are removed from the active DB and replaced by
@@ -416,6 +417,71 @@ class Vault:
             else:
                 rows = db.execute("SELECT * FROM records WHERE status='active' ORDER BY created_at DESC,id DESC LIMIT ?", (min(limit, 100),)).fetchall()
             return [self._record(row) for row in rows]
+
+    def context_candidates(self, score, pinned_ids: list[str], limit: int) -> dict:
+        """Local candidate retrieval for the Context Compiler (ADR-0004), in ONE read snapshot.
+
+        `score(text) -> (score, matched_terms)` is the compiler's lexical relevance. Returns how each
+        pinned id resolves (record | forgotten | claim | unknown); candidate records (the pinned ones,
+        plus the `limit` best-matching active or superseded records); and candidate claims (the `limit`
+        best-matching claims, plus up to `limit` that cite a candidate record), each with its derived
+        support and the state and sensitivity of every source. Facts only: the compiler decides.
+        Read-only. Forgotten content cannot appear: Forget removes it and tombstones hold ids only.
+        """
+        def best(rows: list[dict]) -> list[dict]:
+            rows.sort(key=lambda r: r["id"])
+            rows.sort(key=lambda r: r["created_at"], reverse=True)
+            rows.sort(key=lambda r: -r["score"])
+            return rows[:limit]
+
+        with self.connection() as db:
+            pinned = []
+            for pid in pinned_ids:
+                if self._exists(db, "SELECT 1 FROM records WHERE id=?", pid):
+                    kind = "record"
+                elif self._exists(db, "SELECT 1 FROM tombstones WHERE id=?", pid):
+                    kind = "forgotten"
+                elif (self._exists(db, "SELECT 1 FROM claims WHERE id=?", pid)
+                      or self._exists(db, "SELECT 1 FROM claim_tombstones WHERE id=?", pid)):
+                    kind = "claim"
+                else:
+                    kind = "unknown"
+                pinned.append({"id": pid, "kind": kind})
+            pinned_records = [p["id"] for p in pinned if p["kind"] == "record"]
+
+            matches = []
+            for row in db.execute("SELECT id, content, created_at FROM records"):
+                points, _ = score(row["content"])
+                if points:
+                    matches.append({"id": row["id"], "created_at": row["created_at"], "score": points})
+            records = []
+            for rid in dict.fromkeys(pinned_records + [m["id"] for m in best(matches)]):
+                row = db.execute("SELECT * FROM records WHERE id=?", (rid,)).fetchone()
+                points, terms = score(row["content"])
+                records.append({**{k: row[k] for k in ("id", "content", "sensitivity", "status", "created_at")},
+                                "score": points, "matched_terms": terms, "pinned": rid in pinned_records})
+
+            claim_matches = []
+            for row in db.execute("SELECT id, text, created_at FROM claims"):
+                points, _ = score(row["text"])
+                if points:
+                    claim_matches.append({"id": row["id"], "created_at": row["created_at"], "score": points})
+            linked = []
+            if records:
+                marks = ",".join("?" * len(records))
+                linked = [{"id": r["id"], "created_at": r["created_at"], "score": 0} for r in db.execute(
+                    f"""SELECT DISTINCT c.id, c.created_at FROM claims c JOIN claim_sources s ON s.claim_id = c.id
+                        WHERE s.record_id IN ({marks})""", [r["id"] for r in records])]
+            claims = []
+            for cid in dict.fromkeys([m["id"] for m in best(claim_matches)] + [m["id"] for m in best(linked)]):
+                claim = self._get_claim(db, cid)
+                points, terms = score(claim["text"])
+                claims.append({**{k: claim[k] for k in ("id", "text", "origin", "status", "created_at", "support", "source_ids")},
+                               "sources": [{"id": s["id"], "state": s["state"], "sensitivity": s["sensitivity"]}
+                                           for s in claim["sources"]],
+                               "score": points, "matched_terms": terms})
+            return {"pinned": pinned, "records": records, "claims": claims,
+                    "matched": {"records": len(matches), "claims": len(claim_matches), "claims_linked": len(linked)}}
 
     def _forget_plan(self, db: sqlite3.Connection, record_id: str) -> dict | None:
         """The exact effect of forgetting `record_id` in the current state; None if it does not exist.
