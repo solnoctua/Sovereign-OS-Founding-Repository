@@ -1,11 +1,11 @@
 "use strict";
 const $=id=>document.getElementById(id);
-const state={ records:[], claims:[], claimsCursor:null, selected:new Set(), providers:[], editId:null};
+const state={ records:[], claims:[], claimsCursor:null, selected:new Set(), providers:[], editId:null, plan:null, planKey:null};
 function setStatus(message, bad=false){const p=$("capture-status");p.textContent=message;p.style.color=bad?"#e6a9a2":"#9ebda7"}
 async function api(url, options={}){
   const r=await fetch(url,{...options,headers:{...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})}});
   const data=await r.json();
-  if(!r.ok)throw new Error(typeof data.detail==="string"?data.detail:`HTTP ${r.status}`);
+  if(!r.ok){const err=new Error(typeof data.detail==="string"?data.detail:`HTTP ${r.status}`);err.status=r.status;throw err}
   return data;
 }
 function displayDate(date){return (date||"").slice(0,16).replace("T"," ")}
@@ -86,7 +86,9 @@ function drawRecords(){
         const rest=plan.claims_forgotten>5?`\n  …and ${plan.claims_forgotten-5} more`:"";
         if(!confirm(`Forget this record${older?` and its ${older} earlier revision(s)`:""}, and ${plan.claims_forgotten} claim(s) derived from them?${plan.claims_forgotten?"\n\n"+shown+rest:""}\n\nThey are removed from the active vault and will not return on import or restore. Backups may retain copies.`))return;
         const r=await api(`/api/memories/${encodeURIComponent(record.id)}?expected_impact=${plan.impact_token}`,{method:"DELETE"});
-        state.selected.delete(record.id);await refresh();setStatus(`Forgot ${r.records_forgotten} record revision(s) and ${r.claims_forgotten} derived claim(s). Backups not covered.`);
+        state.selected.delete(record.id);state.plan=null;await refresh();invalidatePlan();
+        renderAnswer("Forgotten content is no longer shown here. Preview the context again before asking.");
+        setStatus(`Forgot ${r.records_forgotten} record revision(s) and ${r.claims_forgotten} derived claim(s). Backups not covered.`);
       }catch(e){setStatus(e.message,true)}
     });
     actions.append(edit,remove);foot.append(t,created,actions);wrapper.append(foot);container.append(wrapper)
@@ -95,22 +97,73 @@ function drawRecords(){
 function selectedRecords(){return state.records.filter(r=>state.selected.has(r.id))}
 function drawContext(){
   const chosen=selectedRecords();$("context-count").textContent=String(chosen.length);$("selected-count").textContent=`${chosen.length} selected for context`;$("claim-source-count").textContent=String(chosen.length);
-  const preview=$("context-preview");preview.replaceChildren();
-  if(!chosen.length){preview.append(el("p","empty","No records selected. Your question can still be sent without a memory context."));return}
+  const preview=$("context-preview");preview.replaceChildren();invalidatePlan();
+  if(!chosen.length){preview.append(el("p","empty","No records pinned. The Context Compiler still retrieves relevant approved memory and evidence."));return}
   for(const r of chosen){const item=el("div","context-item");item.append(el("small","",`${r.sensitivity.toUpperCase()} · ${r.id.slice(0,8)} · ${displayDate(r.created_at)}`),document.createTextNode(r.content));preview.append(item)}
 }
 function updateProvider(){
  const chosen=$("provider").value;const cloud=chosen!=="local";
- $("approval").hidden=!cloud;$("allow-cloud").checked=false;
  const provider=state.providers.find(x=>x.id===chosen);
  $("provider-note").textContent=!cloud?"No external connection.":provider?.ready?"Cloud model configured.":"Set the key and model in your local environment.";
+ invalidatePlan();
+}
+// --- Ask: preview the compiled context, then ask with exactly that plan (ADR-0004) ---
+function currentRequest(){return {question:$("question").value.trim(),provider:$("provider").value,source_ids:selectedRecords().map(x=>x.id)}}
+function invalidatePlan(){
+ if(state.plan&&JSON.stringify(currentRequest())===state.planKey)return;
+ state.plan=null;state.planKey=null;$("plan").hidden=true;$("approval").hidden=true;
+ const ask=$("ask");ask.disabled=true;ask.firstChild.textContent="Preview the context first ";
+}
+const REASON_LABEL={superseded:"superseded",rejected:"rejected",contested:"contested",not_authoritative:"not approved memory",stale:"evidence corrected",orphaned:"evidence missing or unverified",sensitive_cloud:"sensitive — stays on this device",not_relevant:"not relevant to the question",duplicate:"duplicate content",budget_exceeded:"context budget exceeded"};
+function itemNode(x,label){
+ const node=el("div","context-item"+(x.role?"":" excluded"));
+ const meta=[x.label?`${label} [${x.label}]`:label,x.type==="claim"?`claim ${x.id.slice(0,8)} · ${x.status} · evidence ${x.source_ids.map(i=>i.slice(0,8)).join(", ")}`:`source ${x.id.slice(0,8)} · ${displayDate(x.created_at)}`,x.sensitivity.toUpperCase()];
+ if(x.relevance.pinned)meta.push("PINNED");
+ node.append(el("small","",meta.join(" · ")),document.createTextNode(x.content.length>280?x.content.slice(0,280)+"…":x.content));return node;
+}
+function renderPlan(plan){
+ const memory=plan.included.filter(x=>x.role==="approved_memory"),evidence=plan.included.filter(x=>x.role==="evidence");
+ const inc=$("plan-included");inc.replaceChildren(el("div","source-label",`APPROVED MEMORY (${memory.length})`));
+ if(!memory.length)inc.append(el("p","empty","No approved, intact memory matched."));for(const x of memory)inc.append(itemNode(x,"◆ approved memory"));
+ inc.append(el("div","source-label",`EVIDENCE (${evidence.length})`));if(!evidence.length)inc.append(el("p","empty","No source record matched."));for(const x of evidence)inc.append(itemNode(x,"▤ evidence"));
+ const exc=$("plan-excluded");exc.replaceChildren(el("div","source-label",`EXCLUDED (${plan.excluded.length})`));
+ if(!plan.excluded.length)exc.append(el("p","empty","Nothing relevant was excluded."));for(const x of plan.excluded)exc.append(itemNode(x,`✕ ${REASON_LABEL[x.reason]||x.reason}`));
+ const dis=$("plan-disclosure");dis.replaceChildren(el("div","source-label","DISCLOSURE"));
+ const ask=$("ask");ask.disabled=false;$("approval").hidden=plan.target.boundary!=="cloud";
+ if(plan.target.boundary==="local"){dis.append(el("p","","Nothing leaves this device. No model is called."));ask.firstChild.textContent="Ask locally ";}
+ else if(plan.disclosure.blocked){dis.append(el("p","blocked",`Blocked: ${plan.disclosure.blocked.detail}`));ask.disabled=true;ask.firstChild.textContent="Cannot send this context ";}
+ else{
+  dis.append(el("p","",`Leaves this device → ${plan.target.provider}: your question and ${plan.outbound.items.length} item(s), all ${plan.disclosure.outbound_sensitivities.join(", ")||"no records"}.`));
+  for(const x of plan.included)dis.append(itemNode(x,x.role==="approved_memory"?"◆ sent as approved memory":"▤ sent as evidence"));
+  const details=el("details","payload");details.append(el("summary","","Exact payload"),el("pre","",plan.outbound.messages.map(m=>`[${m.role}]\n${m.content}`).join("\n\n")));dis.append(details);
+  ask.firstChild.textContent="Approve this context & ask ";
+ }
+ $("plan").hidden=false;
+}
+async function previewContext(){
+ const request=currentRequest();if(!request.question){renderAnswer("Enter a question first.");return}
+ $("preview").disabled=true;
+ try{const plan=await api("/api/context/compile",{method:"POST",body:JSON.stringify(request)});state.plan=plan;state.planKey=JSON.stringify(request);renderPlan(plan)}
+ catch(e){renderAnswer(`Could not compile context: ${e.message}`)}finally{$("preview").disabled=false}
+}
+async function askWithPlan(){
+ const plan=state.plan;if(!plan||JSON.stringify(currentRequest())!==state.planKey){invalidatePlan();return}
+ const cloud=plan.target.boundary==="cloud";$("ask").disabled=true;renderAnswer("Working...");
+ try{const data=await api("/api/ask",{method:"POST",body:JSON.stringify({...currentRequest(),approve_cloud_disclosure:cloud,context_token:plan.context_token})});
+   const used=data.receipt.included.length;
+   const memories=data.context.included.filter(x=>x.role==="approved_memory");
+   renderAnswer(data.answer,data.sources,data.cloud_disclosure?`Sent your question and the ${used} item(s) you approved to ${plan.target.provider}. Nothing else left this device.`:"No data sent to any model.",memories);
+ }catch(e){
+   if(e.status===409){renderAnswer(`409 — ${e.message} The updated context is shown above.`);await refresh();state.plan=null;await previewContext();return}
+   renderAnswer(`Request denied or failed: ${e.message}`);
+ }finally{if(state.plan)$("ask").disabled=!!state.plan.disclosure.blocked}
 }
 async function init(){
  $("today").textContent=new Date().toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
  const status=await api("/api/status");state.providers=status.providers;
  const select=$("provider");select.replaceChildren();
  for(const p of status.providers){const opt=el("option","",p.name+(p.ready?"":" (not configured)"));opt.value=p.id;select.append(opt)}
- $("provider").addEventListener("change",updateProvider);updateProvider();await refresh();
+ $("provider").addEventListener("change",updateProvider);$("question").addEventListener("input",invalidatePlan);updateProvider();await refresh();
  for(const nav of document.querySelectorAll("[data-jump]"))nav.addEventListener("click",()=>{document.getElementById(nav.dataset.jump).scrollIntoView({behavior:"smooth"});document.querySelectorAll(".nav").forEach(n=>n.classList.remove("active"));nav.classList.add("active")});
  $("save").addEventListener("click",async()=>{const content=$("note").value.trim();if(!content){setStatus("Write a note first.",true);return}$("save").disabled=true;try{await api("/api/memories",{method:"POST",body:JSON.stringify({content,sensitivity:$("sensitivity").value})});$("note").value="";$("search").value="";await refresh();setStatus("Source record saved locally. No model was contacted.")}catch(e){setStatus(e.message,true)}finally{$("save").disabled=false}});
  $("more-claims").addEventListener("click",()=>loadOlderClaims().catch(e=>alert(e.message)));
@@ -128,19 +181,13 @@ async function init(){
    await refresh();setStatus((trusted?`Restored ${r.imported} records and ${r.claims_restored} claims (${r.approved_claims_restored} approved).`:`Imported ${r.imported} records; ${r.claims_imported_as_proposed} claims arrived as unverified proposals.`)+skipped)}
   catch(e){setStatus(e.message,true)}};
  $("import").addEventListener("click",()=>loadFile(false));$("restore").addEventListener("click",()=>loadFile(true));
- $("ask").addEventListener("click",async()=>{
-  const question=$("question").value.trim();if(!question){renderAnswer("Enter a question first.");return}
-  const provider=$("provider").value;
-  $("ask").disabled=true;renderAnswer("Working...");
-  try{const data=await api("/api/ask",{method:"POST",body:JSON.stringify({question,provider,source_ids:selectedRecords().map(x=>x.id),approve_cloud_disclosure:$("allow-cloud").checked})});
-    renderAnswer(data.answer,data.sources,data.cloud_disclosure?`Sent your question and ${data.sources.length} selected sources to ${provider}.`:"No data sent to any model.");
-    $("allow-cloud").checked=false;
-  }catch(e){renderAnswer(`Request denied or failed: ${e.message}`)}finally{$("ask").disabled=false}
- });
+ $("preview").addEventListener("click",()=>previewContext());
+ $("ask").addEventListener("click",()=>askWithPlan());
 }
-function renderAnswer(message,sources=[],disclosure=""){
+function renderAnswer(message,sources=[],disclosure="",memories=[]){
  const container=$("answer");container.replaceChildren(el("span","eyebrow","OUTPUT"),el("p","",message));
  if(disclosure)container.append(el("div","source-label",disclosure));
+ if(memories.length){container.append(el("div","source-label",`APPROVED MEMORY (${memories.length})`));for(const m of memories)container.append(el("div","context-item",`${m.id.slice(0,8)} · ${m.content}`))}
  if(sources?.length){container.append(el("div","source-label",`SOURCE RECORDS (${sources.length})`));for(const s of sources)container.append(el("div","context-item",`${s.id.slice(0,8)} · ${s.content}`))}
 }
 init().catch(err=>renderAnswer("Initialization failed: "+err.message));

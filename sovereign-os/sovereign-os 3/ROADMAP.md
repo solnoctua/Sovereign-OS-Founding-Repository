@@ -84,7 +84,8 @@ Tier 2/3 changes (state schemas, memory authority, permissions/disclosure, delet
 
 - Prototype local app is implemented under `src/sovereign`.
 - API for save/search/correct/delete/export/import is implemented and tested on synthetic records.
-- UI includes explicit source selection and cloud disclosure approval; no cloud model is contacted by default.
+- UI previews the compiled context and requires approval of that exact context before any cloud request; no cloud model is contacted by default.
+- MemoryClaim authority (ADR-0003, Benchmark 0001) is merged. **Context Compiler V0 / governed retrieval** (ADR-0004, Benchmark 0002) is in review: deterministic local retrieval, MemoryClaim-derived authority, inherited sensitivity and exact-plan cloud approval (M2).
 - One provider adapter supports Moonshot/Kimi and OpenAI Chat Completions if separately configured. Live provider calls are **not** verified here without credentials.
 - `python -m sovereign` serves at `127.0.0.1:8765`.
 - **Not yet safe for sensitive real-world data:** unencrypted database, no app login, backups/recovery and audit trails incomplete.

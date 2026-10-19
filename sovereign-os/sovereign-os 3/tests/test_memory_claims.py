@@ -351,6 +351,8 @@ def test_newer_and_prerelease_vaults_are_refused(tmp_path,setup,match):
 # 10. Cloud disclosure boundaries are not weakened
 
 def test_claims_are_never_sent_to_cloud(client,monkeypatch):
+    # ADR-0003's rule as narrowed by ADR-0004: a claim reaches a model only inside the compiled, approved bundle.
+    # A claim id can never be selected as evidence, and this approved claim is not relevant to "Q", so it stays local.
     rec=create(client)
     c=claim(client,[rec["id"]],"Claim text that must stay local")
     act(client,c["id"],"approve")
@@ -358,7 +360,10 @@ def test_claims_are_never_sent_to_cloud(client,monkeypatch):
     monkeypatch.setattr(providers,"available",lambda:[{"id":"kimi","ready":True}])
     monkeypatch.setattr(providers,"generate",lambda p,m:seen.append(m) or "ok")
     assert client.post("/api/ask",json={"question":"Q","provider":"kimi","source_ids":[c["id"]],"approve_cloud_disclosure":True}).status_code==422
-    ok=client.post("/api/ask",json={"question":"Q","provider":"kimi","source_ids":[rec["id"]],"approve_cloud_disclosure":True})
+    payload={"question":"Q","provider":"kimi","source_ids":[rec["id"]]}
+    assert client.post("/api/ask",json={**payload,"approve_cloud_disclosure":True}).status_code==428 and not seen
+    token=client.post("/api/context/compile",json=payload).json()["context_token"]
+    ok=client.post("/api/ask",json={**payload,"approve_cloud_disclosure":True,"context_token":token})
     assert ok.status_code==200 and len(seen)==1 and "Claim text" not in str(seen)
 
 def test_cloud_restrictions_intact_with_approved_claims(client,monkeypatch):

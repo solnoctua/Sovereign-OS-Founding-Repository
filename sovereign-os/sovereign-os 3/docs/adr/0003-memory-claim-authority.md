@@ -1,6 +1,7 @@
 # ADR-0003 — Source evidence versus derived memory claims (V0)
 
 - Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)
+- Narrowed by: [ADR-0004](0004-governed-retrieval-context-compiler.md) (governed retrieval) — the rule "Claims are never sent to a model" below
 - Date: 2026-10-19
 - Decision owner: Human project owner
 
@@ -34,6 +35,7 @@ Two adversarial audits shaped this revision:
   - Each link pins `evidence_sha256`: a SHA-256 over the record's identity (`id, content, source, sensitivity, created_at, supersedes_id`).
   - An approval made against evidence E therefore never transfers to a different E′ that reuses E's ID, including one that differs only in sensitivity.
 - **Claims are never sent to a model.** `/api/ask` accepts only active source-record IDs, and evidence sensitivity is immutable.
+  - *Narrowed by [ADR-0004](0004-governed-retrieval-context-compiler.md):* a claim may reach a reasoning model only when it is approved, currently supported, selected by the Context Compiler, sensitivity-eligible for the target boundary, and included in the exact disclosure plan authorised for that request. Pinned `source_ids` still accept only source records.
 
 ### Provenance
 - **`origin` is a provider-neutral class:**

@@ -1,10 +1,11 @@
 """Local source record vault.
 
 Source records are evidence. Memory claims are separate, source-linked
-interpretations governed by `claims.py` (ADR-0003): created `proposed`, changed
-only by explicit, recorded human decisions, and never sent to a model. Claim
-support is derived at read time from current evidence, so correcting a source
-record immediately stops dependent claims presenting as supported.
+interpretations governed by `claims.py` (ADR-0003): created `proposed` and changed
+only by explicit, recorded human decisions. A claim reaches a model only through
+the Context Compiler (`context.py`, ADR-0004), and only when approved with intact
+evidence. Claim support is derived at read time from current evidence, so
+correcting a source record immediately stops dependent claims presenting as supported.
 
 Deleting a source record means *forget*: the record, its earlier revisions and
 every claim derived from them are removed from the active DB and replaced by
@@ -261,6 +262,26 @@ def evidence_hash(record: Mapping) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _record_retrieval_state(record: Mapping, score: int) -> list:
+    """Policy projection of a relevant record for the retrieval fingerprint (ADR-0004).
+
+    A record is immutable apart from its status (ADR-0003 triggers); its evidence hash pins the rest of
+    its identity (content, source, sensitivity, time, lineage) without carrying raw content.
+    """
+    return [record["id"], score, record["created_at"], record["status"], record["sensitivity"], evidence_hash(record)]
+
+
+def _claim_retrieval_state(claim: Mapping, score: int) -> list:
+    """Policy projection of a relevant claim for the retrieval fingerprint (ADR-0004): everything the
+    Context Compiler's decisions about it depend on, derived from current evidence and never from stored
+    authority: lifecycle status, support, inherited sensitivity, authority, and each source's current
+    state and sensitivity plus the evidence hash its link pins."""
+    from .context import inherited_sensitivity   # the compiler's own rule, so the two cannot drift apart
+    return [claim["id"], score, claim["created_at"], claim["status"], claim["support"],
+            inherited_sensitivity(claim["sources"]), rules.is_authoritative(claim["status"], claim["support"]),
+            [[s["id"], s["state"], s["sensitivity"], claim["source_hashes"][s["id"]]] for s in claim["sources"]]]
+
+
 def _encode_cursor(created_at: str, claim_id: str) -> str:
     return base64.urlsafe_b64encode(json.dumps([created_at, claim_id]).encode("utf-8")).decode("ascii")
 
@@ -416,6 +437,89 @@ class Vault:
             else:
                 rows = db.execute("SELECT * FROM records WHERE status='active' ORDER BY created_at DESC,id DESC LIMIT ?", (min(limit, 100),)).fetchall()
             return [self._record(row) for row in rows]
+
+    def context_candidates(self, score, pinned_ids: list[str], limit: int) -> dict:
+        """Local candidate retrieval for the Context Compiler (ADR-0004), in ONE read snapshot.
+
+        `score(text) -> (score, matched_terms)` is the compiler's lexical relevance. Returns how each
+        pinned id resolves (record | forgotten | claim | unknown); candidate records (the pinned ones,
+        plus the `limit` best-matching active or superseded records); and candidate claims (the `limit`
+        best-matching claims, plus up to `limit` that cite a candidate record), each with its derived
+        support and the state and sensitivity of every source. Facts only: the compiler decides.
+        `retrieval_state` describes the complete relevant retrieval behind any truncation (match counts
+        and an opaque fingerprint) so an approval also binds what lay below the cutoff.
+        Read-only. Forgotten content cannot appear: Forget removes it and tombstones hold ids only.
+        """
+        def best(rows: list[dict]) -> list[dict]:
+            rows.sort(key=lambda r: r["id"])
+            rows.sort(key=lambda r: r["created_at"], reverse=True)
+            rows.sort(key=lambda r: -r["score"])
+            return rows[:limit]
+
+        with self.connection() as db:
+            pinned = []
+            for pid in pinned_ids:
+                if self._exists(db, "SELECT 1 FROM records WHERE id=?", pid):
+                    kind = "record"
+                elif self._exists(db, "SELECT 1 FROM tombstones WHERE id=?", pid):
+                    kind = "forgotten"
+                elif (self._exists(db, "SELECT 1 FROM claims WHERE id=?", pid)
+                      or self._exists(db, "SELECT 1 FROM claim_tombstones WHERE id=?", pid)):
+                    kind = "claim"
+                else:
+                    kind = "unknown"
+                pinned.append({"id": pid, "kind": kind})
+            pinned_records = [p["id"] for p in pinned if p["kind"] == "record"]
+
+            matches, record_state = [], []
+            for row in db.execute("SELECT * FROM records").fetchall():
+                points, _ = score(row["content"])
+                if points:
+                    matches.append({"id": row["id"], "created_at": row["created_at"], "score": points})
+                    record_state.append(_record_retrieval_state(row, points))
+            records = []
+            for rid in dict.fromkeys(pinned_records + [m["id"] for m in best(matches)]):
+                row = db.execute("SELECT * FROM records WHERE id=?", (rid,)).fetchone()
+                points, terms = score(row["content"])
+                records.append({**{k: row[k] for k in ("id", "content", "sensitivity", "status", "created_at")},
+                                "score": points, "matched_terms": terms, "pinned": rid in pinned_records})
+
+            derived: dict[str, dict] = {}
+
+            def claim_of(cid: str) -> dict:   # derived from current evidence once per claim, in this snapshot
+                if cid not in derived:
+                    derived[cid] = self._get_claim(db, cid)
+                return derived[cid]
+
+            claim_matches, claim_state = [], []
+            for row in db.execute("SELECT id, text, created_at FROM claims").fetchall():
+                points, _ = score(row["text"])
+                if points:
+                    claim_matches.append({"id": row["id"], "created_at": row["created_at"], "score": points})
+                    claim_state.append(_claim_retrieval_state(claim_of(row["id"]), points))
+            linked = []
+            if records:
+                marks = ",".join("?" * len(records))
+                linked = [{"id": r["id"], "created_at": r["created_at"], "score": 0} for r in db.execute(
+                    f"""SELECT DISTINCT c.id, c.created_at FROM claims c JOIN claim_sources s ON s.claim_id = c.id
+                        WHERE s.record_id IN ({marks})""", [r["id"] for r in records])]
+            linked_state = [_claim_retrieval_state(claim_of(m["id"]), 0) for m in linked]
+            claims = []
+            for cid in dict.fromkeys([m["id"] for m in best(claim_matches)] + [m["id"] for m in best(linked)]):
+                claim = claim_of(cid)
+                points, terms = score(claim["text"])
+                claims.append({**{k: claim[k] for k in ("id", "text", "origin", "status", "created_at", "support", "source_ids")},
+                               "sources": [{"id": s["id"], "state": s["state"], "sensitivity": s["sensitivity"]}
+                                           for s in claim["sources"]],
+                               "score": points, "matched_terms": terms})
+            # The complete relevant retrieval state before truncation, in this same snapshot: the policy
+            # projection (not only membership and ranking) of every matching record and claim and of every
+            # provenance-linked claim. Local only: it is bound into the context token and never sent anywhere.
+            state = {"records": sorted(record_state), "claims": sorted(claim_state), "linked": sorted(linked_state)}
+            fingerprint = hashlib.sha256(json.dumps(state, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()
+            return {"pinned": pinned, "records": records, "claims": claims,
+                    "retrieval_state": {"records_matched": len(matches), "claims_matched": len(claim_matches),
+                                        "claims_linked": len(linked), "fingerprint": fingerprint}}
 
     def _forget_plan(self, db: sqlite3.Connection, record_id: str) -> dict | None:
         """The exact effect of forgetting `record_id` in the current state; None if it does not exist.

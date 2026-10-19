@@ -34,7 +34,11 @@ def test_cloud_requires_grant_and_forbids_sensitive(client, monkeypatch):
     payload={"question":"Recall my note","provider":"kimi","source_ids":[note["id"]]}
     assert client.post("/api/ask",json=payload).status_code==403
     assert not seen
-    allowed=client.post("/api/ask",json={**payload,"approve_cloud_disclosure":True})
+    # ADR-0004: approval binds to the exact previewed bundle, so approval alone is not enough.
+    assert client.post("/api/ask",json={**payload,"approve_cloud_disclosure":True}).status_code==428
+    assert not seen
+    token=client.post("/api/context/compile",json=payload).json()["context_token"]
+    allowed=client.post("/api/ask",json={**payload,"approve_cloud_disclosure":True,"context_token":token})
     assert allowed.status_code==200 and allowed.json()["cloud_disclosure"]
     assert len(seen)==1 and "I will study" in str(seen)
     secret=create(client,"Invented secret for a synthetic test","sensitive")

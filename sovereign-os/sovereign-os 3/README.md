@@ -13,7 +13,7 @@ Sovereign is a proposed long-lived, personal-first AI operating environment desi
 1. A real local browser interface to capture and search source notes.
 2. SQLite persistence independent of a model provider.
 3. Source revisions/corrections, active-record deletion with tombstones, JSON export and import.
-4. Select explicit source records to share with an AI model.
+4. Ask through a deterministic Context Compiler: it selects approved memory and evidence for a question, shows exactly what would leave the device, and sends a cloud model only that approved, exact context ([ADR-0004](docs/adr/0004-governed-retrieval-context-compiler.md)).
 5. Offline, non-generative evidence inspection without any API key.
 6. Optional Kimi/Moonshot or OpenAI API integration with explicit per-request consent. **There are no automatic provider requests or model-driven tool actions.**
 
@@ -42,7 +42,7 @@ pytest -q
 
 ## Optional cloud model connection
 
-Cloud is OFF unless you choose a provider in the UI, explicitly select source records, check the disclosure authorization, and run a request. Questions themselves are also transmitted when you approve. Model API usage can incur provider charges.
+Cloud is OFF unless you choose a provider in the UI, preview the compiled context and approve that exact context for the request. Only the private items shown in the preview are sent, together with your question; sensitive items never leave, and any change before sending requires a new review. Model API usage can incur provider charges.
 
 Kimi and OpenAI APIs have distinct API keys/billing from their respective chat or coding subscriptions. Configure only what you intend to use; find a current supported model identifier in the provider's own API account:
 
@@ -65,7 +65,7 @@ No key is stored in the database; **never paste secrets into chat or commit `.en
 
 - `SOV-002`: threat model, encrypted vault, auth boundary, recovery and deletion guarantee tests.
 - `SOV-003`: explicit evidence/claim/intention states with approval workflow.
-- `SOV-004`: evaluated memory retrieval + context policy / disclosure receipt.
+- `SOV-004`: evaluated memory retrieval + context policy / disclosure receipt. Context Compiler V0 (ADR-0004) provides deterministic retrieval, the context policy and a request-scoped receipt; evaluated retrieval and durable disclosure receipts remain.
 - `SOV-005`: first meaningful use case (project commitment → reason → propose → human approve → observe outcome).
 - `SOV-006`: iPhone local/offline capture and authenticated sync.
 
