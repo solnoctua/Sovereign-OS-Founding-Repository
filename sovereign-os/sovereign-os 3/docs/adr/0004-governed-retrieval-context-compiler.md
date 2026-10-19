@@ -40,7 +40,7 @@ Constitutional constraints:
   - the 50 best-matching claims, of any status;
   - up to 50 claims citing a candidate record (*provenance*), so the receipt can show unused interpretations of the evidence it retrieved.
   - "Best" means more matched terms, then newest, then ID ascending.
-- **Truncation is visible.** All match counts are reported (`records_matched`, `claims_matched`, `claims_citing_candidates`).
+- **Truncation is visible.** All match counts are reported (`records_matched`, `claims_matched`, `claims_citing_candidates`), together with an opaque local `fingerprint` of the complete relevant retrieval state behind the cutoff (see *Exact-plan approval*).
 - **Forgotten data is never a candidate.** Forget removes it, and tombstones are content-free.
 - **Pinned IDs must name source records.**
   - A claim ID, an unknown ID or a duplicate is refused (422).
@@ -106,7 +106,8 @@ Constitutional constraints:
 policy_version                      "sovereign.context.v0"
 question
 target                              {provider, boundary: local | cloud}
-retrieval                           {terms, pinned, records_matched, claims_matched, claims_citing_candidates, limit_per_kind}
+retrieval                           {terms, pinned, records_matched, claims_matched, claims_citing_candidates, limit_per_kind,
+                                     fingerprint (opaque, local only)}
 included[]                          {id, label: M# | E#, type: source | claim, role: approved_memory | evidence, reason, rank,
                                      content, created_at, status, sensitivity,
                                      relevance {score, matched_terms, pinned, via: pinned | lexical | provenance},
@@ -136,7 +137,12 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
   - the policy version, question, provider, boundary, pinned IDs and blocked state;
   - the **exact outbound messages**;
   - every included item (ID, type, role, content, source IDs, status, support, sensitivity);
-  - every excluded candidate (ID, type, reasons).
+  - every excluded candidate (ID, type, reasons);
+  - the **complete relevant retrieval state behind any truncation**:
+    - the match counts and `limit_per_kind`;
+    - a fingerprint, computed in the same read snapshot, over every lexically matching record and claim **before** the per-kind cutoff (ID, score, `created_at`), and every provenance-linked claim before its limit.
+    - The fingerprint is derived from local IDs and state only. It never enters `outbound` or provider messages.
+- **What approving a truncated plan means.** Approval binds not only the visible selected candidates and the exact messages, but also the relevant candidate universe the compiler observed at preview time. If that universe changes, the old cloud approval fails with 409, even when the change lies below the top-50 cutoff and the messages happen to be identical. Examples include an older relevant item imported or restored, or one removed and another added with the count unchanged. Hashing the counters alone would miss an equal-count swap.
 - **Properties:** deterministic (unchanged state and request give the same token), recomputed on every request, never stored, and not a credential.
 - **How `/api/ask` uses it:**
   - it recompiles in one snapshot and compares;
@@ -151,9 +157,9 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
   - a source forgotten or corrected;
   - a claim approved, rejected, contested or superseded, including by a lifecycle-legal raw-SQL event;
   - any support change;
-  - a relevant candidate added or removed;
+  - a relevant candidate added or removed, including below the retrieval cutoff;
   - a change of question, provider or pins.
-- **Invalidation is conservative.** A change to an excluded candidate also invalidates, because the user's preview showed it. Unrelated vault changes do not.
+- **Invalidation is conservative.** A change to an excluded candidate, or to the relevant matches below the cutoff, also invalidates. Irrelevant vault changes (records and claims that match no question term) do not: not every vault mutation revokes an approval.
 - **Status codes:**
 
   | Status | Meaning |
@@ -263,6 +269,12 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
     - ADR-0002 legacy IDs with meaningful text, `/`, `?`, `%`, spaces, and over 200 characters;
     - escaped forms, UUID prefixes, and arbitrary legacy `created_at` text.
     - Only `M#`/`E#` labels and authorised text are sent, with provenance through labels and nothing about evidence outside the bundle. The IDs remain in the local bundle and receipt, and every label maps back to its item;
+  - **retrieval truncation:**
+    - with more than 50 relevant records, an older relevant record imported below the cutoff gives 409 for the old token, with no provider call;
+    - so does an equal-count swap below the cutoff (one forgotten, another added);
+    - so does an older relevant claim restored below the claim cutoff;
+    - in each case the top candidates and exact messages are unchanged, and a fresh preview succeeds;
+    - an irrelevant change under truncation keeps the token valid;
   - **outbound contract:** `outbound.items[]` holds only `label`, `type`, `role` and `sensitivity`, and no durable ID appears anywhere in `outbound`. Each label maps to exactly one `included[]` item, the provider receives exactly `outbound.messages`, and `included[]`, `excluded[]` and the receipt keep the durable IDs;
   - **execution point:** an exclusive vault lock is acquired inside the mocked provider call, so no transaction spans it. A Forget committed during the call does not alter the authorised payload, and the old token then gets 409.
 - **Mutation check:** 26 deliberately injected policy bugs were each caught by at least one of these tests. Five of them are egress bugs: claim IDs, record IDs or claim `source_ids` in messages; evidence outside the bundle mentioned by ID; arbitrary capture text sent.

@@ -588,3 +588,86 @@ def test_ask_sends_only_compiler_messages_to_the_provider():
     source = inspect.getsource(app_module)
     assert source.count("providers.generate(") == 1
     assert "providers.generate(question.provider, [dict(m) for m in bundle.messages])" in source
+
+
+# --- The approval binds the complete relevant retrieval state behind truncation (Codex P2 on 20b28d0) -----
+
+OLD = "2020-01-01T00:00:00+00:00"   # older than everything else, so it ranks below the top-`limit` cutoff
+
+
+def import_old_record(client, rid, text):
+    payload = {"schema": "sovereign.v0.records.2", "tombstones": [], "claims": [], "claim_tombstones": [],
+               "records": [{"id": rid, "content": text, "source": "manual", "sensitivity": "private",
+                            "status": "active", "created_at": OLD, "supersedes_id": None}]}
+    assert client.post("/api/import", json=payload).json()["imported"] == 1
+
+
+def decisions(plan):
+    return [(i["id"], i["role"]) for i in plan["included"]], [(e["id"], e["reasons"]) for e in plan["excluded"]]
+
+
+def assert_only_retrieval_state_changed(plan, fresh):
+    assert decisions(fresh) == decisions(plan)                                       # same top candidates
+    assert fresh["outbound"]["messages"] == plan["outbound"]["messages"]             # same exact provider messages
+    assert fresh["context_token"] != plan["context_token"]                           # yet the approval changes
+    assert fresh["retrieval"]["fingerprint"] != plan["retrieval"]["fingerprint"]     # different relevant universe
+    assert fresh["retrieval"]["fingerprint"] not in json.dumps(fresh["outbound"])    # the fingerprint stays local
+
+
+@pytest.fixture
+def truncated(client):
+    for i in range(context.POLICY.retrieval_limit + 5):              # more relevant records than the cutoff
+        client.app.state.vault.add(f"Invented Sovereign vault record {i:02d}")
+    return client
+
+
+def test_relevant_record_added_below_the_cutoff_invalidates_the_approval(truncated, provider):
+    client = truncated
+    plan = preview(client)
+    assert plan["retrieval"]["records_matched"] == context.POLICY.retrieval_limit + 5
+    note(client, "Invented note about cooking pasta.")                              # irrelevant: still valid
+    assert preview(client)["context_token"] == plan["context_token"]
+    import_old_record(client, "below-cutoff-1", "Invented older Sovereign vault note.")
+    fresh = preview(client)
+    assert_only_retrieval_state_changed(plan, fresh)
+    assert fresh["retrieval"]["records_matched"] == plan["retrieval"]["records_matched"] + 1
+    assert "below-cutoff-1" not in json.dumps(fresh["outbound"]) and "below-cutoff-1" not in dict(decisions(fresh)[0])
+    resp = ask(client, plan)
+    assert resp.status_code == 409 and provider == []                             # the old approval cannot execute
+    assert ask(client, fresh).status_code == 200 and provider[0]["messages"] == fresh["outbound"]["messages"]
+
+
+def test_equal_count_swap_below_the_cutoff_still_invalidates_the_approval(truncated, provider):
+    client = truncated
+    plan = preview(client)
+    candidates = {i["id"] for i in plan["included"]} | {e["id"] for e in plan["excluded"]}
+    below = sorted({r["id"] for r in client.app.state.vault.export()["records"]} - candidates)
+    assert len(below) == 5                                                          # all match; 5 lie below the cutoff
+    assert client.delete(f"/api/memories/{below[0]}").status_code == 200           # remove one below the cutoff...
+    import_old_record(client, "below-cutoff-2", "Invented different older Sovereign vault note.")   # ...add another
+    fresh = preview(client)
+    assert fresh["retrieval"]["records_matched"] == plan["retrieval"]["records_matched"]   # the count is unchanged
+    assert_only_retrieval_state_changed(plan, fresh)
+    assert ask(client, plan).status_code == 409 and provider == []
+    assert ask(client, fresh).status_code == 200 and provider[0]["messages"] == fresh["outbound"]["messages"]
+
+
+def test_relevant_claim_added_below_the_cutoff_invalidates_the_approval(client, provider):
+    limit = context.POLICY.retrieval_limit
+    cited = note(client, "Invented note about bicycles.")             # not relevant, so no provenance expansion
+    for i in range(limit + 5):
+        claim(client, [cited], f"Sovereign vault claim {i:02d}")
+    plan = preview(client)
+    assert plan["retrieval"]["claims_matched"] == limit + 5
+    history = [{"from_status": None, "to_status": "proposed", "actor": "human", "note": None, "at": OLD}]
+    backup = {"schema": "sovereign.v0.records.2", "records": [], "tombstones": [], "claim_tombstones": [],
+              "claims": [{"id": "older-claim", "text": "Older Sovereign vault claim", "origin": "human",
+                          "status": "proposed", "created_at": OLD, "supersedes_id": None, "source_ids": [cited["id"]],
+                          "source_hashes": {cited["id"]: store.evidence_hash(cited)}, "history": history}]}
+    restored = client.post("/api/restore", json={"confirm_trusted_restore": True, "backup": backup})
+    assert restored.json()["claims_restored"] == 1
+    fresh = preview(client)
+    assert_only_retrieval_state_changed(plan, fresh)
+    assert fresh["retrieval"]["claims_matched"] == limit + 6 and "older-claim" not in dict(decisions(fresh)[1])
+    assert ask(client, plan).status_code == 409 and provider == []
+    assert ask(client, fresh).status_code == 200

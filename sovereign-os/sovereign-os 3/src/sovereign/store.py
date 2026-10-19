@@ -426,6 +426,8 @@ class Vault:
         plus the `limit` best-matching active or superseded records); and candidate claims (the `limit`
         best-matching claims, plus up to `limit` that cite a candidate record), each with its derived
         support and the state and sensitivity of every source. Facts only: the compiler decides.
+        `retrieval_state` describes the complete relevant retrieval behind any truncation (match counts
+        and an opaque fingerprint) so an approval also binds what lay below the cutoff.
         Read-only. Forgotten content cannot appear: Forget removes it and tombstones hold ids only.
         """
         def best(rows: list[dict]) -> list[dict]:
@@ -480,8 +482,16 @@ class Vault:
                                "sources": [{"id": s["id"], "state": s["state"], "sensitivity": s["sensitivity"]}
                                            for s in claim["sources"]],
                                "score": points, "matched_terms": terms})
+            # The complete relevant retrieval state before truncation, in this same snapshot: every matching
+            # record and claim with its ranking keys, and every provenance-linked claim. Local only: it is
+            # bound into the context token and never sent anywhere.
+            state = {"records": sorted([m["id"], m["score"], m["created_at"]] for m in matches),
+                     "claims": sorted([m["id"], m["score"], m["created_at"]] for m in claim_matches),
+                     "linked": sorted([m["id"], m["created_at"]] for m in linked)}
+            fingerprint = hashlib.sha256(json.dumps(state, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()
             return {"pinned": pinned, "records": records, "claims": claims,
-                    "matched": {"records": len(matches), "claims": len(claim_matches), "claims_linked": len(linked)}}
+                    "retrieval_state": {"records_matched": len(matches), "claims_matched": len(claim_matches),
+                                        "claims_linked": len(linked), "fingerprint": fingerprint}}
 
     def _forget_plan(self, db: sqlite3.Connection, record_id: str) -> dict | None:
         """The exact effect of forgetting `record_id` in the current state; None if it does not exist.

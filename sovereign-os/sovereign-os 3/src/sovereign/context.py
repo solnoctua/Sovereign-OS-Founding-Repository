@@ -177,7 +177,7 @@ class ContextBundle:
     included: tuple[ContextItem, ...]
     excluded: tuple[Excluded, ...]
     blocked: dict | None                        # cloud only: why this plan may not be sent at all
-    retrieval: dict                             # candidate counts, so retrieval truncation is visible
+    retrieval: dict                             # counts and fingerprint of the full retrieval behind any truncation (local)
     messages: tuple[dict, ...] | None           # cloud only: the exact outbound payload
     context_token: str
 
@@ -315,12 +315,14 @@ def render_messages(question: str, items: tuple[ContextItem, ...] | list[Context
     return [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}]
 
 
-def _token(policy, question, provider, boundary, pinned, included, excluded, blocked, messages) -> str:
-    """Binds an approval to one exact plan: the outbound payload and every inclusion and exclusion
-    decision behind it, computed from current state. Deterministic; not a credential, never stored."""
+def _token(policy, question, provider, boundary, pinned, included, excluded, blocked, messages, retrieval) -> str:
+    """Binds an approval to one exact plan: the outbound payload, every inclusion and exclusion decision
+    behind it, and the complete relevant retrieval state behind any truncation (counts, limit and the
+    fingerprint of every match, including those below the cutoff), computed from current state.
+    Deterministic; not a credential, never stored."""
     core = {
         "policy": policy.version, "question": question, "provider": provider, "boundary": boundary,
-        "pinned": list(pinned), "blocked": blocked, "messages": messages,
+        "pinned": list(pinned), "blocked": blocked, "messages": messages, "retrieval": retrieval,
         "included": [[i.candidate.id, i.candidate.type, i.role, i.candidate.content, list(i.candidate.source_ids),
                       i.candidate.status, i.candidate.support, i.candidate.sensitivity] for i in included],
         "excluded": [[e.candidate.id, e.candidate.type, list(e.reasons)] for e in excluded],
@@ -363,10 +365,12 @@ def build_bundle(question: str, provider: str, pinned: list[str] | tuple[str, ..
                        "detail": "Sensitive source records cannot be sent to cloud providers in V0. "
                                  "Deselect them or use local mode."}
     messages = tuple(render_messages(question, included)) if boundary == "cloud" else None
+    state = facts["retrieval_state"]
+    retrieval = {"records_matched": state["records_matched"], "claims_matched": state["claims_matched"],
+                 "claims_citing_candidates": state["claims_linked"], "limit_per_kind": policy.retrieval_limit,
+                 "fingerprint": state["fingerprint"]}
     token = _token(policy, question, provider, boundary, pinned, included, excluded, blocked,
-                   list(messages) if messages else None)
-    retrieval = {"records_matched": facts["matched"]["records"], "claims_matched": facts["matched"]["claims"],
-                 "claims_citing_candidates": facts["matched"]["claims_linked"], "limit_per_kind": policy.retrieval_limit}
+                   list(messages) if messages else None, retrieval)
     return ContextBundle(policy, question, provider, boundary, terms_of(question), tuple(pinned), tuple(included),
                          tuple(excluded), blocked, retrieval, messages, token)
 
