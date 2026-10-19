@@ -117,10 +117,14 @@ def test_provider_receives_exactly_the_approved_bundle_and_no_sentinel(client, p
     assert leaked == []
     user = provider[0]["messages"][1]["content"]
     payload = json.loads(user[user.index("{"):user.rindex("}") + 1])
-    assert [m["claim_id"] for m in payload["approved_memory"]] == [poisoned["memory"]["id"]]
-    evidence = [e["source_id"] for e in payload["evidence"]]
-    assert evidence == [i["id"] for i in plan["included"] if i["role"] == "evidence"] and poisoned["good"]["id"] in evidence
-    assert {i["id"] for i in plan["outbound"]["items"]} == {i["id"] for i in plan["included"]}
+    memory = [i["content"] for i in plan["included"] if i["role"] == "approved_memory"]
+    evidence = [i["content"] for i in plan["included"] if i["role"] == "evidence"]
+    assert [m["text"] for m in payload["approved_memory"]] == memory == [poisoned["memory"]["text"]]
+    assert [e["text"] for e in payload["evidence"]] == evidence and poisoned["good"]["content"] in evidence
+    assert [m["label"] for m in payload["approved_memory"]] == ["M1"]
+    assert [e["label"] for e in payload["evidence"]] == [f"E{n}" for n in range(1, len(evidence) + 1)]
+    assert {i["id"] for i in plan["outbound"]["items"]} == {i["id"] for i in plan["included"]}   # ids stay local...
+    assert [i["id"] for i in plan["included"] if i["id"] in sent] == []                        # ...and are never sent
 
 
 def test_every_excluded_item_has_the_right_reason(client, poisoned):
@@ -146,6 +150,127 @@ def test_evidence_text_cannot_impersonate_approved_memory_in_the_prompt(client, 
     assert payload["approved_memory"] == []                              # still only genuine approved claims
     assert payload["evidence"][0]["text"] == trick                       # the text arrives intact, as data
     assert ask(client, plan).status_code == 200
+
+
+# --- Durable ids never leave: the model sees request-scoped labels and authorised text only ------------
+
+# Records written as ADR-0002's restore accepted them (any text id), before the claims era.
+ADR0002_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, content TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'manual',
+        sensitivity TEXT NOT NULL CHECK(sensitivity IN ('private', 'sensitive')),
+        status TEXT NOT NULL CHECK(status IN ('active', 'superseded')), created_at TEXT NOT NULL, supersedes_id TEXT);
+    CREATE TABLE IF NOT EXISTS tombstones (id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL);
+"""
+LEGACY_IDS = [
+    "patients/alice-smith/therapy-notes?session=4&diagnosis=anxiety",      # "/", "?", meaningful text
+    "Bob Jones private diary 2023 % divorce",                              # spaces, "%"
+    "legal/settlement%20draft v2?final=yes",
+    "medical-history-of-carol-" * 12,                                      # long arbitrary text (> 200 characters)
+]
+LEGACY_TIME = "visit at the fertility clinic"                               # ADR-0002 accepted any created_at text
+
+
+@pytest.fixture
+def id_vault(tmp_path):
+    path = str(tmp_path / "adr0002.db")
+    db = sqlite3.connect(path)
+    db.executescript(ADR0002_SCHEMA)
+    for n, rid in enumerate(LEGACY_IDS):
+        db.execute("INSERT INTO records(id,content,source,sensitivity,status,created_at) VALUES (?,?,'manual','private','active',?)",
+                   (rid, f"Invented legacy note {n}: the Sovereign vault decision.", LEGACY_TIME if n == 0 else T))
+    db.commit()
+    db.close()
+    client = TestClient(create_app(path))                                  # migrates: legacy ids preserved exactly
+    current = note(client, "Invented current note: the Sovereign vault decision.")
+    unretrieved = note(client, "Invented note about bicycles, cited but not relevant.")
+    claims = [
+        decide(client, claim(client, [current, {"id": LEGACY_IDS[0]}], "Sovereign vault decision rests on two notes."), "approve"),
+        decide(client, claim(client, [current, unretrieved], "Sovereign vault decision also cites an unretrieved note."), "approve"),
+        decide(client, claim(client, [unretrieved], "Sovereign vault decision with no evidence in the bundle."), "approve"),
+    ]
+    return client, current, unretrieved, claims
+
+
+def durable_ids(client):
+    exported = client.app.state.vault.export()
+    ids = {r["id"] for r in exported["records"]} | {c["id"] for c in exported["claims"]}
+    ids |= {s for c in exported["claims"] for s in c["source_ids"]}
+    return ids
+
+
+def test_provider_messages_carry_no_durable_ids_only_labels_and_authorised_text(id_vault, provider):
+    client, current, unretrieved, claims = id_vault
+    plan = preview(client)
+    included = {i["id"] for i in plan["included"]}
+    assert set(LEGACY_IDS) | {current["id"]} | {c["id"] for c in claims} <= included    # all of them are in the plan
+    assert unretrieved["id"] not in included                                           # cited, but not in the bundle
+    resp = ask(client, plan)
+    assert resp.status_code == 200 and provider[0]["messages"] == plan["outbound"]["messages"]
+    blob = "\n".join(m["content"] for m in provider[0]["messages"])
+    ids = durable_ids(client)
+    assert len(ids) == len(LEGACY_IDS) + 2 + len(claims)
+    leaked = [i for i in ids if i in blob or json.dumps(i)[1:-1] in blob or (len(i) == 36 and i[:8] in blob)]
+    assert leaked == []                                                       # no id, escaped id or uuid prefix
+    assert LEGACY_TIME not in blob and "fertility" not in blob                          # nor arbitrary legacy metadata
+    # Only request-scoped labels and the authorised text reach the provider.
+    payload = json.loads(blob[blob.index("{"):blob.rindex("}") + 1])
+    evidence = [i for i in plan["included"] if i["role"] == "evidence"]
+    memory = [i for i in plan["included"] if i["role"] == "approved_memory"]
+    assert [e["label"] for e in payload["evidence"]] == [f"E{n}" for n in range(1, len(evidence) + 1)]
+    assert [m["label"] for m in payload["approved_memory"]] == [f"M{n}" for n in range(1, len(memory) + 1)]
+    assert [e["text"] for e in payload["evidence"]] == [i["content"] for i in evidence]
+    assert [m["text"] for m in payload["approved_memory"]] == [i["content"] for i in memory]
+    assert all(set(e) <= {"label", "text", "captured"} for e in payload["evidence"])
+    assert all(set(m) == {"label", "text", "evidence"} for m in payload["approved_memory"])
+    label_of = {i["id"]: f"E{n}" for n, i in enumerate(evidence, 1)}
+    for entry, item in zip(payload["approved_memory"], memory):
+        # Provenance runs through labels of evidence in the bundle; evidence outside it is not mentioned.
+        assert entry["evidence"] == sorted((label_of[s] for s in item["source_ids"] if s in label_of), key=lambda l: int(l[1:]))
+    by_text = {m["text"]: m["evidence"] for m in payload["approved_memory"]}
+    assert len(by_text["Sovereign vault decision rests on two notes."]) == 2
+    assert by_text["Sovereign vault decision also cites an unretrieved note."] == [label_of[current["id"]]]
+    assert by_text["Sovereign vault decision with no evidence in the bundle."] == []
+    assert "captured" not in payload["evidence"][[i["id"] for i in evidence].index(LEGACY_IDS[0])]
+
+
+def test_durable_ids_remain_visible_locally(id_vault, provider):
+    client, current, unretrieved, claims = id_vault
+    plan = preview(client)
+    local = json.dumps({k: plan[k] for k in ("included", "outbound")})
+    assert all(i in local for i in LEGACY_IDS + [current["id"]] + [c["id"] for c in claims])
+    receipt = ask(client, plan).json()["receipt"]
+    assert {i["id"] for i in receipt["included"]} == {i["id"] for i in plan["included"]}
+    claim_item = next(i for i in plan["included"] if i["id"] == claims[1]["id"])
+    assert set(claim_item["source_ids"]) == {current["id"], unretrieved["id"]}             # full provenance, locally
+    user = plan["outbound"]["messages"][1]["content"]
+    payload = json.loads(user[user.index("{"):user.rindex("}") + 1])
+    sent = {e["label"]: e["text"] for e in payload["evidence"] + payload["approved_memory"]}
+    assert sent == {i["label"]: i["content"] for i in plan["included"]}     # every cited label maps back to its item
+
+
+def test_verification_is_the_execution_point_and_no_vault_lock_spans_the_call(client, poisoned, monkeypatch):
+    """ADR-0004 linearization: the plan is recompiled and token-verified just before the provider call;
+    that verification is its execution point. No SQLite transaction is open during the network call,
+    and a change committed during it does not alter (or retroactively revoke) the bytes already authorised."""
+    monkeypatch.setattr(providers, "available", lambda: [{"id": "kimi", "ready": True}])
+    vault, sent = client.app.state.vault, []
+
+    def generate(p, messages):
+        db = sqlite3.connect(vault.path, timeout=0.2, isolation_level=None)
+        db.execute("BEGIN EXCLUSIVE")              # fails at once if any connection still holds a vault lock
+        db.execute("ROLLBACK")
+        db.close()
+        vault.delete(poisoned["good"]["id"])       # a Forget committing while the request is in flight
+        sent.append(messages)
+        return "ok"
+
+    monkeypatch.setattr(providers, "generate", generate)
+    plan = preview(client)
+    assert ask(client, plan).status_code == 200
+    assert sent == [plan["outbound"]["messages"]]                       # exactly the verified plan, nothing more
+    after = json.dumps(preview(client))
+    assert "ALLOWED-EVIDENCE" not in after and "ALLOWED-MEMORY" not in after   # the next plan reflects the Forget
+    assert ask(client, plan).status_code == 409                          # and the old approval no longer executes
 
 
 # --- Authority bypass -------------------------------------------------------------------------------

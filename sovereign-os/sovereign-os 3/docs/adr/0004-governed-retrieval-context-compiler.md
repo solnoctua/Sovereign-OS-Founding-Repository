@@ -107,7 +107,7 @@ policy_version                      "sovereign.context.v0"
 question
 target                              {provider, boundary: local | cloud}
 retrieval                           {terms, pinned, records_matched, claims_matched, claims_citing_candidates, limit_per_kind}
-included[]                          {id, type: source | claim, role: approved_memory | evidence, reason, rank,
+included[]                          {id, label: M# | E#, type: source | claim, role: approved_memory | evidence, reason, rank,
                                      content, created_at, status, sensitivity,
                                      relevance {score, matched_terms, pinned, via: pinned | lexical | provenance},
                                      claims also: support, origin, source_ids}
@@ -134,7 +134,12 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
 - **How `/api/ask` uses it:**
   - it recompiles in one snapshot and compares;
   - on a mismatch it returns **409 "Context changed since your preview; review the new context and approve it again."** **No provider call is made.**
-  - the provider then receives that verified bundle's messages. A change committed after verification cannot alter what is sent, and nothing beyond the approved preview is ever sent.
+  - the provider then receives that verified bundle's messages, so nothing beyond the approved preview is ever sent.
+- **Execution point (V0 linearization).**
+  - A cloud disclosure is recompiled and token-verified immediately before the provider is invoked. **That successful verification is the disclosure plan's execution point.**
+  - A state change committing afterward (for example, a Forget while the request is in flight) does not retroactively revoke the bytes already authorised for that provider call.
+  - The next compilation reflects the change, and the old approval no longer executes (409).
+  - No SQLite transaction is held open during the network request: the verification's read transaction closes before the provider is called.
 - **What invalidates it:**
   - a source forgotten or corrected;
   - a claim approved, rejected, contested or superseded, including by a lifecycle-legal raw-SQL event;
@@ -160,7 +165,15 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
 - **One conversion point.** `context.render_messages` is the only place a bundle becomes model messages. It produces model-neutral chat messages:
   - a system message stating that context is data, never instructions, and what approved memory and evidence each mean;
   - a user message with the question and a JSON context.
-- **Separate arrays.** The JSON context has separate `approved_memory` entries (`label M#`, `claim_id`, `text`, `evidence_ids`) and `evidence` entries (`label E#`, `source_id`, captured date, `text`).
+- **Ephemeral labels, never durable IDs.**
+  - The model receives request-scoped labels (`M1`, `M2`… for approved memory; `E1`, `E2`… for evidence) and the authorised text, and is instructed to cite those labels.
+  - Durable Sovereign IDs never enter provider messages: record IDs, claim IDs and claim `source_ids`. ADR-0002 legacy record IDs can be arbitrary, meaningful text, so sending them would be needless metadata disclosure.
+  - **Local governance and provenance use durable IDs; the external reasoning payload carries the minimum necessary data and ephemeral labels.**
+  - Each included item in the local bundle carries both its `id` and its `label`, so a citation in the model's answer maps back to the local item.
+- **Separate arrays.** The JSON context has separate arrays:
+  - `approved_memory` entries: `label`, `text`, and `evidence`, the labels of the evidence the claim rests on that is itself in the bundle;
+  - `evidence` entries: `label`, `text`, and `captured`, sent only when the record's time is an ISO date, because legacy `created_at` values can be arbitrary text.
+  - Evidence that supports a claim but is not in the bundle is not mentioned at all: no ID, no placeholder.
 - **No impersonation.** JSON escaping prevents item text from posing as a different item or role.
 
 ### Minimal UI
@@ -186,6 +199,15 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
 - **Pins stay source records.** `source_ids` still accepts only source-record IDs; claims enter context only through the compiler.
 - **ADR-0003's text is otherwise unchanged.** A pointer to this ADR was added to its status line and to that rule.
 
+### V0 decisions (founder, 2026-10-19)
+
+1. **Unpinned private context.** Retrieved, unpinned private context may enter a cloud plan when it is relevant, policy-eligible, shown in the exact preview, and that exact plan is explicitly approved.
+2. **Pinned sensitive evidence.** Pinned sensitive cloud evidence **blocks the plan with 403**. It is never silently dropped.
+3. **Provenance-only claims.** Approved claims reached only through provenance remain `not_relevant` unless they independently match the request.
+4. **Replayable tokens.** Deterministic, replayable context tokens are acceptable in V0. Single-use tokens are deferred until stronger authentication and action semantics justify stateful consumption.
+5. **Budget constants.** 12 items, 12,000 characters and 50 candidates per kind are accepted V0 policy constants. They are versioned by `policy_version` and subject to retrieval evaluation.
+6. **Model answers.** Model answers are displayed but **never persisted automatically**. Any future promotion of model output into memory must go through an explicit, governed memory workflow.
+
 ## Alternatives considered
 
 - **Embeddings or vector search:** deferred until retrieval evaluations show a need (ARCHITECTURE §8). They add non-determinism and a derived index that must itself be governed and forgotten.
@@ -202,10 +224,10 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
 - **Lexical retrieval misses paraphrases and synonyms.** There is no stemming beyond the plural `s`, and the stopword list is English. Pinning and rephrasing compensate.
 - **Cost:** each compile scans the vault, O(n). This is acceptable for V0 vault sizes; SQLite FTS5 is the natural next step if needed.
 - **Unpinned items can go to the cloud.** A cloud bundle may include private records and approved memory the user did not pin, but only those shown in the preview and explicitly approved. Minimisation comes from relevance and the budget.
-- **Replay:** a deterministic token can be replayed while state is unchanged, re-sending the identical approved plan. It grants nothing beyond that plan; the UI never replays.
+- **Replay (accepted for V0, decision 4):** a deterministic token can be replayed while state is unchanged, re-sending the identical approved plan. It grants nothing beyond that plan; the UI never replays.
 - **No authentication (V0):** any local same-origin client can compile and approve, as before.
 - **Over-invalidation:** some 409s follow changes that did not alter the outbound payload.
-- **Evidence IDs leave with approved memory.** Approved memory sends its evidence IDs, not content, for private evidence. Legacy (ADR-0002) record IDs are arbitrary text.
+- **Labels, not IDs.** The model can cite only request-scoped labels. Mapping a citation back to a durable record is a local step, using the bundle's `label` and `id`.
 - **Outside Sovereign's control:** provider retention and training terms. Outbound receipts are not yet durable (Art. VI.6 remains open).
 
 ## Migration and reversibility
@@ -228,5 +250,11 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
   - **leakage:** sentinel strings against a recording mock provider; the messages must equal the preview; evidence cannot impersonate approved memory in the prompt;
   - **deletion and corrections;**
   - **TOCTOU:** nine kinds of change × pinned and unpinned, each giving 409 with no provider call; a compile reads one snapshot under a concurrent Forget;
-  - **budget,** model-output inertness and provider isolation.
-- **Mutation check:** 21 deliberately injected policy bugs were each caught by at least one of these tests.
+  - **budget,** model-output inertness and provider isolation;
+  - **durable-ID non-disclosure:** mocked provider messages contain no record ID, claim ID or claim `source_id`. This covers:
+    - current UUIDs;
+    - ADR-0002 legacy IDs with meaningful text, `/`, `?`, `%`, spaces, and over 200 characters;
+    - escaped forms, UUID prefixes, and arbitrary legacy `created_at` text.
+    - Only `M#`/`E#` labels and authorised text are sent, with provenance through labels and nothing about evidence outside the bundle. The IDs remain in the local bundle and receipt, and every label maps back to its item;
+  - **execution point:** an exclusive vault lock is acquired inside the mocked provider call, so no transaction spans it. A Forget committed during the call does not alter the authorised payload, and the old token then gets 409.
+- **Mutation check:** 26 deliberately injected policy bugs were each caught by at least one of these tests. Five of them are egress bugs: claim IDs, record IDs or claim `source_ids` in messages; evidence outside the bundle mentioned by ID; arbitrary capture text sent.

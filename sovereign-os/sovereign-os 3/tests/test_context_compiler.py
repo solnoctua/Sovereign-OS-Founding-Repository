@@ -178,9 +178,13 @@ def test_source_and_claim_stay_distinguishable_in_bundle_and_prompt(client, acce
     assert roles[acceptance["a"]["id"]] == ("source", "evidence")
     user = plan["outbound"]["messages"][1]["content"]
     payload = json.loads(user[user.index("{"):user.rindex("}") + 1])
-    assert [m["claim_id"] for m in payload["approved_memory"]] == [acceptance["memory"]["id"]]
-    assert [e["source_id"] for e in payload["evidence"]] == [acceptance["a"]["id"]]
-    assert payload["approved_memory"][0]["evidence_ids"] == [acceptance["a"]["id"]]
+    # The model sees request-scoped labels and the authorised text; provenance runs through labels.
+    assert payload["approved_memory"] == [{"label": "M1", "text": acceptance["memory"]["text"], "evidence": ["E1"]}]
+    assert payload["evidence"] == [{"label": "E1", "text": acceptance["a"]["content"],
+                                    "captured": acceptance["a"]["created_at"][:10]}]
+    sent = json.dumps(plan["outbound"]["messages"])
+    assert acceptance["memory"]["id"] not in sent and acceptance["a"]["id"] not in sent      # durable ids stay local
+    assert [i["id"] for i in plan["outbound"]["items"]] == [acceptance["memory"]["id"], acceptance["a"]["id"]]
     assert "APPROVED MEMORY" in plan["outbound"]["messages"][0]["content"]
 
 
