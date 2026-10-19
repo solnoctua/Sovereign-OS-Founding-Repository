@@ -1,0 +1,86 @@
+name: Sovereign CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sovereign-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-test-suite:
+    name: full-test-suite
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: "sovereign-os/sovereign-os 3"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: "sovereign-os/sovereign-os 3/pyproject.toml"
+
+      - name: Install Sovereign
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Run complete test suite
+        run: pytest -q
+
+      - name: Compile source and tests
+        run: python -m compileall -q src tests
+
+      - name: Check diff whitespace
+        if: github.event_name == 'pull_request'
+        working-directory: .
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: git diff --check "$BASE_SHA...$HEAD_SHA"
+
+  memory-adversarial:
+    name: memory-adversarial
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: "sovereign-os/sovereign-os 3"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: "sovereign-os/sovereign-os 3/pyproject.toml"
+
+      - name: Install Sovereign
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: Check adversarial suite exists
+        run: test -d tests/adversarial
+
+      - name: Run MemoryClaim adversarial suite
+        run: pytest -q tests/adversarial

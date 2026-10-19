@@ -36,3 +36,24 @@ After editing:
 Routine, reversible changes may use a single builder. Independent review is required for changes involving personal-state schemas/migrations, authorization or cloud disclosure, security boundaries, deletion/recovery, model/provider contracts, major dependencies, architectural decisions, or Constitution/governance files.
 
 Do not merge consequential changes solely because an AI reviewer approves them. Evidence, tests, and founder approval govern consequential decisions.
+
+## Code Review Rules
+
+Durable Sovereign invariants. In changes touching memory authority, deletion, restore/import, schema migration, or disclosure boundaries, treat any violation as a merge blocker.
+
+### Memory authority
+
+- Flag any path by which model-generated, imported, restored, replaced, synchronized, or lower-level storage data can become authoritative personal memory without the explicitly permitted human/trusted-restore transition.
+- Authority must never silently increase because of import, replacement, synchronization, deletion, source-link mutation, stale-data restoration, or identifier reuse.
+- Stable record and claim IDs identify immutable historical objects. Corrections create new identities connected through explicit provenance/supersession.
+
+### Forget and recovery
+
+- Flag any Forget/delete path that leaves or recreates dependent derived personal information that the operation promises to forget.
+- Tombstones must dominate stale/live copies during merge, import, restore, and synchronization.
+- Every export successfully produced by Sovereign must be internally coherent and restorable by the same supported software version.
+
+### Storage and history integrity
+
+- Flag raw SQL, upsert, REPLACE, cascade, or concurrency paths that can mutate immutable evidence/claims, erase decision history, alter source provenance, reactivate terminal states, or produce unreplayable histories.
+- Memory authority transitions must remain legal when bypassing the HTTP/API layer.
