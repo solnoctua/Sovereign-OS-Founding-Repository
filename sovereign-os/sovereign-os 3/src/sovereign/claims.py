@@ -26,7 +26,9 @@ TRANSITIONS: dict[str, frozenset[str]] = {
     "superseded": frozenset(),
 }
 
-MAX_TEXT, MAX_NOTE, MAX_SOURCES, MAX_HISTORY = 2000, 500, 8, 100
+# Creation-time limits, also enforced by storage CHECKs/triggers so every stored claim is restorable.
+# There is deliberately no limit on history length: approve/contest cycles are legitimate and unbounded.
+MAX_TEXT, MAX_NOTE, MAX_SOURCES = 2000, 500, 8
 
 
 class TransitionError(ValueError):
@@ -65,9 +67,17 @@ def is_authoritative(status: str, support: str) -> bool:
 
 
 def validate_history(history: list, origin: str, status: str) -> None:
-    """Check that a backup's event history is a legal lifecycle ending at `status`."""
-    if not isinstance(history, list) or not 0 < len(history) <= MAX_HISTORY:
+    """Check that a backup's event history is a legal lifecycle ending at `status`.
+
+    An empty history is accepted only for a `proposed` claim (a claim row stored without its
+    creation event can exist, but can never have changed status).
+    """
+    if not isinstance(history, list):
         raise ValueError("Invalid claim history.")
+    if not history:
+        if status != "proposed":
+            raise ValueError("Claim status does not match its history.")
+        return
     previous = None
     for event in history:
         if not isinstance(event, dict):

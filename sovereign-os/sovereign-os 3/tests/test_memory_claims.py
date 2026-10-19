@@ -240,8 +240,8 @@ def test_trusted_restore_preserves_state_and_history(client,tmp_path):
     snapshot=client.get("/api/export").json()
     assert snapshot["schema"]=="sovereign.v0.records.2" and len(snapshot["claims"])==6
     second=TestClient(create_app(str(tmp_path / "new.db")))
-    assert restore(second,snapshot)=={"imported":2,"claims_restored":6,"approved_claims_restored":1,
-                                      "claims_skipped_existing":0,"claims_forgotten":0}
+    assert restore(second,snapshot)=={"imported":2,"records_skipped":0,"claims_restored":6,"approved_claims_restored":1,
+                                      "claims_skipped_existing":0,"claims_skipped_conflict":0,"claims_forgotten":0}
     assert claims(second)==before
     assert restore(second,snapshot)["claims_skipped_existing"]==6
     assert claims(second)==before
@@ -256,9 +256,11 @@ def test_ordinary_import_never_grants_authority(client,tmp_path):
     snapshot=client.get("/api/export").json()
     second=TestClient(create_app(str(tmp_path / "new.db")))
     result=second.post("/api/import",json=snapshot).json()
-    assert result=={"imported":2,"claims_imported_as_proposed":4,"claims_skipped":2}
+    assert result=={"imported":2,"records_skipped":0,"claims_imported_as_proposed":4,"claims_skipped":2}
     now=claims(second)
-    assert set(now)=={made[k]["id"] for k in ("proposed","contested","approved","replacement")}
+    # Imported claims get fresh namespaced ids: a file can never occupy a genuine claim's id.
+    assert not set(now) & {c["id"] for c in made.values()}
+    assert sorted(c["text"] for c in now.values())==sorted(made[k]["text"] for k in ("proposed","contested","approved","replacement"))
     assert all(c["status"]=="proposed" and c["origin"]=="imported" and not c["authoritative"] for c in now.values())
     assert made["rejected"]["id"] not in now and made["superseded"]["id"] not in now
     assert all(statuses(c)==[(None,"proposed","imported")] and "not trusted" in c["history"][0]["note"] for c in now.values())
@@ -311,7 +313,7 @@ def test_existing_vault_migrates_without_touching_evidence(tmp_path):
                                       db.execute("SELECT * FROM tombstones").fetchall()); db.close()
     vault=Vault(path)
     db=sqlite3.connect(path)
-    assert db.execute("PRAGMA user_version").fetchone()[0]==SCHEMA_VERSION==2
+    assert db.execute("PRAGMA user_version").fetchone()[0]==SCHEMA_VERSION==3
     assert (db.execute("SELECT * FROM records ORDER BY id").fetchall(),db.execute("SELECT * FROM tombstones").fetchall())==before
     db.close()
     assert [r["id"] for r in vault.search()]==["r2"] and vault.list_claims()==[]
@@ -335,6 +337,7 @@ def test_migration_rolls_back_on_failure(tmp_path,monkeypatch):
 
 @pytest.mark.parametrize("setup,match",[(f"PRAGMA user_version={SCHEMA_VERSION+1}","newer"),
                                         ("PRAGMA user_version=1","pre-release"),
+                                        ("PRAGMA user_version=2","pre-release"),
                                         ("CREATE TABLE claims (id TEXT)","pre-release")])
 def test_newer_and_prerelease_vaults_are_refused(tmp_path,setup,match):
     path=base_vault(str(tmp_path / "v.db"))

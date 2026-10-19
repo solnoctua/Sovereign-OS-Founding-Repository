@@ -102,7 +102,8 @@ async function init(){
   try{const payload=JSON.parse(await file.text());
    if(trusted&&!confirm("Trusted restore: only for your own Sovereign backup. It restores prior approvals and applies its deletions to this vault. Continue?"))return;
    const r=trusted?await api("/api/restore",{method:"POST",body:JSON.stringify({confirm_trusted_restore:true,backup:payload})}):await api("/api/import",{method:"POST",body:JSON.stringify(payload)});
-   await refresh();setStatus(trusted?`Restored ${r.imported} records and ${r.claims_restored} claims (${r.approved_claims_restored} approved).`:`Imported ${r.imported} records; ${r.claims_imported_as_proposed} claims arrived as unverified proposals.`)}
+   const skipped=r.records_skipped?` ${r.records_skipped} records were skipped because they would replace, resurrect or re-support existing evidence.`:"";
+   await refresh();setStatus((trusted?`Restored ${r.imported} records and ${r.claims_restored} claims (${r.approved_claims_restored} approved).`:`Imported ${r.imported} records; ${r.claims_imported_as_proposed} claims arrived as unverified proposals.`)+skipped)}
   catch(e){setStatus(e.message,true)}};
  $("import").addEventListener("click",()=>loadFile(false));$("restore").addEventListener("click",()=>loadFile(true));
  $("ask").addEventListener("click",async()=>{

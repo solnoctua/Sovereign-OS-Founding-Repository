@@ -14,18 +14,27 @@ including backups/WAL is NOT provided.
 from __future__ import annotations
 
 from contextlib import contextmanager
-import hashlib
 from datetime import datetime, timezone
+import hashlib
+import json
 from pathlib import Path
 import sqlite3
-from typing import Iterator
-from uuid import uuid4
+from typing import Iterator, Mapping
+from uuid import UUID, uuid4, uuid5
 
 from . import claims as rules
 
-# PRAGMA user_version. 0 = records-only vaults (ADR-0002). 1 = unreleased draft (c847f9d).
-SCHEMA_VERSION = 2
+# PRAGMA user_version. 0 = records-only vaults (ADR-0002). 1, 2 = unreleased drafts (c847f9d, 708e9de).
+SCHEMA_VERSION = 3
 EXPORT_SCHEMAS = ("sovereign.v0.records.1", "sovereign.v0.records.2")
+# One explicit size policy shared by export, import and restore: anything export produces is restorable.
+MAX_BACKUP_BYTES = 128 * 1024 * 1024
+MAX_ID, MAX_CONTENT, MAX_SOURCE = 200, 10000, 200
+# Ordinary import gives claims deterministic ids in this namespace, so a file can never occupy
+# (squat) the id of a genuine claim and block its later trusted restore.
+IMPORT_NAMESPACE = UUID("8a6c9a1e-5b7d-4f3e-9d2a-0c1b2e3f4a5b")
+# What a claim link pins: everything that identifies the evidence except its revision status.
+EVIDENCE_FIELDS = ("id", "content", "source", "sensitivity", "created_at", "supersedes_id")
 
 BASE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS records (
@@ -51,87 +60,99 @@ def _abort(message: str) -> str:
 
 _ALLOWED = ", ".join(f"'{key}'" for key in rules.transition_keys())
 _TERMINAL = ", ".join(f"'{s}'" for s, targets in rules.TRANSITIONS.items() if not targets)
-_TOMBSTONED = "EXISTS (SELECT 1 FROM claim_tombstones WHERE id = {})"
+_CLAIM_FORGOTTEN = "EXISTS (SELECT 1 FROM claim_tombstones WHERE id = {})"
+_RECORD_FORGOTTEN = "EXISTS (SELECT 1 FROM tombstones WHERE id = {})"
 
-# Version 2: additive only. Existing `records`/`tombstones` rows are untouched.
-# These triggers are the storage contract (ADR-0003): they hold for any connection
-# issuing INSERT/UPDATE/DELETE, but not against schema changes (DROP TRIGGER) or
-# direct file edits by a process that already controls the vault file.
+# Version 3: additive only. Existing `records`/`tombstones` rows are untouched.
+# These triggers are the storage contract (ADR-0003). They hold for any connection issuing
+# INSERT/UPDATE/DELETE, including OR REPLACE / upsert forms (every insert path is checked by a
+# BEFORE INSERT trigger, which runs before SQLite's REPLACE deletes), with or without
+# PRAGMA foreign_keys/recursive_triggers. They do not hold against schema changes
+# (DROP TRIGGER) or direct file edits by a process that already controls the vault file.
 CLAIMS_SCHEMA = f"""
-    -- Evidence is immutable apart from active -> superseded (correction), and forgotten ids stay forgotten.
-    CREATE TRIGGER records_immutable BEFORE UPDATE OF id, content, source, sensitivity, created_at, supersedes_id ON records
-    {_abort('source records are immutable evidence')}
-    CREATE TRIGGER records_status_forward BEFORE UPDATE OF status ON records
-    WHEN NOT (OLD.status = 'active' AND NEW.status = 'superseded')
-    {_abort('a source record can only move from active to superseded')}
-    CREATE TRIGGER records_not_resurrected BEFORE INSERT ON records
-    WHEN EXISTS (SELECT 1 FROM tombstones WHERE id = NEW.id)
-    {_abort('record id was forgotten')}
-    CREATE TRIGGER tombstones_no_update BEFORE UPDATE ON tombstones {_abort('tombstones are permanent')}
-    CREATE TRIGGER tombstones_no_delete BEFORE DELETE ON tombstones {_abort('tombstones are permanent')}
-
     CREATE TABLE claims (
-        id TEXT PRIMARY KEY,
-        text TEXT NOT NULL,
+        id TEXT PRIMARY KEY CHECK(typeof(id) = 'text' AND length(id) BETWEEN 1 AND {MAX_ID}),
+        text TEXT NOT NULL CHECK(typeof(text) = 'text' AND length(text) BETWEEN 1 AND {rules.MAX_TEXT}),
         origin TEXT NOT NULL CHECK(origin IN ('human', 'model', 'imported')),
         status TEXT NOT NULL CHECK(status IN ('proposed', 'approved', 'rejected', 'contested', 'superseded')),
-        created_at TEXT NOT NULL,
-        supersedes_id TEXT
+        created_at TEXT NOT NULL CHECK(typeof(created_at) = 'text'),
+        supersedes_id TEXT,
+        CHECK(supersedes_id IS NULL OR (typeof(supersedes_id) = 'text' AND supersedes_id <> id))
     );
     -- No foreign key to records: the link must survive so support can derive as orphaned.
     -- evidence_sha256 pins the exact evidence the claim was made from (NULL = never seen).
+    -- No ON DELETE CASCADE anywhere: claim rows are removed only by the forget trigger below.
     CREATE TABLE claim_sources (
-        claim_id TEXT NOT NULL REFERENCES claims(id) ON DELETE CASCADE,
-        record_id TEXT NOT NULL,
-        evidence_sha256 TEXT CHECK(evidence_sha256 IS NULL OR length(evidence_sha256) = 64),
+        claim_id TEXT NOT NULL REFERENCES claims(id),
+        record_id TEXT NOT NULL CHECK(typeof(record_id) = 'text' AND length(record_id) BETWEEN 1 AND {MAX_ID}),
+        evidence_sha256 TEXT CHECK(evidence_sha256 IS NULL OR (typeof(evidence_sha256) = 'text' AND length(evidence_sha256) = 64)),
         PRIMARY KEY (claim_id, record_id)
     );
     -- Append-only decision history (the V0 form of MemoryPromotionDecision).
     CREATE TABLE claim_events (
-        seq INTEGER PRIMARY KEY AUTOINCREMENT,
-        claim_id TEXT NOT NULL REFERENCES claims(id) ON DELETE CASCADE,
+        seq INTEGER PRIMARY KEY AUTOINCREMENT CHECK(seq > 0),
+        claim_id TEXT NOT NULL REFERENCES claims(id),
         from_status TEXT,
         to_status TEXT NOT NULL,
         actor TEXT NOT NULL CHECK(actor IN ('human', 'model', 'imported')),
-        note TEXT,
-        at TEXT NOT NULL,
+        note TEXT CHECK(note IS NULL OR (typeof(note) = 'text' AND length(note) <= {rules.MAX_NOTE})),
+        at TEXT NOT NULL CHECK(typeof(at) = 'text'),
         CHECK((from_status IS NULL) = (to_status = 'proposed')),
         CHECK(from_status IS NULL OR actor = 'human')
     );
+    CREATE TABLE claim_tombstones (
+        id TEXT PRIMARY KEY CHECK(typeof(id) = 'text'),
+        deleted_at TEXT NOT NULL CHECK(typeof(deleted_at) = 'text')
+    );
+    CREATE INDEX ix_claims_supersedes ON claims(supersedes_id);
     CREATE INDEX ix_claim_events_claim ON claim_events(claim_id, seq);
     CREATE INDEX ix_claim_sources_record ON claim_sources(record_id);
-    CREATE TABLE claim_tombstones (
-        id TEXT PRIMARY KEY,
-        deleted_at TEXT NOT NULL
-    );
+    CREATE INDEX IF NOT EXISTS ix_records_supersedes ON records(supersedes_id);
 
-    -- Claims: born proposed, immutable, never reusing a forgotten id, removed only by forgetting.
+    -- Claims: born proposed, never replaced, immutable, never reusing a forgotten id, linear
+    -- supersession (a replacement needs an already-superseded or absent predecessor; a claim
+    -- cannot appear after its replacement, which also rules out cycles), removed only by forgetting.
+    CREATE TRIGGER claims_no_replace BEFORE INSERT ON claims WHEN EXISTS (SELECT 1 FROM claims WHERE id = NEW.id)
+    {_abort('claim id already exists; claims are never replaced')}
     CREATE TRIGGER claims_created_proposed BEFORE INSERT ON claims WHEN NEW.status <> 'proposed'
     {_abort('claims must be created as proposed')}
-    CREATE TRIGGER claims_not_resurrected BEFORE INSERT ON claims WHEN {_TOMBSTONED.format('NEW.id')}
+    CREATE TRIGGER claims_not_resurrected BEFORE INSERT ON claims WHEN {_CLAIM_FORGOTTEN.format('NEW.id')}
     {_abort('claim id was forgotten')}
+    CREATE TRIGGER claims_linear_supersession BEFORE INSERT ON claims WHEN
+        EXISTS (SELECT 1 FROM claims WHERE supersedes_id = NEW.id)
+        OR (NEW.supersedes_id IS NOT NULL AND (
+            EXISTS (SELECT 1 FROM claims WHERE supersedes_id = NEW.supersedes_id)
+            OR EXISTS (SELECT 1 FROM claims WHERE id = NEW.supersedes_id AND status <> 'superseded')))
+    {_abort('invalid claim supersession')}
     CREATE TRIGGER claims_immutable BEFORE UPDATE OF id, text, origin, created_at, supersedes_id ON claims
     {_abort('claims are immutable; supersede instead')}
     CREATE TRIGGER claims_status_recorded BEFORE UPDATE OF status ON claims
     WHEN NEW.status IS NOT (SELECT to_status FROM claim_events WHERE claim_id = NEW.id ORDER BY seq DESC LIMIT 1)
       OR (OLD.status IN ({_TERMINAL}) AND NEW.status IS NOT OLD.status)
     {_abort('claim status changes only through a recorded legal event')}
-    CREATE TRIGGER claims_delete_forgotten_only BEFORE DELETE ON claims WHEN NOT {_TOMBSTONED.format('OLD.id')}
+    CREATE TRIGGER claims_removed_only_by_forgetting BEFORE DELETE ON claims WHEN NOT {_CLAIM_FORGOTTEN.format('OLD.id')}
     {_abort('claims are removed only by forgetting (claim tombstone)')}
 
-    -- Evidence links are fixed when the claim's creation event is written.
+    -- Evidence links are fixed when the claim's creation event is written, and never cite forgotten evidence.
+    CREATE TRIGGER claim_sources_no_replace BEFORE INSERT ON claim_sources
+    WHEN EXISTS (SELECT 1 FROM claim_sources WHERE claim_id = NEW.claim_id AND record_id = NEW.record_id)
+    {_abort('claim evidence links are never replaced')}
     CREATE TRIGGER claim_sources_fixed_insert BEFORE INSERT ON claim_sources
     WHEN NOT EXISTS (SELECT 1 FROM claims WHERE id = NEW.claim_id)
       OR EXISTS (SELECT 1 FROM claim_events WHERE claim_id = NEW.claim_id)
-    {_abort('claim evidence links are fixed at creation')}
+      OR (SELECT count(*) FROM claim_sources WHERE claim_id = NEW.claim_id) >= {rules.MAX_SOURCES}
+      OR {_RECORD_FORGOTTEN.format('NEW.record_id')}
+    {_abort('claim evidence links are fixed at creation and cannot cite forgotten evidence')}
     CREATE TRIGGER claim_sources_fixed_update BEFORE UPDATE ON claim_sources
     {_abort('claim evidence links are fixed at creation')}
-    CREATE TRIGGER claim_sources_fixed_delete BEFORE DELETE ON claim_sources WHEN NOT {_TOMBSTONED.format('OLD.claim_id')}
+    CREATE TRIGGER claim_sources_fixed_delete BEFORE DELETE ON claim_sources WHEN NOT {_CLAIM_FORGOTTEN.format('OLD.claim_id')}
     {_abort('claim evidence links are fixed at creation')}
 
     -- History: one creation event by the claim's origin, then legal human transitions from the
     -- *current* status (compare-and-set: a stale concurrent decision aborts). Inserting an event is
-    -- the only way to change a claim's status.
+    -- the only way to change a claim's status; events are never replaced, edited or deleted.
+    CREATE TRIGGER claim_events_no_replace BEFORE INSERT ON claim_events WHEN EXISTS (SELECT 1 FROM claim_events WHERE seq = NEW.seq)
+    {_abort('claim history is never replaced')}
     CREATE TRIGGER claim_events_creation BEFORE INSERT ON claim_events WHEN NEW.from_status IS NULL AND (
         NOT EXISTS (SELECT 1 FROM claims WHERE id = NEW.claim_id AND status = 'proposed' AND origin = NEW.actor)
         OR EXISTS (SELECT 1 FROM claim_events WHERE claim_id = NEW.claim_id)
@@ -146,11 +167,12 @@ CLAIMS_SCHEMA = f"""
     CREATE TRIGGER claim_events_apply AFTER INSERT ON claim_events WHEN NEW.from_status IS NOT NULL
     BEGIN UPDATE claims SET status = NEW.to_status WHERE id = NEW.claim_id; END;
     CREATE TRIGGER claim_events_no_update BEFORE UPDATE ON claim_events {_abort('claim history is append-only')}
-    CREATE TRIGGER claim_events_no_delete BEFORE DELETE ON claim_events WHEN NOT {_TOMBSTONED.format('OLD.claim_id')}
+    CREATE TRIGGER claim_events_no_delete BEFORE DELETE ON claim_events WHEN NOT {_CLAIM_FORGOTTEN.format('OLD.claim_id')}
     {_abort('claim history is append-only')}
 
-    -- Forgetting a claim = writing its tombstone; the claim, links and history go with it
-    -- (explicit deletes, so this does not depend on PRAGMA foreign_keys).
+    -- Forgetting a claim = writing its tombstone; the claim, links and history go with it.
+    CREATE TRIGGER claim_tombstones_idempotent BEFORE INSERT ON claim_tombstones WHEN {_CLAIM_FORGOTTEN.format('NEW.id')}
+    BEGIN SELECT RAISE(IGNORE); END;
     CREATE TRIGGER claim_tombstones_forget AFTER INSERT ON claim_tombstones BEGIN
         DELETE FROM claim_events WHERE claim_id = NEW.id;
         DELETE FROM claim_sources WHERE claim_id = NEW.id;
@@ -158,15 +180,105 @@ CLAIMS_SCHEMA = f"""
     END;
     CREATE TRIGGER claim_tombstones_no_update BEFORE UPDATE ON claim_tombstones {_abort('tombstones are permanent')}
     CREATE TRIGGER claim_tombstones_no_delete BEFORE DELETE ON claim_tombstones {_abort('tombstones are permanent')}
+
+    -- Evidence: insert-only identity (never replaced or resurrected, never introduced under an id that
+    -- claims already cite or after its own correction), immutable apart from being superseded by an
+    -- inserted correction, strictly linear lineage, removed only by forgetting.
+    CREATE TRIGGER records_well_formed BEFORE INSERT ON records WHEN
+        typeof(NEW.id) <> 'text' OR length(NEW.id) NOT BETWEEN 1 AND {MAX_ID}
+        OR typeof(NEW.content) <> 'text' OR length(NEW.content) NOT BETWEEN 1 AND {MAX_CONTENT}
+        OR typeof(NEW.source) <> 'text' OR length(NEW.source) NOT BETWEEN 1 AND {MAX_SOURCE}
+        OR typeof(NEW.created_at) <> 'text'
+        OR (NEW.supersedes_id IS NOT NULL AND typeof(NEW.supersedes_id) <> 'text')
+    {_abort('malformed source record')}
+    CREATE TRIGGER records_no_replace BEFORE INSERT ON records WHEN EXISTS (SELECT 1 FROM records WHERE id = NEW.id)
+    {_abort('record id already exists; evidence is never replaced')}
+    CREATE TRIGGER records_not_resurrected BEFORE INSERT ON records WHEN {_RECORD_FORGOTTEN.format('NEW.id')}
+    {_abort('record id was forgotten')}
+    CREATE TRIGGER records_not_after_claims BEFORE INSERT ON records
+    WHEN EXISTS (SELECT 1 FROM claim_sources WHERE record_id = NEW.id)
+    {_abort('evidence cannot appear after claims that cite it')}
+    CREATE TRIGGER records_not_after_correction BEFORE INSERT ON records
+    WHEN EXISTS (SELECT 1 FROM records WHERE supersedes_id = NEW.id)
+    {_abort('a record cannot appear after its correction')}
+    CREATE TRIGGER records_linear_lineage BEFORE INSERT ON records WHEN NEW.supersedes_id IS NOT NULL AND (
+        NEW.supersedes_id = NEW.id OR EXISTS (SELECT 1 FROM records WHERE supersedes_id = NEW.supersedes_id))
+    {_abort('a record is corrected at most once and never by itself')}
+    CREATE TRIGGER records_correction_supersedes AFTER INSERT ON records WHEN NEW.supersedes_id IS NOT NULL
+    BEGIN UPDATE records SET status = 'superseded' WHERE id = NEW.supersedes_id AND status = 'active'; END;
+    CREATE TRIGGER records_immutable BEFORE UPDATE OF id, content, source, sensitivity, created_at, supersedes_id ON records
+    {_abort('source records are immutable evidence')}
+    CREATE TRIGGER records_superseded_only_by_correction BEFORE UPDATE OF status ON records
+    WHEN NOT (OLD.status = 'active' AND NEW.status = 'superseded'
+              AND EXISTS (SELECT 1 FROM records WHERE supersedes_id = OLD.id))
+    {_abort('evidence is superseded only by inserting its correction')}
+    CREATE TRIGGER records_removed_only_by_forgetting BEFORE DELETE ON records WHEN NOT {_RECORD_FORGOTTEN.format('OLD.id')}
+    {_abort('records are removed only by forgetting (tombstone)')}
+
+    -- Forgetting evidence = writing its tombstone: the record and every claim citing it go with it.
+    CREATE TRIGGER tombstones_well_formed BEFORE INSERT ON tombstones
+    WHEN typeof(NEW.id) <> 'text' OR typeof(NEW.deleted_at) <> 'text'
+    {_abort('malformed tombstone')}
+    CREATE TRIGGER tombstones_idempotent BEFORE INSERT ON tombstones WHEN {_RECORD_FORGOTTEN.format('NEW.id')}
+    BEGIN SELECT RAISE(IGNORE); END;
+    CREATE TRIGGER tombstones_forget AFTER INSERT ON tombstones BEGIN
+        INSERT INTO claim_tombstones(id, deleted_at)
+            SELECT DISTINCT claim_id, NEW.deleted_at FROM claim_sources WHERE record_id = NEW.id;
+        DELETE FROM records WHERE id = NEW.id;
+    END;
+    CREATE TRIGGER tombstones_no_update BEFORE UPDATE ON tombstones {_abort('tombstones are permanent')}
+    CREATE TRIGGER tombstones_no_delete BEFORE DELETE ON tombstones {_abort('tombstones are permanent')}
 """
 
 
-def evidence_hash(content: str) -> str:
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+def evidence_hash(record: Mapping) -> str:
+    """Fingerprint of a record's identity: id, content, provenance, sensitivity, time and lineage."""
+    canonical = json.dumps([record[k] for k in EVIDENCE_FIELDS], ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def stamp() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _is_text(value, low: int = 0, high: int | None = None) -> bool:
+    return isinstance(value, str) and low <= len(value) and (high is None or len(value) <= high)
+
+
+def _lineage_order(items: list[dict], final_status) -> list[dict]:
+    """Validate a payload's supersession lineage and order it predecessors-first.
+
+    V0 lineage is linear: no self-supersession, at most one successor per item, no cycles,
+    and an item superseded by another item in the same payload must itself be `superseded`.
+    """
+    by_id: dict[str, dict] = {}
+    for item in items:
+        if item["id"] in by_id:
+            raise ValueError("Duplicate id in import.")
+        by_id[item["id"]] = item
+    successor: dict[str, str] = {}
+    for item in items:
+        predecessor = item["supersedes_id"]
+        if predecessor is None:
+            continue
+        if predecessor == item["id"]:
+            raise ValueError("Self-supersession in import.")
+        if predecessor in successor:
+            raise ValueError("Multiple successors for one item in import.")
+        successor[predecessor] = item["id"]
+        if predecessor in by_id and final_status(by_id[predecessor]) != "superseded":
+            raise ValueError("An item with a successor in the import must be superseded.")
+    ordered = []
+    for item in items:
+        if item["supersedes_id"] in by_id:
+            continue  # not a chain start
+        node = item
+        while node is not None:
+            ordered.append(node)
+            node = by_id.get(successor.get(node["id"]))
+    if len(ordered) != len(items):
+        raise ValueError("Cyclic supersession in import.")
+    return ordered
 
 
 class Vault:
@@ -202,21 +314,30 @@ class Vault:
 
     @contextmanager
     def connection(self, write: bool = False) -> Iterator[sqlite3.Connection]:
-        db = sqlite3.connect(self.path, timeout=10)
+        """One SQLite transaction per operation.
+
+        Writes take the write lock up front (BEGIN IMMEDIATE) so read-check-write is atomic
+        across processes; reads run in one read transaction, so a multi-query read such as an
+        export observes a single consistent snapshot rather than a mixture of states.
+        """
+        db = sqlite3.connect(self.path, timeout=10, isolation_level=None)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA secure_delete=ON")
         db.execute("PRAGMA foreign_keys=ON")
-        if write:
-            # Take the write lock before reading, so read-check-write is atomic across processes.
-            db.execute("BEGIN IMMEDIATE")
+        db.execute("BEGIN IMMEDIATE" if write else "BEGIN")
         try:
             yield db
-            db.commit()
-        except Exception:
-            db.rollback()
+            db.execute("COMMIT")
+        except BaseException:
+            if db.in_transaction:
+                db.execute("ROLLBACK")
             raise
         finally:
             db.close()
+
+    @staticmethod
+    def _exists(db: sqlite3.Connection, sql: str, *args) -> bool:
+        return db.execute(sql, args).fetchone() is not None
 
     @staticmethod
     def _record(row: sqlite3.Row) -> dict:
@@ -224,21 +345,18 @@ class Vault:
 
     def add(self, content: str, sensitivity: str = "private", supersedes_id: str | None = None) -> dict:
         content = content.strip()
-        if not content or len(content) > 10000:
+        if not content or len(content) > MAX_CONTENT:
             raise ValueError("Text must be between 1 and 10,000 characters.")
         if sensitivity not in {"private", "sensitive"}:
             raise ValueError("Invalid sensitivity.")
         record_id = str(uuid4())
         with self.connection(write=True) as db:
-            if supersedes_id:
-                old = db.execute("SELECT * FROM records WHERE id=? AND status='active'", (supersedes_id,)).fetchone()
-                if old is None:
-                    raise KeyError("Record to correct was not found or is already superseded.")
-                db.execute("UPDATE records SET status='superseded' WHERE id=?", (supersedes_id,))
+            if supersedes_id and not self._exists(db, "SELECT 1 FROM records WHERE id=? AND status='active'", supersedes_id):
+                raise KeyError("Record to correct was not found or is already superseded.")
+            # Inserting the correction is what supersedes its predecessor (storage trigger).
             db.execute("INSERT INTO records(id,content,sensitivity,status,created_at,supersedes_id) VALUES(?,?,?,?,?,?)",
                        (record_id, content, sensitivity, "active", stamp(), supersedes_id))
-            row = db.execute("SELECT * FROM records WHERE id=?", (record_id,)).fetchone()
-            return self._record(row)
+            return self._record(db.execute("SELECT * FROM records WHERE id=?", (record_id,)).fetchone())
 
     def get(self, record_id: str) -> dict | None:
         with self.connection() as db:
@@ -259,32 +377,25 @@ class Vault:
 
     @staticmethod
     def _forget_records(db: sqlite3.Connection, ids: list[str], at: str) -> int:
-        """Tombstone records and forget every claim derived from them. Returns claims forgotten."""
-        forgotten = 0
-        for rid in ids:
-            db.execute("INSERT OR IGNORE INTO tombstones (id,deleted_at) VALUES (?,?)", (rid, at))
-            db.execute("DELETE FROM records WHERE id=?", (rid,))
-            for row in db.execute("SELECT DISTINCT claim_id FROM claim_sources WHERE record_id=?", (rid,)).fetchall():
-                forgotten += db.execute("INSERT OR IGNORE INTO claim_tombstones (id,deleted_at) VALUES (?,?)",
-                                        (row["claim_id"], at)).rowcount
-        return forgotten
+        """Tombstone records; the storage trigger removes each record and forgets every claim citing it."""
+        marks = ",".join("?" * len(ids))
+        claims = db.execute(f"SELECT count(DISTINCT claim_id) FROM claim_sources WHERE record_id IN ({marks})", ids).fetchone()[0]
+        db.executemany("INSERT INTO tombstones (id,deleted_at) VALUES (?,?)", [(rid, at) for rid in ids])
+        return claims
 
     def delete(self, record_id: str) -> dict | None:
         """Forget a source record, its earlier revisions and all dependent claims."""
         with self.connection(write=True) as db:
-            row = db.execute("SELECT id FROM records WHERE id=?", (record_id,)).fetchone()
-            if not row:
+            if not self._exists(db, "SELECT 1 FROM records WHERE id=?", record_id):
                 return None
+            # This revision and every earlier one still present (lineage is linear and acyclic).
             ids = [record_id]
-            pointer = record_id
             while True:
-                previous = db.execute("SELECT supersedes_id FROM records WHERE id=?", (pointer,)).fetchone()
-                if not previous or not previous["supersedes_id"]:
+                previous = db.execute("SELECT r.id FROM records r JOIN records s ON s.supersedes_id = r.id WHERE s.id=?",
+                                      (ids[-1],)).fetchone()
+                if previous is None or previous["id"] in ids:
                     break
-                pointer = previous["supersedes_id"]
-                if pointer in ids:
-                    break
-                ids.append(pointer)
+                ids.append(previous["id"])
             # Do not claim backup/WAL/forensic secure deletion here.
             return {"records_forgotten": len(ids), "claims_forgotten": self._forget_records(db, ids, stamp())}
 
@@ -299,11 +410,11 @@ class Vault:
         sources = []
         for link in links:
             rid = link["record_id"]
-            rec = db.execute("SELECT status, content, sensitivity FROM records WHERE id=?", (rid,)).fetchone()
+            rec = db.execute("SELECT * FROM records WHERE id=?", (rid,)).fetchone()
             if rec is None:
                 sources.append({"id": rid, "state": "missing", "content": None, "sensitivity": None})
-            elif link["evidence_sha256"] != evidence_hash(rec["content"]):
-                # Not the evidence this claim was made from (substituted, or never seen at link time).
+            elif link["evidence_sha256"] != evidence_hash(rec):
+                # Not the evidence this claim was made from (different identity, or never seen at link time).
                 sources.append({"id": rid, "state": "unverified", "content": rec["content"], "sensitivity": rec["sensitivity"]})
             else:
                 sources.append({"id": rid, "state": rec["status"], "content": rec["content"], "sensitivity": rec["sensitivity"]})
@@ -334,25 +445,29 @@ class Vault:
             raise ValueError("A claim needs 1-8 distinct source record IDs.")
         return text
 
-    @staticmethod
-    def _insert_claim(db, claim_id: str, text: str, source_hashes: dict[str, str | None], origin: str,
-                      supersedes_id: str | None, created_at: str, note: str | None = None) -> None:
+    def _insert_claim(self, db, claim_id: str, text: str, source_hashes: dict[str, str | None], origin: str,
+                      supersedes_id: str | None, created_at: str, history: list[dict]) -> None:
+        """Insert a claim and its fixed links, then write its history through the lifecycle triggers."""
         db.execute("INSERT INTO claims(id,text,origin,status,created_at,supersedes_id) VALUES (?,?,?,'proposed',?,?)",
                    (claim_id, text, origin, created_at, supersedes_id))
         db.executemany("INSERT INTO claim_sources(claim_id,record_id,evidence_sha256) VALUES (?,?,?)",
                        [(claim_id, rid, digest) for rid, digest in source_hashes.items()])
-        db.execute("INSERT INTO claim_events(claim_id,from_status,to_status,actor,note,at) VALUES (?,NULL,'proposed',?,?,?)",
-                   (claim_id, origin, note, created_at))
+        if history:
+            first = history[0]
+            db.execute("INSERT INTO claim_events(claim_id,from_status,to_status,actor,note,at) VALUES (?,NULL,'proposed',?,?,?)",
+                       (claim_id, origin, first.get("note"), first["at"]))
+            for event in history[1:]:
+                self._record_transition(db, claim_id, event["from_status"], event["to_status"], event.get("note"), event["at"])
 
     def _new_claim(self, db, text: str, source_ids: list[str], origin: str, supersedes_id: str | None) -> str:
         hashes = {}
         for rid in source_ids:
-            rec = db.execute("SELECT content FROM records WHERE id=? AND status='active'", (rid,)).fetchone()
+            rec = db.execute("SELECT * FROM records WHERE id=? AND status='active'", (rid,)).fetchone()
             if rec is None:
                 raise ValueError(f"Source record missing or superseded: {rid}")
-            hashes[rid] = evidence_hash(rec["content"])
-        claim_id = str(uuid4())
-        self._insert_claim(db, claim_id, text, hashes, origin, supersedes_id, stamp())
+            hashes[rid] = evidence_hash(rec)
+        claim_id, now = str(uuid4()), stamp()
+        self._insert_claim(db, claim_id, text, hashes, origin, supersedes_id, now, [{"at": now}])
         return claim_id
 
     @staticmethod
@@ -411,14 +526,15 @@ class Vault:
             if expected_status is not None and old["status"] != expected_status:
                 raise rules.TransitionError(f"Claim is now {old['status']}, not {expected_status}.")
             rules.check_transition(old["status"], "superseded")
-            new_id = self._new_claim(db, text, source_ids, "human", claim_id)
+            # Supersede first: storage only accepts a replacement whose predecessor is already superseded.
             self._record_transition(db, claim_id, old["status"], "superseded", note, stamp())
+            new_id = self._new_claim(db, text, source_ids, "human", claim_id)
             return {"superseded": self._get_claim(db, claim_id), "replacement": self._get_claim(db, new_id)}
 
     def delete_claim(self, claim_id: str) -> bool:
         """Forget a claim: its tombstone removes the claim, its links and its history."""
         with self.connection(write=True) as db:
-            if not db.execute("SELECT 1 FROM claims WHERE id=?", (claim_id,)).fetchone():
+            if not self._exists(db, "SELECT 1 FROM claims WHERE id=?", claim_id):
                 return False
             db.execute("INSERT INTO claim_tombstones(id,deleted_at) VALUES (?,?)", (claim_id, stamp()))
             return True
@@ -426,6 +542,7 @@ class Vault:
     # --- Portability ----------------------------------------------------------
 
     def export(self) -> dict:
+        """A single-snapshot export (one read transaction), restorable by this software version."""
         keys = ("id", "text", "origin", "status", "created_at", "supersedes_id", "source_ids", "source_hashes", "history")
         with self.connection() as db:
             rows = db.execute("SELECT * FROM records ORDER BY created_at,id").fetchall()
@@ -438,130 +555,179 @@ class Vault:
                     "claims": claims, "claim_tombstones": [dict(t) for t in claim_tombs]}
 
     @staticmethod
-    def _parse(payload: dict) -> tuple[list, list, list, list]:
-        if payload.get("schema") not in EXPORT_SCHEMAS:
-            raise ValueError("Unsupported export schema.")
-        parts = (payload.get("records"), payload.get("tombstones"),
-                 payload.get("claims", []), payload.get("claim_tombstones", []))
-        for items in parts:
-            if not isinstance(items, list) or len(items) > 10000:
-                raise ValueError("Invalid export lists.")
-        for tomb in parts[1] + parts[3]:
-            if not isinstance(tomb, dict) or not isinstance(tomb.get("id"), str) or not isinstance(tomb.get("deleted_at"), str):
-                raise ValueError("Invalid tombstone in import.")
-        for claim in parts[2]:
-            if not isinstance(claim, dict):
-                raise ValueError("Invalid claim in import.")
-            text, source_ids = claim.get("text"), claim.get("source_ids")
-            if (not isinstance(claim.get("id"), str) or not isinstance(text, str) or not 0 < len(text) <= rules.MAX_TEXT
-                    or claim.get("origin") not in rules.ORIGINS or claim.get("status") not in rules.STATUSES
-                    or not isinstance(claim.get("created_at"), str)
-                    or not (claim.get("supersedes_id") is None or isinstance(claim.get("supersedes_id"), str))
-                    or not isinstance(source_ids, list) or not 0 < len(source_ids) <= rules.MAX_SOURCES
-                    or not all(isinstance(r, str) for r in source_ids) or len(set(source_ids)) != len(source_ids)):
-                raise ValueError("Invalid claim in import.")
-            hashes = claim.get("source_hashes", {})
-            if (not isinstance(hashes, dict) or not set(hashes) <= set(source_ids)
-                    or not all(h is None or (isinstance(h, str) and len(h) == 64) for h in hashes.values())):
-                raise ValueError("Invalid claim evidence hashes in import.")
-        return parts
+    def _parse(payload: dict, trusted: bool) -> tuple[list, list, list, list]:
+        """Validate a backup/import payload against the same rules storage enforces.
 
-    @staticmethod
-    def _insert_records(db, records: list, skip_ids: set[str]) -> int:
-        count = 0
-        for row in records:
+        Returns normalised records and claims ordered predecessors-first. There is no count
+        limit; size is bounded once, by MAX_BACKUP_BYTES at the HTTP boundary and on export.
+        """
+        if not isinstance(payload, dict) or payload.get("schema") not in EXPORT_SCHEMAS:
+            raise ValueError("Unsupported export schema.")
+        raw_records, tombs = payload.get("records"), payload.get("tombstones")
+        raw_claims, claim_tombs = payload.get("claims", []), payload.get("claim_tombstones", [])
+        for items in (raw_records, tombs, raw_claims, claim_tombs):
+            if not isinstance(items, list):
+                raise ValueError("Invalid export lists.")
+        for tomb in tombs + claim_tombs:
+            if not isinstance(tomb, dict) or not _is_text(tomb.get("id"), 1, MAX_ID) or not _is_text(tomb.get("deleted_at")):
+                raise ValueError("Invalid tombstone in import.")
+        records = []
+        for row in raw_records:
             if not isinstance(row, dict):
                 raise ValueError("Invalid record in import.")
-            rid = str(row["id"])
-            if rid in skip_ids or db.execute("SELECT 1 FROM tombstones WHERE id=?", (rid,)).fetchone():
-                continue
-            if row["sensitivity"] not in ("private", "sensitive") or row["status"] not in ("active", "superseded"):
+            record = {"id": row.get("id"), "content": row.get("content"), "source": row.get("source", "manual"),
+                      "sensitivity": row.get("sensitivity"), "status": row.get("status"),
+                      "created_at": row.get("created_at"), "supersedes_id": row.get("supersedes_id")}
+            if (not _is_text(record["id"], 1, MAX_ID) or not _is_text(record["content"], 1, MAX_CONTENT)
+                    or not _is_text(record["source"], 1, MAX_SOURCE) or record["sensitivity"] not in ("private", "sensitive")
+                    or record["status"] not in ("active", "superseded") or not _is_text(record["created_at"])
+                    or not (record["supersedes_id"] is None or _is_text(record["supersedes_id"], 1, MAX_ID))):
                 raise ValueError("Invalid record in import.")
-            if len(row["content"]) > 10000:
-                raise ValueError("Record too large in import.")
-            cursor = db.execute("INSERT OR IGNORE INTO records(id,content,source,sensitivity,status,created_at,supersedes_id) VALUES (?,?,?,?,?,?,?)",
-                (rid, row["content"], row["source"], row["sensitivity"], row["status"], row["created_at"], row.get("supersedes_id")))
-            count += cursor.rowcount
-        return count
+            records.append(record)
+        claims = []
+        for row in raw_claims:
+            if not isinstance(row, dict):
+                raise ValueError("Invalid claim in import.")
+            claim = {k: row.get(k) for k in ("id", "text", "origin", "status", "created_at", "supersedes_id", "source_ids")}
+            claim["history"] = row.get("history", [])
+            source_ids, hashes = claim["source_ids"], row.get("source_hashes", {})
+            if (not _is_text(claim["id"], 1, MAX_ID) or not _is_text(claim["text"], 1, rules.MAX_TEXT)
+                    or claim["origin"] not in rules.ORIGINS or claim["status"] not in rules.STATUSES
+                    or not _is_text(claim["created_at"])
+                    or not (claim["supersedes_id"] is None or _is_text(claim["supersedes_id"], 1, MAX_ID))
+                    or claim["supersedes_id"] == claim["id"]
+                    or not isinstance(source_ids, list) or len(source_ids) > rules.MAX_SOURCES
+                    or not all(_is_text(r, 1, MAX_ID) for r in source_ids) or len(set(source_ids)) != len(source_ids)):
+                raise ValueError("Invalid claim in import.")
+            if (not isinstance(hashes, dict) or not set(hashes) <= set(source_ids)
+                    or not all(h is None or _is_text(h, 64, 64) for h in hashes.values())):
+                raise ValueError("Invalid claim evidence hashes in import.")
+            claim["source_hashes"] = {rid: hashes.get(rid) for rid in source_ids}
+            if trusted:
+                rules.validate_history(claim["history"], claim["origin"], claim["status"])
+                if claim["history"] and not source_ids:
+                    raise ValueError("A claim with a recorded history needs evidence links.")
+            claims.append(claim)
+        records = _lineage_order(records, lambda r: r["status"])
+        if trusted:
+            claims = _lineage_order(claims, lambda c: c["status"])
+        elif len({c["id"] for c in claims}) != len(claims):
+            raise ValueError("Duplicate id in import.")
+        return records, tombs, claims, claim_tombs
+
+    def _can_introduce(self, db, record: dict, inserted: set[str], allow_correction: bool) -> bool:
+        """Whether a payload record may enter this vault without changing existing epistemic state."""
+        rid, predecessor = record["id"], record["supersedes_id"]
+        if (self._exists(db, "SELECT 1 FROM records WHERE id=?", rid)          # evidence is never replaced
+                or self._exists(db, "SELECT 1 FROM tombstones WHERE id=?", rid)   # forgotten stays forgotten
+                or self._exists(db, "SELECT 1 FROM claim_sources WHERE record_id=?", rid)  # would change claims' support
+                or self._exists(db, "SELECT 1 FROM records WHERE supersedes_id=?", rid)):  # already corrected here
+            return False
+        if predecessor is None:
+            return True
+        if self._exists(db, "SELECT 1 FROM records WHERE supersedes_id=?", predecessor):
+            return False   # lineage is linear: the predecessor (present or not) already has a correction here
+        if predecessor not in inserted and self._exists(db, "SELECT 1 FROM records WHERE id=?", predecessor):
+            return allow_correction   # correcting local evidence: never from an untrusted file
+        return True
+
+    def _insert_records(self, db, records: list[dict], skip_ids: set[str], allow_correction: bool) -> tuple[int, int]:
+        inserted: set[str] = set()
+        skipped = 0
+        for record in records:
+            if record["id"] in skip_ids or not self._can_introduce(db, record, inserted, allow_correction):
+                skipped += 1
+                continue
+            db.execute("INSERT INTO records(id,content,source,sensitivity,status,created_at,supersedes_id) VALUES (?,?,?,?,?,?,?)",
+                       tuple(record[k] for k in ("id", "content", "source", "sensitivity", "status", "created_at", "supersedes_id")))
+            inserted.add(record["id"])
+        return len(inserted), skipped
 
     def import_untrusted(self, payload: dict) -> dict:
         """Ordinary import: the file is external, untrusted content.
 
-        Records are imported as evidence. Live claims (file status proposed,
-        approved or contested) are imported as new `proposed` claims with origin
-        `imported`; the file's history, origin and approvals are not trusted and
-        are only noted. Rejected/superseded claims are not imported. The file's
-        tombstones only filter the file's own content: an untrusted file cannot
-        forget local records or claims. Local tombstones always win.
+        It can add evidence and *proposed* claims; it can never grant authority, change or
+        delete local state, or raise the support of an existing claim. Records are skipped if
+        they already exist, were forgotten, are cited by an existing claim, are already
+        corrected here, or would correct local evidence. Live claims (file status proposed,
+        approved or contested) arrive as new `proposed` claims with origin `imported` and a
+        deterministic id derived from the file's id; history/approvals in the file are noted,
+        not trusted, and they attach only to evidence present in the vault. The file's
+        tombstones only filter the file's own content.
         """
-        records, tombs, claims, claim_tombs = self._parse(payload)
+        records, tombs, claims, claim_tombs = self._parse(payload, trusted=False)
         file_tombs = {t["id"] for t in tombs}
         file_claim_tombs = {t["id"] for t in claim_tombs}
-        imported_claims = skipped = 0
+        imported_claims = skipped_claims = 0
         with self.connection(write=True) as db:
-            count = self._insert_records(db, records, file_tombs)
+            imported, skipped_records = self._insert_records(db, records, file_tombs, allow_correction=False)
             now = stamp()
             for claim in claims:
-                cid = claim["id"]
-                forgotten_source = any(r in file_tombs or db.execute("SELECT 1 FROM tombstones WHERE id=?", (r,)).fetchone()
-                                       for r in claim["source_ids"])
-                if (claim["status"] in ("rejected", "superseded") or cid in file_claim_tombs or forgotten_source
-                        or db.execute("SELECT 1 FROM claims WHERE id=? UNION SELECT 1 FROM claim_tombstones WHERE id=?", (cid, cid)).fetchone()):
-                    skipped += 1
+                original, cid = claim["id"], str(uuid5(IMPORT_NAMESPACE, claim["id"]))
+                forgotten = lambda i: self._exists(db, "SELECT 1 FROM claim_tombstones WHERE id=?", i)
+                if (claim["status"] in ("rejected", "superseded") or not claim["source_ids"] or original in file_claim_tombs
+                        or forgotten(original) or forgotten(cid)
+                        or self._exists(db, "SELECT 1 FROM claims WHERE id IN (?,?)", cid, original)   # already here, genuine or imported
+                        or self._exists(db, "SELECT 1 FROM claims WHERE supersedes_id=?", cid)          # already replaced here
+                        or any(r in file_tombs for r in claim["source_ids"])):
+                    skipped_claims += 1
                     continue
-                note = f"Imported from an untrusted file (stated origin {claim['origin']}, status {claim['status']}; not trusted)."
-                # Pin whatever evidence is now local; a link to absent evidence stays unverified forever.
-                hashes = {}
-                for rid in claim["source_ids"]:
-                    rec = db.execute("SELECT content FROM records WHERE id=?", (rid,)).fetchone()
-                    hashes[rid] = evidence_hash(rec["content"]) if rec else None
-                self._insert_claim(db, cid, claim["text"], hashes, "imported", None, now, note)
+                # Proposals attach only to evidence present here. Linking an absent id would block that
+                # record from ever being introduced later (storage rule), letting a file squat on it.
+                evidence = [db.execute("SELECT * FROM records WHERE id=?", (rid,)).fetchone() for rid in claim["source_ids"]]
+                if any(rec is None for rec in evidence):
+                    skipped_claims += 1
+                    continue
+                hashes = {rec["id"]: evidence_hash(rec) for rec in evidence}
+                note = (f"Imported from an untrusted file (file claim {original[:64]}, stated origin {claim['origin']}, "
+                        f"status {claim['status']}; not trusted).")
+                self._insert_claim(db, cid, claim["text"], hashes, "imported", None, now, [{"at": now, "note": note}])
                 imported_claims += 1
-        return {"imported": count, "claims_imported_as_proposed": imported_claims, "claims_skipped": skipped}
+        return {"imported": imported, "records_skipped": skipped_records,
+                "claims_imported_as_proposed": imported_claims, "claims_skipped": skipped_claims}
 
     def restore_trusted(self, payload: dict) -> dict:
         """Trusted restore of a Sovereign-owned backup (explicitly confirmed by the user).
 
-        Tombstones in the backup dominate: matching local records are forgotten
-        (with their dependent claims) and matching local claims are forgotten.
-        Claim histories are validated and replayed through the storage lifecycle
-        triggers, so prior authority is preserved but no illegal history can be
-        written. A local claim is never overwritten. Integrity of the backup file
-        itself (signing) is not verified in V0.
+        Tombstones in the backup dominate: matching local records are forgotten (with their
+        dependent claims) and matching local claims are forgotten. Records then claims are
+        merged predecessors-first; claim histories are validated and replayed through the
+        storage lifecycle triggers, so prior authority is preserved but no illegal history can
+        be written. Local state is never overwritten and the support of claims already in the
+        vault is never raised. Integrity of the backup file itself (signing) is not verified in V0.
         """
-        records, tombs, claims, claim_tombs = self._parse(payload)
-        for claim in claims:
-            rules.validate_history(claim.get("history"), claim["origin"], claim["status"])
-        restored = approved = skipped = forgotten = 0
+        records, tombs, claims, claim_tombs = self._parse(payload, trusted=True)
+        restored = approved = existing = conflicts = 0
         with self.connection(write=True) as db:
-            for tomb in tombs:
-                forgotten += self._forget_records(db, [tomb["id"]], tomb["deleted_at"])
-            for tomb in claim_tombs:
-                forgotten += db.execute("INSERT OR IGNORE INTO claim_tombstones(id,deleted_at) VALUES (?,?)",
-                                        (tomb["id"], tomb["deleted_at"])).rowcount
-            count = self._insert_records(db, records, set())
+            live_before = db.execute("SELECT count(*) FROM claims").fetchone()[0]
+            db.executemany("INSERT INTO tombstones(id,deleted_at) VALUES (?,?)", [(t["id"], t["deleted_at"]) for t in tombs])
+            db.executemany("INSERT INTO claim_tombstones(id,deleted_at) VALUES (?,?)", [(t["id"], t["deleted_at"]) for t in claim_tombs])
+            forgotten = live_before - db.execute("SELECT count(*) FROM claims").fetchone()[0]
+            imported, skipped_records = self._insert_records(db, records, set(), allow_correction=True)
             for claim in claims:
-                cid = claim["id"]
-                if db.execute("SELECT 1 FROM claim_tombstones WHERE id=?", (cid,)).fetchone():
+                cid, predecessor = claim["id"], claim["supersedes_id"]
+                if self._exists(db, "SELECT 1 FROM claim_tombstones WHERE id=?", cid):
                     continue
-                if any(db.execute("SELECT 1 FROM tombstones WHERE id=?", (r,)).fetchone() for r in claim["source_ids"]):
-                    # Derived from forgotten evidence: forget it too.
-                    db.execute("INSERT INTO claim_tombstones(id,deleted_at) VALUES (?,?)", (cid, stamp()))
+                if self._exists(db, "SELECT 1 FROM claims WHERE id=?", cid):
+                    existing += 1   # local state wins; never forgotten or rewritten by payload content
+                    continue
+                if any(self._exists(db, "SELECT 1 FROM tombstones WHERE id=?", r) for r in claim["source_ids"]):
+                    db.execute("INSERT INTO claim_tombstones(id,deleted_at) VALUES (?,?)", (cid, stamp()))  # derived from forgotten evidence
                     forgotten += 1
                     continue
-                if db.execute("SELECT 1 FROM claims WHERE id=?", (cid,)).fetchone():
-                    skipped += 1
+                pred = db.execute("SELECT status FROM claims WHERE id=?", (predecessor,)).fetchone() if predecessor else None
+                if (self._exists(db, "SELECT 1 FROM claims WHERE supersedes_id=?", cid)
+                        or (pred is not None and pred["status"] != "superseded")
+                        or (predecessor is not None and self._exists(db, "SELECT 1 FROM claims WHERE supersedes_id=?", predecessor))):
+                    conflicts += 1   # supersession diverged from local state; local state wins
                     continue
-                created = claim["history"][0]
-                hashes = {rid: claim.get("source_hashes", {}).get(rid) for rid in claim["source_ids"]}
-                self._insert_claim(db, cid, claim["text"], hashes, claim["origin"],
-                                   claim.get("supersedes_id"), created["at"], created.get("note"))
-                for event in claim["history"][1:]:
-                    self._record_transition(db, cid, event["from_status"], event["to_status"], event.get("note"), event["at"])
+                self._insert_claim(db, cid, claim["text"], claim["source_hashes"], claim["origin"], predecessor,
+                                   claim["created_at"], claim["history"])
                 restored += 1
                 approved += claim["status"] == "approved"
-        return {"imported": count, "claims_restored": restored, "approved_claims_restored": approved,
-                "claims_skipped_existing": skipped, "claims_forgotten": forgotten}
+        return {"imported": imported, "records_skipped": skipped_records, "claims_restored": restored,
+                "approved_claims_restored": approved, "claims_skipped_existing": existing,
+                "claims_skipped_conflict": conflicts, "claims_forgotten": forgotten}
 
 
 def _statements(script: str) -> list[str]:

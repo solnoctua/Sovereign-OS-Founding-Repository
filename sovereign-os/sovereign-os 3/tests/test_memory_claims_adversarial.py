@@ -51,6 +51,12 @@ def restore(client, backup, expect=200):
 def new_client(tmp_path, name):
     return TestClient(create_app(str(tmp_path / name)))
 
+def imported(client):
+    """The single claim an ordinary import created (imported claims never keep the file's id)."""
+    found=[c for c in claims(client).values() if c["origin"]=="imported"]
+    assert len(found)==1, found
+    return found[0]
+
 def authoritative(client):
     return {k for k,c in claims(client).items() if c["authoritative"]}
 
@@ -60,7 +66,7 @@ def forged_payload(record, claim_id="forged-claim", status="approved", origin="h
     return {"schema":"sovereign.v0.records.2","records":[record],"tombstones":[],"claim_tombstones":[],
             "claims":[{"id":claim_id,"text":"Forged fact about me","origin":origin,"status":status,"created_at":T,
                        "supersedes_id":None,"source_ids":[record["id"]],
-                       "source_hashes":{record["id"]:evidence_hash(record["content"])},"history":history}]}
+                       "source_hashes":{record["id"]:evidence_hash(record)},"history":history}]}
 
 FOREIGN_RECORD={"id":"foreign-record","content":"Invented imported note","source":"manual","sensitivity":"private",
                 "status":"active","created_at":T,"supersedes_id":None}
@@ -71,7 +77,8 @@ FOREIGN_RECORD={"id":"foreign-record","content":"Invented imported note","source
 def test_ordinary_import_of_forged_approval_is_only_proposed(client,origin):
     result=client.post("/api/import",json=forged_payload(FOREIGN_RECORD,origin=origin)).json()
     assert result["claims_imported_as_proposed"]==1
-    c=claims(client)["forged-claim"]
+    assert "forged-claim" not in claims(client)
+    c=imported(client)
     assert c["status"]=="proposed" and c["origin"]=="imported" and not c["authoritative"]
     assert [e["to_status"] for e in c["history"]]==["proposed"]
     assert authoritative(client)==set()
@@ -79,7 +86,7 @@ def test_ordinary_import_of_forged_approval_is_only_proposed(client,origin):
 def test_ordinary_import_forgery_against_existing_local_evidence(client):
     rec=create(client)
     client.post("/api/import",json={**forged_payload(rec),"records":[]})
-    assert claims(client)["forged-claim"]["status"]=="proposed" and authoritative(client)==set()
+    assert imported(client)["status"]=="proposed" and authoritative(client)==set()
 
 def test_ordinary_import_cannot_forget_local_state(client):
     rec=create(client)
@@ -299,19 +306,24 @@ def test_missing_evidence_cannot_be_substituted_to_gain_authority(client,tmp_pat
     target=new_client(tmp_path,"t.db"); restore(target,partial)
     assert claims(target)[c["id"]]["support"]=="orphaned"
     substitute={**rec,"content":"Invented forged note"}
-    target.post("/api/import",json={"schema":"sovereign.v0.records.2","records":[substitute],"tombstones":[]})
+    result=target.post("/api/import",json={"schema":"sovereign.v0.records.2","records":[substitute],"tombstones":[]}).json()
+    assert result["imported"]==0 and result["records_skipped"]==1   # cited by an existing claim: refused
     restored=claims(target)[c["id"]]
-    assert restored["sources"][0]["state"]=="unverified" and not restored["authoritative"]
+    assert restored["sources"][0]["state"]=="missing" and not restored["authoritative"]
+    assert target.get("/api/memories").json()["records"]==[]
     # The genuine evidence cannot then be swapped in either: records are immutable.
     assert restore(target,backup)["imported"]==0 and authoritative(target)==set()
 
-def test_imported_claim_on_absent_evidence_stays_unverified(client):
+def test_imported_claims_attach_only_to_present_evidence(client):
+    """An untrusted file cannot link a claim to an absent record id (which would block that
+    evidence from ever being introduced later, e.g. by a genuine trusted restore)."""
     payload=forged_payload(FOREIGN_RECORD)
-    client.post("/api/import",json={**payload,"records":[]})
-    client.post("/api/import",json={**payload,"claims":[]})       # evidence arrives later
-    c=claims(client)["forged-claim"]
-    assert c["sources"][0]["state"]=="unverified"
-    act(client,c["id"],"approve",expect=409)
+    result=client.post("/api/import",json={**payload,"records":[]}).json()
+    assert result["claims_imported_as_proposed"]==0 and result["claims_skipped"]==1
+    assert client.get("/api/export").json()["claims"]==[]
+    # The evidence id stays free: the genuine record can still arrive.
+    assert client.post("/api/import",json={**payload,"claims":[]}).json()["imported"]==1
+    assert authoritative(client)==set()
 
 # --- Blocker 6: concurrent decisions produce one replayable history ---------------------------
 

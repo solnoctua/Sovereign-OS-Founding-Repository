@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import providers
+from . import providers, store
 from .claims import STATUSES, TransitionError
 from .store import Vault
 
@@ -73,6 +73,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
         if request.url.path.startswith("/api/") and request.method in ("POST", "PATCH", "DELETE"):
             if request.method != "DELETE" and not request.headers.get("content-type", "").startswith("application/json"):
                 return JSONResponse({"detail": "JSON only"}, status_code=415)
+        if request.url.path in ("/api/import", "/api/restore"):
+            # One explicit size policy for backups (export refuses to produce anything larger).
+            length = request.headers.get("content-length", "")
+            if not length.isdigit():
+                return JSONResponse({"detail": "Content-Length required"}, status_code=411)
+            if int(length) > store.MAX_BACKUP_BYTES + 4096:   # room for the restore wrapper only
+                return JSONResponse({"detail": "Backup exceeds the V0 single-file size limit"}, status_code=413)
         return await call_next(request)
 
     @app.get("/", response_class=HTMLResponse)
@@ -167,7 +174,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.get("/api/export")
     def export():
         from fastapi.responses import Response
-        return Response(json.dumps(vault.export(), indent=2), media_type="application/json",
+        body = json.dumps(vault.export(), indent=2)
+        if len(body.encode("utf-8")) > store.MAX_BACKUP_BYTES:
+            # Never hand out a backup that import/restore would refuse.
+            raise HTTPException(status_code=413, detail="Vault exceeds the V0 single-file backup limit; nothing was exported.")
+        return Response(body, media_type="application/json",
             headers={"Content-Disposition": "attachment; filename=sovereign-export.json", "Cache-Control": "no-store"})
 
     @app.post("/api/import")
