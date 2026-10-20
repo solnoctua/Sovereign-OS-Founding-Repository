@@ -53,7 +53,7 @@ The second brain adds representations; it must not blur which ones carry authori
 | 3 | **Human-declared organization** (canonical, *proposed — does not exist yet*) | Projects, concepts, membership of records/claims | Organizational, not a truth claim | Human | Membership removed with its member; entity Forget cascades (§7) | Exported (new schema, SB-3) | Not until its own ADR |
 | 4 | **Deterministic derived structure** | The provenance graph (computed on read); any future index | None | Sovereign code; rebuildable | Nothing stored, or same transaction (§7) | **Not** exported; rebuilt | Never directly — candidate IDs only |
 | 5 | **Rendered external projections** | Obsidian Markdown vault | None; a dated snapshot | Exporter CLI | Fenced publication + reconciliation (§9, projection spec §11) | Not a backup | Never |
-| 6 | **Projection registry** (operational, non-canonical) | Registered roots, manifests, reconciliation counters | None | Exporter and Forget cleanup | Entries for forgotten items removed by reconciliation | Not exported; per installation | Never |
+| 6 | **Projection registry** (operational, non-canonical) | Registered roots, manifests, reconciliation counters | None | Exporter and Forget cleanup | Entries for forgotten items removed by reconciliation | Not exported; one per vault file | Never |
 | 7 | **Working context** | ContextBundle, query text | Request-scoped | Compiler | Never persisted | — | Only the exact approved bundle |
 
 Consequences:
