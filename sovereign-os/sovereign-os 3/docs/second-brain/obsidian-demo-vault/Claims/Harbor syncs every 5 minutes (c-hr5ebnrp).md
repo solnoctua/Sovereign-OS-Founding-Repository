@@ -19,7 +19,7 @@ tags:
 
 # Harbor syncs every 5 minutes
 
-**Not approved memory now.** It was approved, but evidence it cites has been corrected, so its support is **stale**. The Context Compiler excludes it (`stale`) until a human supersedes or rejects it. This note does not link the correction, because the claim never cited it.
+**Not approved memory as of this snapshot.** It was approved, but evidence it cites has been corrected, so its support is **stale**. The Context Compiler excludes it (`stale`) until a human supersedes or rejects it. This note does not link the correction, because the claim never cited it.
 
 ## Claim text
 

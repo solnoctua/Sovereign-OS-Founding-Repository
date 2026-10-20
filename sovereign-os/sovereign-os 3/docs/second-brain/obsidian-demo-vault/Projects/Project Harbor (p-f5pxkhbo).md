@@ -26,7 +26,7 @@ None in this export.
 
 ## Needs attention
 
-- [[Harbor syncs every 5 minutes (c-hr5ebnrp)|Harbor syncs every 5 minutes]] — approved, now stale
+- [[Harbor syncs every 5 minutes (c-hr5ebnrp)|Harbor syncs every 5 minutes]] — approved; stale as of this snapshot
 
 ## Sources
 

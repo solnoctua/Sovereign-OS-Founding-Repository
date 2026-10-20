@@ -19,7 +19,7 @@ tags:
 
 # Lantern battery lasts about 14 days
 
-**Not approved memory now.** Contested. A contested claim is shown for review and never sent to a model as approved memory.
+**Not approved memory as of this snapshot.** Contested. A contested claim is shown for review and never sent to a model as approved memory.
 
 ## Claim text
 
