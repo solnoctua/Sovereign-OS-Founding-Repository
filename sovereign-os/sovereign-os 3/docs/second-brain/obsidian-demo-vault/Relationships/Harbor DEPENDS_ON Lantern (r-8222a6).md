@@ -1,5 +1,6 @@
 ---
 sovereign_projection: 1
+sovereign_projection_id: "demo-projection"
 sovereign_id: "r-0001"
 kind: relationship
 title: "Harbor DEPENDS_ON Lantern"
@@ -26,19 +27,23 @@ demo: synthetic
 
 A typed relationship: in Sovereign, a MemoryClaim with a structured form (future, SB-7). Obsidian draws plain lines from this note to its subject, object and evidence; the meaning is written here.
 
-- **Subject:** [[Project Harbor (p-harbor)]]
+- **Subject:** [[Project Harbor (p-a79e95)]]
 - **Predicate:** `DEPENDS_ON` (predicate registry v1)
-- **Object:** [[Project Lantern (p-lantern)]]
+- **Object:** [[Project Lantern (p-77c6ff)]]
 - **Valid:** from 2026-07-01, as stated in the evidence; no end recorded
 - **Status:** approved by a human on 2026-07-02, evidence intact, so it is approved memory
 
 ## Why this connection exists
 
-- [[Harbor planning call (s-0005)]] — "Harbor will reuse Lantern's on-device storage module for offline notes, starting this month."
+- [[Harbor planning call (s-38b9bd)]] — the cited passage:
+
+```text
+Harbor will reuse Lantern's on-device storage module for offline notes, starting this month.
+```
 
 ## Decision history
 
-| When | Change | By | Note |
+| # | When | Change | By |
 | --- | --- | --- | --- |
-| 2026-07-02 | created as proposed | human |  |
-| 2026-07-02 | proposed → approved | human |  |
+| 1 | 2026-07-02 | created as proposed | human |
+| 2 | 2026-07-02 | proposed → approved | human |

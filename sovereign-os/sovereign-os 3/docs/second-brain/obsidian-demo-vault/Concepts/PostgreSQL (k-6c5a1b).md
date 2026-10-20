@@ -1,5 +1,6 @@
 ---
 sovereign_projection: 1
+sovereign_projection_id: "demo-projection"
 sovereign_id: "k-postgresql"
 kind: concept
 title: "PostgreSQL"
@@ -19,5 +20,5 @@ Fictional concept hub. A concept groups material a human filed here; it does not
 
 ## Filed here
 
-- [[Lantern stores readings in PostgreSQL (c-0001)]] — earlier decision (superseded)
-- [[Lantern kickoff note (s-0001)]] — source
+- [[Lantern stores readings in PostgreSQL (c-fcbaf2)]] — earlier decision (superseded)
+- [[Lantern kickoff note (s-6cfaa4)]] — source

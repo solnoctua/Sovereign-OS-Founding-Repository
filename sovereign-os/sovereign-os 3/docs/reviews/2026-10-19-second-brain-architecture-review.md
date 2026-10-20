@@ -2,6 +2,8 @@
 
 **Status:** review record, not authority. Decisions live in [ADR-0005](../adr/0005-governed-second-brain-architecture.md) (still PROPOSED); this file records what was found and why the documentation changed.
 
+**Note (2026-10-20):** "Benchmark 0003" below means PR #3's draft specification, since renamed [`SECOND-BRAIN-VALIDATION.md`](../second-brain/SECOND-BRAIN-VALIDATION.md). Benchmark 0003 now denotes PR #4's executed retrieval evaluation. Follow-up: [Codex audit remediation](2026-10-20-codex-audit-remediation.md).
+
 **Reviewed:** branch `docs/governed-second-brain-and-obsidian` at `bae766e` (one commit on `8a9e625`), against `main` at `4fbecbe` (PR #2 merged, including `cee2c66`), the implementation in `src/sovereign/` (`store.py`, `claims.py`, `context.py`) and every file the PR added, changed or deleted.
 
 ## Findings
@@ -36,7 +38,7 @@
 
 - Pre-configured `.obsidian/graph.json` in the demo (done; Obsidian's format is undocumented, so Start Here repeats the settings).
 - W3C PROV mapping for provenance edges (noted, not adopted).
-- Fresh exports written oldest-first so Obsidian's time-lapse replays history (specified).
+- ~~Fresh exports written oldest-first so Obsidian's time-lapse replays history (specified).~~ Withdrawn 2026-10-20 (Codex F6): Animate follows file-creation order, not MemoryClaim history; see the [remediation record](2026-10-20-codex-audit-remediation.md).
 - Typed-edge rendering plugin or a native Sovereign graph explorer (later, separately evaluated).
 - Property table views (core Bases or community Dataview) over the projection; not required.
 - Multilingual and cross-lingual benchmark cases if the founder writes in more than one language.

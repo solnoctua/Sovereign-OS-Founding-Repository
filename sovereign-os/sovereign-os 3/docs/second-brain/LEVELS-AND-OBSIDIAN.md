@@ -24,7 +24,7 @@ Keep three numbering schemes apart: **M0–M5** are product milestones (ROADMAP 
 
 **Shape:** lexical/FTS terms plus optional local embeddings over records or bounded segments; rank fusion; whole-document expansion.
 
-**Strengths:** finds material by meaning when wording differs, including across languages with a multilingual model. **Failure modes:** top-k segments omit the rest of a document; similarity does not establish a fact; IDs and dates need exact matching; indexes go stale; vectors can be partially inverted back into text. **In Sovereign:** discovery of candidate canonical IDs only. It is *not* a drop-in: the Context Compiler's relevance gate is lexical, so adopting L3 is a compiler policy and disclosure change (ADR-0005 §6).
+**Strengths:** finds material by meaning when wording differs, including across languages with a multilingual model. **Failure modes:** top-k segments omit the rest of a document; similarity does not establish a fact; IDs and dates need exact matching; indexes go stale; vectors can be partially inverted back into text. **In Sovereign:** discovery of candidate canonical IDs only. It is *not* a drop-in: the Context Compiler's relevance gate is lexical, so adopting L3 is a compiler policy and disclosure change (ADR-0005 §6). Benchmark 0003 (PR #4, not yet merged) measured the cheap lexical options on a synthetic corpus: Porter normalization recovers 2 more expected items but admits 47 more irrelevant ones; weighted ranking (IDF, BM25) stales almost every pending preview on an unrelated write; no lexical method recovers paraphrases. The founder's intended positions (ADR-0005 §12.2, pending) are a narrow Porter change at most, weighted ranking and embeddings deferred, and precision before recall for cloud plans.
 
 Use **whole-record access** for "the entire note", **exact lookup** for an ID or date, **timeline ordering** for "what changed", **hybrid search** for conceptual discovery. A Sovereign record holds at most 10,000 characters, so whole-record retrieval needs no chunking today.
 
@@ -46,7 +46,7 @@ Use **whole-record access** for "the entire note", **exact lookup** for an ID or
 | --- | --- | --- |
 | Locate an exact decision, named item or record ID | Exact/lexical lookup | Yes |
 | Read a whole note | Locate (L1/L3), then fetch the entire authorized record | Yes (records ≤ 10,000 chars) |
-| Find a discussion described in other words, or another language | L3 hybrid semantic + lexical | After SB-5, if justified |
+| Find a discussion described in other words, or another language | L3 hybrid semantic + lexical | No: embeddings deferred until representative usage shows the need (SB-5, R6) |
 | See how something changed over time | Timeline ordering + revision and supersession lineage | Partly: capture/decision times only; valid time needs SB-6 |
 | Show why a claim is believed | Provenance graph: claim → sources → revisions, plus decision history | Yes (SB-2) |
 | Browse a project | L2 project hub | After SB-3 |
@@ -79,11 +79,13 @@ The user explicitly wants to **browse Sovereign's brain as an Obsidian graph**. 
 | Draw a line for every link between notes; show its **direction** with the *Arrows* display option | Label a line, type it, or attach evidence, time or confidence to it |
 | Color nodes by search query (folder, tag, property) | Distinguish two kinds of line between the same notes |
 | Local graph of one note at a chosen depth | Show validity intervals or filter by date |
-| *Animate*: replay notes appearing in **file-creation** order | Replay real history unless the exporter writes a fresh projection oldest-first |
+| *Animate*: notes appear in **file-creation** order, i.e. the order files were written on this disk | Replay history: it knows nothing of capture times, corrections, supersessions or MemoryClaim status changes. Use the Timeline and decision-history notes for chronology |
 | Backlinks pane: every note that links here | Validate anything, or query Sovereign live |
 | Node labels from **filenames** | Use a title property as the graph label (without a plugin) |
 
 So: **every line comes from exactly one link in one note, under a heading that names the relationship, followed by its evidence and time.** That is how a reader finds out *why* a connection exists. An Obsidian graph is a view, not a truth engine, and every exported status is a dated snapshot.
+
+Three further rules keep the projection trustworthy (projection spec §7, §8, §11): text from records, claims and notes is shown **inert**, inside fenced blocks, so it can never create a link, embed, tag or network request; only items inside the export's **authorized scope** are linked or named, and an excluded endpoint becomes a fixed "provenance partial" sentence; and an export is **fenced against Forget**, so it can never republish something forgotten while it ran.
 
 ### Demo available now (synthetic only)
 
@@ -92,7 +94,7 @@ So: **every line comes from exactly one link in one note, under a heading that n
 1. Copy the `obsidian-demo-vault` folder **out of the Git checkout** (Obsidian writes its own settings into a vault folder), then in Obsidian choose **Open folder as vault**.
 2. Open `_Navigation/Start Here`, then **Graph view**. The bundled `.obsidian/graph.json` hides navigation notes, turns tags off, turns arrows on and colors nodes by kind and status; the Start Here note lists the same settings to apply by hand if your Obsidian version ignores the file.
 3. Open a project and choose **Open local graph**, depth 2.
-4. Walk the five paths in Start Here: why a decision is believed, what changed, a corrected source, a contested claim, and why two projects are connected — including one deliberately wrong, unreviewed model proposal.
+4. Walk the seven paths in Start Here: why a decision is believed, what changed, a corrected source, a contested claim, why two projects are connected (including one deliberately wrong, unreviewed model proposal), a partial view whose linked item is outside the export's scope, and an adversarial note whose links, image, HTML, tags and script stay inert.
 
 No plugin, account or online service is needed.
 
@@ -102,8 +104,8 @@ No plugin, account or online service is needed.
 
 | Technique / project | Maturity | Borrow | Do not adopt now, because |
 | --- | --- | --- | --- |
-| BM25 / SQLite FTS5 | Proven | In-vault lexical candidates (SB-4) | — (planned; needs FTS5 `secure-delete` for Forget) |
-| Dense + lexical hybrid with Reciprocal Rank Fusion | Proven | Fusion rule for SB-5 | Only if SB-1/SB-4 show paraphrase misses |
+| BM25 / SQLite FTS5 | Proven | Porter normalization alone, if approved (SB-4, R1) | Measured in Benchmark 0003: +3 items over baseline, but 53/56 previews invalidated by an unrelated write and the recency prior lost; deferred (R2); an index would also need FTS5 `secure-delete` |
+| Dense + lexical hybrid with Reciprocal Rank Fusion | Proven | Fusion rule if embeddings ever land | Embeddings deferred (R6); fusion is weighted ranking, so R2 applies |
 | Parent-document ("small-to-big") retrieval | Established practice | Chunk hits resolve to the whole record | Records are already ≤ 10,000 chars |
 | Approximate-NN indexes (HNSW etc.) | Proven at scale | — | Non-reproducible candidate universe breaks exact-plan tokens; personal scale fits brute force |
 | LLM-generated chunk context ("contextual retrieval") | Vendor-reported gains | — | One model call per chunk; creates derived text; cloud use is disclosure |
@@ -118,4 +120,4 @@ No plugin, account or online service is needed.
 
 ## 6. Delivery
 
-The slices are defined once, in [ADR-0005 §11](../adr/0005-governed-second-brain-architecture.md#11-delivery-slices) and ROADMAP §G: SB-1 benchmark → SB-2 provenance graph and Obsidian projection → SB-3 human-declared organization → SB-4 FTS5 → SB-5 conditional embeddings → SB-6 temporal claims → SB-7 typed relations → SB-8 graph-assisted retrieval → SB-9 Level 5 research. Evaluation: [Benchmark 0003](../benchmarks/0003-second-brain-retrieval-evaluation.md).
+The slices are defined once, in [ADR-0005 §11](../adr/0005-governed-second-brain-architecture.md#11-delivery-slices) and ROADMAP §G: SB-1 retrieval evaluation (Benchmark 0003, executed in PR #4) → SB-2 provenance graph and Obsidian projection → SB-3 human-declared organization → SB-4 Porter normalization, only if approved → SB-5 embeddings, deferred → SB-6 temporal claims → SB-7 typed relations → SB-8 graph-assisted context, deferred → SB-9 Level 5 research. Retrieval evaluation: Benchmark 0003, `docs/benchmarks/0003-retrieval-evaluation.md` ([PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4), not yet merged). Everything else: [the validation spec](SECOND-BRAIN-VALIDATION.md).

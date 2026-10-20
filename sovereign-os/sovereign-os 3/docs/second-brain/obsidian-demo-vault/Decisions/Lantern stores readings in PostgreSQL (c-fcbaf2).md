@@ -1,5 +1,6 @@
 ---
 sovereign_projection: 1
+sovereign_projection_id: "demo-projection"
 sovereign_id: "c-0001"
 kind: claim
 title: "Lantern stores readings in PostgreSQL"
@@ -24,18 +25,30 @@ demo: synthetic
 
 **Not current approved memory.** It was the approved decision from 2026-03-03 until it was superseded on 2026-06-15. *Superseded* means "replaced", not "false": its source is still active evidence of what was planned in March. The reason "change" is a future field (SB-6).
 
+## Claim text
+
+```text
+Lantern stores sensor readings in PostgreSQL on the home server.
+```
+
 ## SUPPORTED_BY
 
-- [[Lantern kickoff note (s-0001)]] — captured 2026-03-02 · active
+- [[Lantern kickoff note (s-6cfaa4)]] — captured 2026-03-02 · active
 
 ## SUPERSEDED_BY
 
-- [[Lantern stores readings in SQLite on device (c-0002)]] — 2026-06-15
+- [[Lantern stores readings in SQLite on device (c-39798e)]] — 2026-06-15
 
 ## Decision history
 
-| When | Change | By | Note |
+| # | When | Change | By |
 | --- | --- | --- | --- |
-| 2026-03-03 | created as proposed | human |  |
-| 2026-03-03 | proposed → approved | human |  |
-| 2026-06-15 | approved → superseded | human | Plan changed after the spring field tests |
+| 1 | 2026-03-03 | created as proposed | human |
+| 2 | 2026-03-03 | proposed → approved | human |
+| 3 | 2026-06-15 | approved → superseded | human |
+
+Decision notes (free text, shown verbatim and inert):
+
+```text
+3: Plan changed after the spring field tests
+```

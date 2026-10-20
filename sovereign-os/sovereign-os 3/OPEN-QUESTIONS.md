@@ -49,18 +49,30 @@ The founding build is **not a secure personal vault**. Local server is loopback 
 
 ## D. Governed second-brain extension — scoped future decisions
 
-Architectural vocabulary, Level 3–4 target, and Obsidian requirement are documented in [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md), [the levels guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md) and [the Obsidian projection spec](docs/second-brain/OBSIDIAN-PROJECTION.md). They are proposed direction, not deployed functionality or a change to memory authority. Founder decisions requested, with recommendations in [ADR-0005 §15](docs/adr/0005-governed-second-brain-architecture.md#15-decisions-requested-from-the-founder):
+Architectural vocabulary, Level 3–4 target, and Obsidian requirement are documented in [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md), [the levels guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md), [the Obsidian projection spec](docs/second-brain/OBSIDIAN-PROJECTION.md) and [the validation spec](docs/second-brain/SECOND-BRAIN-VALIDATION.md). They are proposed direction, not deployed functionality or a change to memory authority.
 
-- **D1** Approve the L3–L4 target, deferred L5, and the slice order (benchmark and provenance/Obsidian before retrieval changes)?
+**Retrieval positions from Benchmark 0003 (PR #4, not merged) — intended, pending formal approval** ([ADR-0005 §12.2](docs/adr/0005-governed-second-brain-architecture.md#122-founders-intended-retrieval-positions--pending-formal-approval)):
+
+- **R1** Porter normalization only as a separate Tier 2 PR with a policy version bump; its precision cost (+47 irrelevant items for +2 expected) stated, not hidden.
+- **R2** Defer IDF/BM25; never weaken the truncation fingerprint for performance or convenience; a policy-equivalent fingerprint would need an ADR-0004 amendment, adversarial review and founder approval.
+- **R3** Provenance links for local navigation only; ADR-0004 decision 3 preserved.
+- **R4** Precision first, especially for cloud plans; floors, thresholds or cloud-specific budgets need their own evaluation and a versioned policy.
+- **R5** Keep the 12-item and 12,000-character budgets.
+- **R6** Defer local embeddings until representative, legitimate usage shows meaningful improvement; no sensitive personal notes while the Security Gate is NOT PASSED.
+- **R7** Keep PR #4's evaluation framework; resolve its findings (including the Codex P2 on scale timings) in PR #4.
+
+**Second-brain decisions requested**, with recommendations in [ADR-0005 §15](docs/adr/0005-governed-second-brain-architecture.md#15-decisions-requested-from-the-founder):
+
+- **D1** Approve the L3–L4 target, deferred L5, and the slice order (evaluation and provenance/Obsidian before retrieval changes)?
 - **D2** Where do project and concept nodes come from — human-declared organization, model suggestions, or both?
 - **D3** Are typed relationships structured MemoryClaims, or a separate lifecycle?
-- **D4** May semantic-only candidates (no shared term) enter cloud plans, and from which evidence threshold?
-- **D5** May graph traversal admit context items (revisits ADR-0004 decision 3)?
-- **D6** Do derived indexes live inside the vault database (same-transaction Forget) or beside it?
+- **D4** May semantic-only candidates (no shared term) ever enter cloud plans? (Moot while R6 defers embeddings.)
+- **D5** May graph or provenance traversal admit context items (revisits ADR-0004 decision 3)? (Recommended: no, per R3.)
+- **D6** If a derived index is ever adopted, does it live inside the vault database (same-transaction Forget)? (Moot while R2 defers FTS5.)
 - **D7** Obsidian filenames: readable titles with a short ID, or opaque IDs?
-- **D8** On Forget, does Sovereign delete its exported Obsidian files automatically?
-- **D9** Manual projection rebuilds first, or automatic local rebuilds?
+- **D8** On Forget, does Sovereign automatically reconcile its registered Obsidian projections?
+- **D9** Manual projection rebuilds plus reconciliation after Forget, or anything more automatic?
 - **D10** Add valid time and a correction-vs-change supersession reason to MemoryClaims?
-- **D11** Which local embedding model and runtime, if the benchmark justifies one?
+- **D11** Which local embedding model and runtime, if representative usage ever justifies one?
 
 Level 5 remains deferred: which measured daily-use gains, monthly budget, permission model and interruption controls would justify scheduled sync or agents is a later question. No default always-on ingestion.

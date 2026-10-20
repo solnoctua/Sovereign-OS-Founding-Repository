@@ -85,26 +85,28 @@ Tier 2/3 changes (state schemas, memory authority, permissions/disclosure, delet
 - Prototype local app is implemented under `src/sovereign`.
 - API for save/search/correct/delete/export/import is implemented and tested on synthetic records.
 - UI previews the compiled context and requires approval of that exact context before any cloud request; no cloud model is contacted by default.
-- MemoryClaim authority (ADR-0003, Benchmark 0001) is merged (PR #1). **Context Compiler V0 / governed retrieval** (ADR-0004, Benchmark 0002) is merged to `main` (PR #2, `4fbecbe`): deterministic local retrieval, MemoryClaim-derived authority, inherited sensitivity and exact-plan cloud approval (M2). Both ADRs remain *Proposed* pending founder approval.
+- MemoryClaim authority (ADR-0003, Benchmark 0001) is merged. **Context Compiler V0 / governed retrieval** (ADR-0004, Benchmark 0002) is in review: deterministic local retrieval, MemoryClaim-derived authority, inherited sensitivity and exact-plan cloud approval (M2).
 - One provider adapter supports Moonshot/Kimi and OpenAI Chat Completions if separately configured. Live provider calls are **not** verified here without credentials.
 - `python -m sovereign` serves at `127.0.0.1:8765`.
 - **Not yet safe for sensitive real-world data:** unencrypted database, no app login, backups/recovery and audit trails incomplete.
 
 ## G. Governed second-brain track (proposed; complementary to M0–M5)
 
-See [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) (PROPOSED), [the five-level guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md) and [the Obsidian projection spec](docs/second-brain/OBSIDIAN-PROJECTION.md). This track **extends memory and the context pipeline**, not the kernel's permissions or goals. **Target Levels 3–4**, with Levels 1–2 as readable routing/wiki views; Level 5 continuous intelligence stays a later option behind cost, consent and security gates. L1–L5 are techniques; the slices below are this track's only numbering (acceptance details in ADR-0005 §11).
+See [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) (PROPOSED), [the five-level guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md), [the Obsidian projection spec](docs/second-brain/OBSIDIAN-PROJECTION.md) and [the second-brain validation spec](docs/second-brain/SECOND-BRAIN-VALIDATION.md). This track **extends memory and the context pipeline**, not the kernel's permissions or goals. **Target Levels 3–4**, with Levels 1–2 as readable routing/wiki views; Level 5 continuous intelligence stays a later option behind cost, consent and security gates. L1–L5 are techniques; the slices below are this track's only numbering (acceptance details in ADR-0005 §11).
 
-| Slice | Delivers | Gate |
+**Status as of 2026-10-20:** the Context Compiler (PR #2) is merged to `main`, and PR #3 is integrated with it. Retrieval evaluation is **Benchmark 0003**, executed in [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) and not yet merged; PR #4 also refreshes the *Current progress* list above. The founder's intended retrieval positions R1–R7 (ADR-0005 §12.2) await formal approval.
+
+| Slice | Delivers | State / gate |
 | --- | --- | --- |
-| **SB-0** | Direction docs, Obsidian spec and synthetic demo vault (PR #3) | Founder decisions D1–D11 (ADR-0005 §15) |
-| **SB-1** | [Benchmark 0003](docs/benchmarks/0003-second-brain-retrieval-evaluation.md) Stage A: synthetic fixtures, runner, baseline report on the current compiler | Tier 1; no production change |
-| **SB-2** | Provenance graph computed on read + one-way Obsidian projection CLI (sources, claims, revisions, decision histories) with Forget/correction cleanup — **first user-visible slice** | Tier 2; no schema change |
+| **SB-0** | Direction docs, Obsidian and validation specs, synthetic demo vault (PR #3) | Founder decisions D1–D11 (ADR-0005 §15) |
+| **SB-1** | Benchmark 0003 retrieval evaluation (synthetic corpus, harness, governed recall/noise/precision, lexical alternatives) | Executed in PR #4, not merged; Codex P2 on its scale timings open there; R1–R7 pending |
+| **SB-2** | Provenance graph computed on read (local navigation only) + one-way Obsidian projection CLI with registry, export fence, inert serialization, scope closure and Forget reconciliation — **first user-visible slice** | Tier 2; no canonical schema change; validation spec §3–§4 |
 | **SB-3** | Human-declared projects/concepts and membership → project/concept hubs | Tier 2 schema ADR |
-| **SB-4** | In-vault FTS5/BM25 candidates, measured against SB-1 | Tier 2 compiler policy version |
-| **SB-5** | Local embeddings + rank fusion, **only if** SB-1/SB-4 data justify it | Tier 2; semantic relevance and cloud eligibility decided first |
+| **SB-4** | Porter normalization of the existing score, with a policy version bump — only if R1 is approved, precision cost stated | Separate Tier 2 PR; IDF/BM25/FTS5 deferred (R2) |
+| **SB-5** | Local embeddings | Deferred (R6) until representative, legitimate usage shows meaningful improvement |
 | **SB-6** | Temporal claim extension: valid time, correction vs change | Tier 2 (extends ADR-0003) |
 | **SB-7** | Typed relations as structured MemoryClaims; human-authored first | Tier 2/3 |
-| **SB-8** | Graph-assisted context retrieval | Revisits ADR-0004 decision 3 |
+| **SB-8** | Graph- or provenance-assisted context | Deferred (R3); local exploration and independent evaluation first |
 | **SB-9** | Level 5 research only | Measured utility, budget, consent, security |
 
-**Delivery discipline:** distinct, reviewable changes; do not conflate visualization with evidence verification. User agency, capture/recovery and security work remain prerequisites for live personal data, independent of this track.
+**Delivery discipline:** distinct, reviewable changes; do not conflate visualization with evidence verification. User agency, capture/recovery and security work remain prerequisites for live personal data, independent of this track. Separately, a small repository-hygiene PR should restore `.gitignore` and untrack `data/sovereign.db` and `__pycache__` (see `docs/SECURITY-GATE.md`).

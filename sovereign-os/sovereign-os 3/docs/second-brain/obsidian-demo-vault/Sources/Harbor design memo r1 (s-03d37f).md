@@ -1,5 +1,6 @@
 ---
 sovereign_projection: 1
+sovereign_projection_id: "demo-projection"
 sovereign_id: "s-0003"
 kind: source
 title: "Harbor design memo r1"
@@ -18,10 +19,14 @@ demo: synthetic
 
 Source record · captured 2026-04-10 · **superseded revision** — this capture was corrected; the compiler no longer uses it as evidence, and claims citing it are stale · private
 
-> Harbor syncs notes every 5 minutes when online.
+## Content
+
+```text
+Harbor syncs notes every 5 minutes when online.
+```
 
 ## CORRECTED_BY
 
-- [[Harbor design memo r2 (s-0004)]] — correction captured 2026-04-12
+- [[Harbor design memo r2 (s-9e44d1)]] — correction captured 2026-04-12
 
 Claims citing this source and hubs filing it appear under **Backlinks**.

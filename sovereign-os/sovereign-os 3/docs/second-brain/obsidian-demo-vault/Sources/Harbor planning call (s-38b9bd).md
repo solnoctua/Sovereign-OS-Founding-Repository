@@ -1,5 +1,6 @@
 ---
 sovereign_projection: 1
+sovereign_projection_id: "demo-projection"
 sovereign_id: "s-0005"
 kind: source
 title: "Harbor planning call"
@@ -18,7 +19,11 @@ demo: synthetic
 
 Source record · captured 2026-07-01 · **active evidence** — what was written down, not a verified fact · private
 
-> Planning call: Harbor will reuse Lantern's on-device storage module for offline notes, starting this month.
+## Content
+
+```text
+Planning call: Harbor will reuse Lantern's on-device storage module for offline notes, starting this month.
+```
 
 No corrections.
 

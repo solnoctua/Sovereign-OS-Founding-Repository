@@ -1,5 +1,6 @@
 ---
 sovereign_projection: 1
+sovereign_projection_id: "demo-projection"
 sovereign_id: "r-0002"
 kind: relationship
 title: "Harbor USES PostgreSQL"
@@ -27,19 +28,29 @@ demo: synthetic
 
 # Harbor USES PostgreSQL
 
-- **Subject:** [[Project Harbor (p-harbor)]]
+- **Subject:** [[Project Harbor (p-a79e95)]]
 - **Predicate:** `USES` (predicate registry v1)
-- **Object:** [[PostgreSQL (k-postgresql)]]
+- **Object:** [[PostgreSQL (k-6c5a1b)]]
 - **Status:** proposed by a model on 2026-07-05; not reviewed
 
 ## Why this connection exists
 
-- [[Lantern kickoff note (s-0001)]] — "Lantern will store sensor readings in PostgreSQL on the home server."
+- [[Lantern kickoff note (s-6cfaa4)]] — the cited passage:
+
+```text
+Lantern will store sensor readings in PostgreSQL on the home server.
+```
 
 The cited evidence is about **Lantern**, not Harbor, and that plan was later replaced. A reviewer reading this section should reject the proposal. A misattributed extraction still draws a confident-looking line in the graph; that is why model-extracted relationships never become approved memory without review.
 
 ## Decision history
 
-| When | Change | By | Note |
+| # | When | Change | By |
 | --- | --- | --- | --- |
-| 2026-07-05 | created as proposed | model | Extraction run (synthetic) |
+| 1 | 2026-07-05 | created as proposed | model |
+
+Decision notes (free text, shown verbatim and inert):
+
+```text
+1: Extraction run (synthetic)
+```

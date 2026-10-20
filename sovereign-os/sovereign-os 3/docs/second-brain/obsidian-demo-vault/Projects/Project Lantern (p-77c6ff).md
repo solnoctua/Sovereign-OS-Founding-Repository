@@ -1,5 +1,6 @@
 ---
 sovereign_projection: 1
+sovereign_projection_id: "demo-projection"
 sovereign_id: "p-lantern"
 kind: project
 title: "Project Lantern"
@@ -20,20 +21,20 @@ Fictional garden-sensor prototype. **Hub:** every link below is something a huma
 
 ## Current decisions
 
-- [[Lantern stores readings in SQLite on device (c-0002)]] — approved 2026-06-15
+- [[Lantern stores readings in SQLite on device (c-39798e)]] — approved 2026-06-15
 
 ## Earlier decisions
 
-- [[Lantern stores readings in PostgreSQL (c-0001)]] — approved 2026-03-03, superseded 2026-06-15
+- [[Lantern stores readings in PostgreSQL (c-fcbaf2)]] — approved 2026-03-03, superseded 2026-06-15
 
 ## Needs attention
 
-- [[Lantern battery lasts about 14 days (c-0004)]] — contested 2026-06-21
+- [[Lantern battery lasts about 14 days (c-acdade)]] — contested 2026-06-21
 
 ## Sources
 
-- [[Lantern kickoff note (s-0001)]] — captured 2026-03-02
-- [[Lantern storage review (s-0002)]] — captured 2026-06-14
-- [[Field test log (s-0006)]] — captured 2026-06-20
+- [[Lantern kickoff note (s-6cfaa4)]] — captured 2026-03-02
+- [[Lantern storage review (s-560123)]] — captured 2026-06-14
+- [[Field test log (s-8421e4)]] — captured 2026-06-20 (superseded revision)
 
 Relationships that name this project, such as *Harbor DEPENDS_ON Lantern*, link here and appear under **Backlinks**.

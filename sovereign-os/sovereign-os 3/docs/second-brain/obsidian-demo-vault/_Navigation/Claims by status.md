@@ -1,5 +1,6 @@
 ---
 sovereign_projection: 1
+sovereign_projection_id: "demo-projection"
 kind: navigation
 title: "Claims by status"
 tags: [sovereign/navigation]
@@ -12,25 +13,25 @@ demo: synthetic
 
 # Claims by status
 
-Status as of generation 1. Only claims that are **approved and supported** are approved memory the Context Compiler may use.
+Status as of generation 1, for claims in this export's scope. Only claims that are **approved and supported** are approved memory the Context Compiler may use.
 
 ## Approved memory (approved, evidence intact)
 
-- [[Lantern stores readings in SQLite on device (c-0002)]]
-- [[Harbor DEPENDS_ON Lantern (r-0001)]] *(future structured claim)*
+- [[Lantern stores readings in SQLite on device (c-39798e)]]
+- [[Harbor DEPENDS_ON Lantern (r-8222a6)]] *(future structured claim)*
 
 ## Needs review: approved but stale (evidence corrected)
 
-- [[Harbor syncs every 5 minutes (c-0003)]]
+- [[Harbor syncs every 5 minutes (c-96826c)]]
 
 ## Contested
 
-- [[Lantern battery lasts about 14 days (c-0004)]]
+- [[Lantern battery lasts about 14 days (c-acdade)]]
 
 ## Proposed, unreviewed
 
-- [[Harbor USES PostgreSQL (r-0002)]] *(model proposal; a default export omits proposals)*
+- [[Harbor USES PostgreSQL (r-6b50eb)]] *(model proposal; a default export omits proposals)*
 
 ## Superseded (history, not current)
 
-- [[Lantern stores readings in PostgreSQL (c-0001)]]
+- [[Lantern stores readings in PostgreSQL (c-fcbaf2)]]

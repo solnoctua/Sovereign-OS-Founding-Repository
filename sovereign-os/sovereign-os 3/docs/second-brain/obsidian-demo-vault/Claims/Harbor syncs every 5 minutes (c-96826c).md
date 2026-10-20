@@ -1,5 +1,6 @@
 ---
 sovereign_projection: 1
+sovereign_projection_id: "demo-projection"
 sovereign_id: "c-0003"
 kind: claim
 title: "Harbor syncs every 5 minutes"
@@ -21,13 +22,19 @@ demo: synthetic
 
 **Not approved memory now.** It was approved, but the source it cites was corrected on 2026-04-12, so its support is **stale**. The Context Compiler excludes it (`stale`) until a human supersedes or rejects it. This note deliberately does not link the corrected revision, because the claim never cited it.
 
+## Claim text
+
+```text
+Harbor syncs notes every 5 minutes.
+```
+
 ## SUPPORTED_BY
 
-- [[Harbor design memo r1 (s-0003)]] — captured 2026-04-10 · **superseded revision**
+- [[Harbor design memo r1 (s-03d37f)]] — captured 2026-04-10 · **superseded revision**
 
 ## Decision history
 
-| When | Change | By | Note |
+| # | When | Change | By |
 | --- | --- | --- | --- |
-| 2026-04-11 | created as proposed | human |  |
-| 2026-04-11 | proposed → approved | human |  |
+| 1 | 2026-04-11 | created as proposed | human |
+| 2 | 2026-04-11 | proposed → approved | human |

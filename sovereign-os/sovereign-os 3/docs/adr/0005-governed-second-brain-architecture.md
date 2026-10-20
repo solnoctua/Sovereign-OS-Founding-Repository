@@ -1,20 +1,20 @@
 # ADR-0005 — Governed Second Brain: Level 3–4 Retrieval, Knowledge Graphs and Obsidian Views
 
-- **Status:** PROPOSED — architecture direction for founder review; not ratified, not implemented. Revision 2 (2026-10-19) incorporates an independent architecture review; see [*Revision notes*](#revision-notes).
-- **Date:** 2026-10-19
+- **Status:** PROPOSED — architecture direction for founder review; not ratified, not implemented. Revision 3 (2026-10-20) resolves the Codex architecture audit (F1–F6) and reconciles with Benchmark 0003 (PR #4); see [*Revision notes*](#revision-notes).
+- **Date:** 2026-10-20 (revision 3; first proposed 2026-10-19)
 - **Decision owner:** Human project owner
 - **Review tier:** Tier 3 direction. Every implementation slice that changes schema, memory authority, deletion, retrieval relevance or disclosure is separately Tier 2 (see `AGENTS.md`, `docs/DEVELOPMENT.md`).
-- **Builds on:** [ADR-0003](0003-memory-claim-authority.md) (MemoryClaim authority) and [ADR-0004](0004-governed-retrieval-context-compiler.md) (Context Compiler) **as merged to `main`** (merge `4fbecbe`, which includes `cee2c66`, the policy-state truncation fingerprint). This ADR amends neither; §6 names exactly where a later slice would have to.
-- **Read alongside:** [Second-brain levels guide](../second-brain/LEVELS-AND-OBSIDIAN.md), [Obsidian projection spec](../second-brain/OBSIDIAN-PROJECTION.md), [Benchmark 0003](../benchmarks/0003-second-brain-retrieval-evaluation.md), [Architecture](../../ARCHITECTURE.md), [Roadmap §G](../../ROADMAP.md)
+- **Builds on:** [ADR-0003](0003-memory-claim-authority.md) (MemoryClaim authority) and [ADR-0004](0004-governed-retrieval-context-compiler.md) (Context Compiler) **as merged to `main`** (`4fbecbe`, including `cee2c66`, the policy-state truncation fingerprint, which this branch now contains). This ADR amends neither; §6 names exactly where a later slice would have to.
+- **Read alongside:** [Second-brain levels guide](../second-brain/LEVELS-AND-OBSIDIAN.md), [Obsidian projection spec](../second-brain/OBSIDIAN-PROJECTION.md), [Second-brain validation spec](../second-brain/SECOND-BRAIN-VALIDATION.md), [Architecture](../../ARCHITECTURE.md), [Roadmap §G](../../ROADMAP.md). Retrieval evaluation: Benchmark 0003, `docs/benchmarks/0003-retrieval-evaluation.md`, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) and **not yet merged**.
 - **Constitution:** subordinate to the proposed Constitution; no constitutional text is amended or ratified by this document.
 
 ## 1. Problem and mission
 
-Sovereign is a long-lived, local-first personal intelligence environment. Lexical search alone cannot reliably reconstruct ideas expressed in different words, relationships between months-old projects, what changed in an earlier decision, or why a memory is believed. A second brain must help the person **find, relate, explain and correct** what they know — and, per Constitution Art. I.6 and II.1–II.4, it is judged by whether the person understands, recalls and decides better, not by how many notes, vectors or graph nodes exist.
+Sovereign is a long-lived, local-first personal intelligence environment. Lexical search alone cannot reliably reconstruct ideas expressed in different words, relationships between months-old projects, what changed in an earlier decision, or why a memory is believed. A second brain must help the person **find, relate, explain and correct** what they know — and, per Constitution Art. I.6 and II.1–II.4, it is judged by whether the person understands, recalls and decides better, not by how many notes, vectors or graph nodes exist, nor by a synthetic recall metric.
 
 **Decision proposed:** extend the Sovereign Brain (ARCHITECTURE §4A) with **Level 3 semantic/hybrid discovery** and **Level 4 typed, source-backed relationship exploration**, keeping **Level 1 structured files** and **Level 2 linked wiki views** as human-facing representations. **Level 5 continuous intelligence is a long-term destination, not a present requirement.** The user must be able to **explore the result visually in Obsidian** (§9).
 
-**What this is not:** a second store of record, a second authority lifecycle, or a second path to a model. Every new mechanism plugs into the existing records → MemoryClaims → Context Compiler → exact disclosure pipeline.
+**What this is not:** a second store of record, a second authority lifecycle, or a second path to a model. Every new mechanism plugs into the existing records → MemoryClaims → Context Compiler → exact disclosure pipeline. **Retrieval ≠ authority ≠ disclosure ≠ inference ≠ action.**
 
 The five-level framing comes from a video heuristic, not an industry standard or maturity certification: use the least complex structure that answers real questions reliably. Authority, privacy, retention, correction and action boundaries are **orthogonal** to the levels; a Level 4 graph is not inherently safer, truer or more advanced than a Level 2 wiki.
 
@@ -24,22 +24,23 @@ The five-level framing comes from a video heuristic, not an industry standard or
 | --- | --- | --- | --- | --- |
 | **L1** | **Structured files and routing.** Markdown, folders, indexes, instruction files that tell humans/agents where things live. | Known project or document, stable instructions, direct inspection. | Misses what is unnamed or misfiled; stale pointers. | Repository routing; generated index pages in the projection. |
 | **L2** | **Linked wiki.** Concept and project pages, backlinks, crosslinks; Obsidian's graph shows note-to-note links. | Browsing a topic, orienting across projects. | A backlink is not a typed or trustworthy relationship; generated prose can distort sources. | Deterministic hub/index pages over canonical items (no generated prose in V0). |
-| **L3** | **Semantic/hybrid retrieval.** Lexical/FTS plus embeddings, fusion, reranking, whole-document expansion. | Paraphrased or cross-lingual questions; discovery across projects. | Near meaning ≠ factual equality; top-k chunks lose document context; stale vectors; vectors leak content. | Candidate discovery only, evaluated against the lexical baseline (§6). |
+| **L3** | **Semantic/hybrid retrieval.** Lexical/FTS plus embeddings, fusion, reranking, whole-document expansion. | Paraphrased or cross-lingual questions; discovery across projects. | Near meaning ≠ factual equality; top-k chunks lose document context; stale vectors; vectors leak content; more recall can mean more disclosure. | Candidate discovery only, evaluated in Benchmark 0003 (§6, §12). |
 | **L4** | **Typed, evidence-backed knowledge graph.** Entities and qualified relationships (`DEPENDS_ON`, `CONTRADICTS`, `SUPERSEDES`, `SUPPORTED_BY`), optionally graph-assisted retrieval. | Multi-hop connections, provenance, how decisions evolved, cross-project dependencies. | Wrong extraction, conflated entities, stale edges, hairball visuals, authority laundering. | Provenance graph first (computed from canonical links); typed relations later as structured MemoryClaims (§8). |
 | **L5** | **Continuously maintained environment.** Scheduled ingestion, live connectors, background agents, consolidation. | Changing operational data, proactive help. | Recurring cost, over-collection, compounding stale beliefs, leakage, excessive autonomy. | **Deferred** behind explicit benefit, cost, consent and security gates (§10). |
 
 The levels are **composable techniques, not a ladder**. One source needs whole-document access, another an index entry, a third a graph edge. Never vectorize everything by default or assume a graph is always needed.
 
-**Three numbering schemes, three meanings:** **M0–M5** are Sovereign product milestones (ROADMAP §C); **L1–L5** are second-brain techniques (this section); **SB-0…SB-9** are the delivery slices of this workstream (§11, ROADMAP §G). Do not conflate them.
+**Numbering schemes:** **M0–M5** are Sovereign product milestones (ROADMAP §C); **L1–L5** are second-brain techniques (this section); **SB-0…SB-9** are the delivery slices of this workstream (§11, ROADMAP §G); **D1–D11** are this ADR's founder decisions (§15); **R1–R7** are the founder's intended retrieval positions from Benchmark 0003 (§12). Do not conflate them.
 
 ### Essential distinctions
 
 - **Backlink vs assertion:** an Obsidian `[[link]]` says two notes reference each other. It carries no predicate, truth value, provenance or time.
 - **Similarity vs truth:** a nearby vector means "semantically related", not "this record proves the proposition". IDs, dates and numbers need exact lookup.
 - **Storage vs authority vs context:** retaining a source, indexing it or drawing it in a graph never promotes it to approved memory; task context is temporary and purpose-limited.
+- **Navigation vs relevance:** following a provenance link locally is not a reason to put the linked item into model context (R3).
 - **Correction vs change:** "the record was wrong" and "the world changed" both end in `superseded` today; they mean different things (§8.3).
 - **Snapshot vs live:** a materialized view (Obsidian) shows state as of its generation; Sovereign's live state is authoritative.
-- **Graph display vs graph reasoning:** a visual network is UI. Graph traversal used for answers must be benchmarked and governed separately (§6.5).
+- **Graph display vs graph reasoning:** a visual network is UI. Graph traversal used for answers must be benchmarked and governed separately (§6).
 
 ## 3. State classes and authority
 
@@ -50,26 +51,29 @@ The second brain adds representations; it must not blur which ones carry authori
 | 1 | **Source evidence** (canonical) | `records` | Evidence, not belief | Human capture/import | Tombstone trigger (ADR-0003) | Exported | As `evidence`, via the compiler |
 | 2 | **Claims and decisions** (canonical) | `claims`, `claim_sources`, `claim_events` | Only `approved` + `supported` is approved memory | Humans decide; a model may only *propose* (`origin = model`, reserved by ADR-0003) | Forgotten with any cited record | Exported | As `approved_memory`, via the compiler |
 | 3 | **Human-declared organization** (canonical, *proposed — does not exist yet*) | Projects, concepts, membership of records/claims | Organizational, not a truth claim | Human | Membership removed with its member; entity Forget cascades (§7) | Exported (new schema, SB-3) | Not until its own ADR |
-| 4 | **Deterministic derived indexes and projections** | FTS5 tables, vectors, the provenance graph | None | Sovereign code; rebuildable | Same transaction (in-vault, §7) | **Not** exported; rebuilt | Never directly — candidate IDs only |
-| 5 | **Rendered external projections** | Obsidian Markdown vault | None; a dated snapshot | Exporter CLI | Post-commit cleanup; residual copies disclosed (§7) | Not a backup | Never |
-| 6 | **Working context** | ContextBundle, query text, query vector | Request-scoped | Compiler | Never persisted | — | Only the exact approved bundle |
+| 4 | **Deterministic derived structure** | The provenance graph (computed on read); any future index | None | Sovereign code; rebuildable | Nothing stored, or same transaction (§7) | **Not** exported; rebuilt | Never directly — candidate IDs only |
+| 5 | **Rendered external projections** | Obsidian Markdown vault | None; a dated snapshot | Exporter CLI | Fenced publication + reconciliation (§9, projection spec §11) | Not a backup | Never |
+| 6 | **Projection registry** (operational, non-canonical) | Registered roots, manifests, reconciliation counters | None | Exporter and Forget cleanup | Entries for forgotten items removed by reconciliation | Not exported; per installation | Never |
+| 7 | **Working context** | ContextBundle, query text | Request-scoped | Compiler | Never persisted | — | Only the exact approved bundle |
 
-Consequences that revision 1 got wrong or left implicit:
+Consequences:
 
-- **Model-proposed relationships, entities or summaries are not disposable projections.** A model run is not reproducible, costs money, and a human review of its output is a *decision*. If persisted, they are class 2: MemoryClaims with `origin = model`, created `proposed`. If not persisted, they are class 6 and vanish.
-- **A typed relationship is a MemoryClaim with a structured form, not a new lifecycle** (decision D3). Revision 1's `review_state: proposed | reviewed | contested` would have duplicated `claims.status`, its history, its Forget cascade and its import/restore rules.
-- **Projects, concepts, decisions and multi-record documents do not exist in the canonical schema.** Records hold `content, source, sensitivity, status, created_at, supersedes_id`; claims hold text, origin, status, lineage and source links. Hubs in Obsidian, project pages in an L2 wiki and "summarize the whole meeting" all need class 3 first (D2). Until then a projection can honestly show only sources, claims, revisions and decision histories.
-- **Immutability makes indexing simple.** Record and claim IDs are insert-only and their content immutable (ADR-0003), so an index keyed by ID can become *existence*-stale (forgotten) but never *content*-stale. Claim status and support are always read live at hydration, never from an index.
+- **Model-proposed relationships, entities or summaries are not disposable projections.** A model run is not reproducible, costs money, and a human review of its output is a *decision*. If persisted, they are class 2: MemoryClaims with `origin = model`, created `proposed`. If not persisted, they are class 7 and vanish.
+- **A typed factual relationship is a MemoryClaim with a structured form, not a new lifecycle** (decision D3). A separate `review_state` would duplicate `claims.status`, its history, its Forget cascade and its import/restore rules.
+- **Deterministic provenance edges are structural, not claims.** `SUPPORTED_BY`, `CORRECTS` and `SUPERSEDES` are facts Sovereign already stores; they need no redundant claim about themselves.
+- **Projects, concepts, decisions and multi-record documents do not exist in the canonical schema.** Records hold `content, source, sensitivity, status, created_at, supersedes_id`; claims hold text, origin, status, lineage and source links. Hubs in Obsidian, project pages in an L2 wiki and "summarize the whole meeting" all need class 3 first (D2), through a separately reviewed data model. Until then a projection can honestly show only sources, claims, revisions and decision histories.
+- **Immutability makes derived structure simple.** Record and claim IDs are insert-only and their content immutable (ADR-0003), so anything keyed by ID can become *existence*-stale (forgotten) but never *content*-stale. Claim status and support are always read live, never from a derived copy.
 
 ## 4. Invariants
 
-1. **One system of record.** Records, MemoryClaims, decision histories, tombstones and (once approved) human-declared organization live in the local vault. No Markdown export, FTS/vector index, entity table, LLM summary or external graph store becomes a competing system of record.
+1. **One system of record.** Records, MemoryClaims, decision histories, tombstones and (once approved) human-declared organization live in the local vault. No Markdown export, index, entity table, LLM summary or external graph store becomes a competing system of record.
 2. **Retrieval ≠ authority ≠ disclosure ≠ inference ≠ action.** Retrievers and graph traversal propose candidate canonical IDs. The compiler hydrates them from one snapshot, applies authority, sensitivity, relevance and budget, and builds the disclosure plan. Models and adapters never read the vault or widen their own disclosure.
 3. **Approved memory means approved and supported.** Only `claims.is_authoritative` items may appear as approved memory — including structured relation claims. An edge never inherits approval from the claims or sources that support it.
-4. **Exact-plan consent survives every retrieval upgrade.** Preview and execution use the same compiler; a new retrieval method enters only with a new `policy_version` whose token binds its complete relevant state (§6). Nothing is appended after approval.
-5. **Forget reaches every derived representation** without resurrection through rebuild, restore or stale materialization; tombstones dominate; whatever cannot be guaranteed is disclosed, never concealed (§7).
-6. **Derived structure is personal data.** Graph topology, entity names, generated titles and filenames, link sets and vectors can reveal sensitive information. No implicit cloud embedding, indexing, routing or graph publishing.
-7. **Portability.** Indexes and renderers are replaceable; canonical export never depends on them. Removing every second-brain component restores lexical, canonical behavior and changes no authority.
+4. **Exact-plan consent survives every retrieval change.** Preview and execution use the same compiler; a new retrieval method enters only with a new `policy_version`, and the token keeps binding the complete policy-relevant retrieval state (§6.3). Nothing is appended after approval.
+5. **Forget reaches every derived representation** without resurrection through rebuild, restore, stale materialization or a concurrent export; tombstones dominate; whatever cannot be guaranteed is disclosed, never concealed (§7, §9).
+6. **Derived structure is personal data.** Graph topology, entity names, generated titles and filenames, link sets and vectors can reveal sensitive information. No implicit cloud embedding, indexing, routing or graph publishing, and no reference to an object outside an export's authorized scope (§9).
+7. **Untrusted text is data, never markup.** Record, claim and note text is rendered inert in every projection; only canonical relationships between authorized items become links (§9).
+8. **Portability.** Indexes and renderers are replaceable; canonical export never depends on them. Removing every second-brain component restores lexical, canonical behavior and changes no authority.
 
 ## 5. Component model
 
@@ -81,33 +85,34 @@ Capture/import + deliberate authoring (human-declared organization, SB-3)
     records ── evidence identity, revisions, tombstones
     claims  ── decisions, source links, support derived on read
     [organization: projects/concepts/membership — proposed]
-    [derived tables: FTS5, vectors — rebuildable, not exported]
           |
-Question -> in-vault retrievers (lexical | FTS5 | semantic | timeline)   <- deterministic, local
-          -> candidate IDs + per-method rank (same read snapshot)
+Question -> in-vault retrieval (lexical today; see §6)                    <- deterministic, local
+          -> candidate IDs (same read snapshot)
           -> hydration: status, support, inherited sensitivity, policy state
           -> Context Compiler (relevance, authority, sensitivity, budget, disclosure, token)
           -> ContextBundle -> local evidence | exact preview -> approved provider
           |
-          +--> provenance graph, computed on read (local UI/CLI)        [SB-2]
-          +--> one-way Obsidian projection, CLI, outside the vault      [SB-2]
+          +--> provenance graph, computed on read (local navigation only)  [SB-2]
+          +--> one-way Obsidian projection, CLI, fenced against Forget      [SB-2]
+                 (registry beside the vault; files outside any Git tree)
 ```
 
-**Candidate contract (sketch, not a frozen schema).** Generalize ADR-0004's `RetrievalCandidate.via` from one value (`pinned | lexical | provenance`) to the set of methods that surfaced the item, each with its rank and quantized score. `Vault.context_candidates` remains the **single read snapshot** that runs in-vault retrievers and hydrates their hits. An out-of-vault retriever, if ever added, returns *hints* that are rehydrated in that snapshot; unknown or forgotten IDs are dropped and counted locally (`dropped_hints`), never surfaced as content.
+**Candidate contract (sketch, not a frozen schema).** If a second retrieval method is ever added, generalize ADR-0004's `RetrievalCandidate.via` from one value (`pinned | lexical | provenance`) to the set of methods that surfaced the item. `Vault.context_candidates` remains the **single read snapshot** that runs in-vault retrieval and hydrates the hits. An out-of-vault retriever, if ever added, returns *hints* that are rehydrated in that snapshot; unknown or forgotten IDs are dropped and counted locally, never surfaced as content.
 
-**Routing.** Choose methods deterministically and inspectably: exact lookup for IDs and dates, timeline ordering for "what changed", hybrid search for paraphrase, whole-record access for "the entire note", graph traversal only for explicit relationship questions (SB-8). No model constructs SQL or graph queries, and no cloud model is used to route, rewrite or expand a question (§6.7).
+**Routing.** Choose methods deterministically and inspectably: exact lookup for IDs and dates, timeline ordering for "what changed", whole-record access for "the entire note", graph traversal only for local exploration. No model constructs SQL or graph queries, and no cloud model is used to route, rewrite or expand a question (§6.7).
 
 ## 6. Integration with the Context Compiler — what L3/L4 actually change
 
-Revision 1 treated new retrievers as drop-in candidate providers. Against the merged ADR-0004 they are not. Each point below is a **compiler policy change** requiring a new `policy_version`, tests in the adversarial suite, and Tier 2 review.
+New retrieval methods are **not** drop-in candidate providers. Against the merged ADR-0004, each point below is a **compiler policy change** requiring a new `policy_version`, tests in the adversarial suite, a regenerated Benchmark 0003, Tier 2 review and founder approval. Benchmark 0003 (PR #4) has now measured the cheap lexical alternatives; the evidence and the founder's intended positions are in §12.
 
-1. **Relevance gate.** ADR-0004 excludes any unpinned candidate sharing no question term as `not_relevant`. An embedding hit with zero lexical overlap — exactly what L3 exists to find — is therefore discarded today. Changing the gate is a **disclosure change**: ADR-0004 decision 1 lets *relevant* unpinned private items enter an approved cloud plan, so a higher-recall retriever is also a wider-disclosure retriever. The new policy must define relevance per method (lexical: ≥1 term; semantic: quantized similarity ≥ τ calibrated on Benchmark 0003; graph: §6.5), list every method in `relevance.via`, and mark semantic-only items distinctly in the preview. Cloud eligibility of semantic-only items is founder decision **D4**.
-2. **Ranking.** Today's order is pinned → claims → evidence, then lexical score, recency, ID. Fuse per-method ranks with **Reciprocal Rank Fusion** (well established; deterministic; needs no score calibration), keep the group order unless the benchmark shows harm, and break ties by `created_at` then ID. Fusion constants belong to the policy version.
-3. **Truncation fingerprint.** Since `cee2c66`, an approval binds the policy-relevant state of the **complete relevant candidate universe** behind the cutoff. Lexical matching defines that universe crisply. A semantic retriever must too: the universe is every item with quantized similarity ≥ τ under an **exact (brute-force) scan**, fingerprinted with ID, quantized score and policy state, plus the retriever identity (model file hash, dimension, normalization, τ). Approximate-nearest-neighbor indexes cannot define this universe reproducibly; defer them until scale requires it and the token semantics are re-decided. Personal scale (≲10⁵ items) is comfortably brute-forceable.
-4. **Determinism.** Record vectors are computed once at indexing and stored; only the query vector is computed per compile. Hold the query vector in an **in-memory, never-persisted** cache keyed by (question, retriever identity) so preview and execution see the same vector, and quantize similarities before thresholding. Gate: repeated compiles of an unchanged vault yield identical tokens (100%); a runtime that cannot meet it keeps semantic retrieval local-only.
-5. **Graph-reached candidates.** ADR-0004 decision 3 keeps provenance-only claims `not_relevant`. Graph traversal generalizes provenance reach, so using it to admit context is a reversal of a founder decision (**D5**). Until then, graphs serve local navigation, explanation and review only. If later allowed, a path-reached item must still pass every policy, its path is shown locally in the preview, and path IDs never enter `outbound`.
-6. **Whole documents and budget.** A record holds at most 10,000 characters and the V0 budget is 12,000, so "full document" today means "the whole record"; no chunking is needed. If embeddings use sub-record chunks, chunk hits resolve to the parent record ID and the disclosure unit stays the whole record (excerpt disclosure is a new semantics, deferred). Multi-record documents need class-3 grouping (SB-3). A task exceeding the budget runs locally or is split into separately approved requests — the cloud budget is never raised silently.
+1. **Relevance gate.** ADR-0004 excludes any unpinned candidate sharing no question term as `not_relevant`. An embedding hit with zero lexical overlap — exactly what L3 exists to find — is therefore discarded today. Changing the gate is a **disclosure change**: ADR-0004 decision 1 lets *relevant* unpinned private items enter an approved cloud plan, so a higher-recall retriever is also a wider-disclosure retriever. Benchmark 0003 shows the effect even lexically: Porter normalization recovers 2 more expected items and admits 47 more irrelevant ones.
+2. **Ranking.** Today's order is pinned → claims → evidence, then matched-term count, recency, ID; its recency tie-break is an implicit temporal prior. Weighted ranking (IDF, BM25) is **deferred** (R2): in Benchmark 0003 it invalidates 51–54 of 56 pending previews after one unrelated write, and BM25 loses the recency prior (temporal MRR 0.733 → 0.473). Any future weighted or fused ranking is evaluated in the Benchmark 0003 harness first.
+3. **Truncation fingerprint — not to be weakened.** Since `cee2c66`, an approval binds the policy-relevant state of the **complete relevant candidate universe**, including candidates below the cutoff. It must not be weakened for performance or convenience (R2). Weighted scores that change after unrelated writes make previews stale; that is inconvenient but fail-closed (409, re-preview) and accepted. A *policy-equivalent fingerprint* that ignores numerical score changes is a research question only: a score change could be ignored **only if** equivalence of every protected decision is demonstrated — full relevant candidate membership including below-cutoff matches; policy-relevant ordering and cutoff membership; authority, status, support and sensitivity; eligibility and inclusion/exclusion decisions; exact outbound content and disclosure policy. It would need an ADR-0004 amendment, independent adversarial review and explicit founder approval. **It is not proposed here.** A semantic retriever, if ever adopted, must define its relevant universe as crisply as lexical matching does (an exact scan, not approximate nearest neighbors).
+4. **Determinism.** Any retriever must keep token stability on an unchanged vault at 100% (Benchmark 0003's token-stability metric); a runtime that cannot meet it keeps that retriever local-only. Query text and query vectors are never persisted.
+5. **Provenance and graph-reached candidates.** ADR-0004 decision 3 keeps claims reached only through provenance `not_relevant`, and **that conservative exclusion is preserved** (R3). Claim-source and supersession links are valuable for deterministic, local navigation (SB-2), but traversal must never by itself make a connected record or claim relevant for cloud context. Benchmark 0003's one-hop provenance retriever (+5 items) is a diagnostic, not a proposal; any expansion needs an independent evaluation, starting local-only, and a founder decision (D5).
+6. **Whole documents and budget.** A record holds at most 10,000 characters and the V0 budget is 12,000, so "full document" today means "the whole record"; no chunking is needed. The **12-item and 12,000-character limits are retained** (R5): one synthetic question needing 14 items does not justify a global change. Multi-record documents need class-3 grouping (SB-3). A task exceeding the budget runs locally or is split into separately approved requests — the cloud budget is never raised silently.
 7. **Retrieval can itself disclose.** Cloud embedding of records or questions, cloud query rewriting (e.g. HyDE), cloud routing or planning, cloud reranking and cloud extraction all transmit personal content outside an approved plan. All are prohibited by default. Bulk cloud embedding or extraction would be a whole-vault disclosure and needs its own disclosure design, not a per-request preview.
+8. **Precision is a priority, especially for cloud plans** (R4). Benchmark 0003 finds governed context precision-poor under every retriever (about 27–34%): in crowded vocabularies the budget fills with lexical noise, and in a cloud plan that noise is private data offered for disclosure. Improving recall while widening the preview is not automatically progress. Relevance floors, thresholds, or cloud-specific ranking and budgets need their own evaluation and a versioned policy approval.
 
 ## 7. Forget, correction and rebuild across representations
 
@@ -115,17 +120,17 @@ ADR-0003's rule — *the preview is the plan* — extends to every representatio
 
 | Representation | Lives in | On Forget | On correction | Rebuild / export |
 | --- | --- | --- | --- | --- |
-| FTS5 lexical index | Vault DB, derived tables maintained by triggers | Deleted in the Forget transaction. Requires FTS5 `secure-delete` (SQLite ≥ 3.42); without it deleted terms persist in index segments — verified during review even with `PRAGMA secure_delete` on — so refuse to enable the index | New revision indexed on insert; old revision stays (it is still a record) | Rebuilt from canonical tables; not exported; rebuilt after restore |
-| Vectors | Vault DB table keyed by ID + retriever identity | Same transaction. Vectors are treated as content (published embedding-inversion work recovers much of the input text) | As above | Re-embed; not exported |
 | Provenance graph | Computed on read | Nothing to delete | Reads current lineage and support | — |
 | Human-declared organization (SB-3) | Vault DB, canonical | Membership removed with its member. Forgetting an entity removes it, its memberships and every structured claim naming it | — | Exported with the canonical export |
 | Structured relation claims (SB-7) | `claims` | Existing triggers (forgotten with cited evidence), plus forgotten with a forgotten subject/object entity | Stale when evidence is corrected, as any claim | Exported |
-| Obsidian projection | User-chosen folder, **outside** the vault transaction | Post-commit: delete manifest-owned files for forgotten IDs and regenerate notes that linked them; anything not removed is recorded as pending (content-free IDs) and shown until done | Regenerate affected notes | Fully regenerable; never a backup |
-| Projection manifest | Sovereign data directory, not the Obsidian vault | Entries for forgotten IDs removed by the same cleanup | — | Regenerated |
+| Obsidian projection | User-chosen folder, **outside** the vault transaction | Reconciled under the export fence: owned files of forgotten items deleted, notes that named them rewritten; pending until done (§9) | Regenerated on reconciliation | Fully regenerable; never a backup |
+| Projection registry | Beside the vault, never inside the projection | Its counters make pending cleanup reconstructible | — | Not exported |
+| Future FTS5 index (deferred, R2) | Vault DB, maintained by triggers | Same transaction. Requires FTS5 `secure-delete` (SQLite ≥ 3.42); without it deleted terms persist in index segments — reproduced during review even with `PRAGMA secure_delete` on — so refuse to enable the index | New revision indexed on insert | Rebuilt; not exported |
+| Future vectors (deferred, R6) | Vault DB, keyed by ID + retriever identity | Same transaction. Vectors are treated as content (published embedding-inversion work recovers much of the input text) | As above | Re-embed; not exported |
 | Copies Sovereign does not control | Obsidian caches and file-recovery snapshots, trash folders, OS backups and search indexes, sync services, plugins | Cannot be guaranteed | — | Disclosed in the Forget preview and result |
 
-- The Forget preview must count affected projection files per registered projection, so confirmation never understates the effect, and the result must report the actual cleanup outcome. Exports are not transactional; the projection spec defines crash-consistent, idempotent reconciliation instead of claiming atomicity.
-- Index tables live **inside** the vault database by recommendation (**D6**): candidate generation and hydration then share one snapshot, and Forget is atomic. They are excluded from export and rebuilt after restore, so the backup format is unchanged.
+- The Forget preview counts affected projection files per registered projection, so confirmation never understates the effect, and the result reports the actual cleanup state. Exports are never transactional with SQLite; §9 defines how they are fenced and reconciled instead.
+- If an index is ever adopted, its tables live **inside** the vault database (D6) so candidate generation and hydration share one snapshot and Forget is atomic; they are excluded from export and rebuilt after restore.
 
 ## 8. Graphs
 
@@ -136,7 +141,7 @@ Derived without inference from canonical facts, computed on read:
 - **Nodes:** records (active and superseded revisions) and claims, with lifecycle status, derived support, authority, sensitivity (local UI only) and capture/decision times.
 - **Edges:** `SUPPORTED_BY` (claim → record, from `claim_sources`); `CORRECTS` (record revision → predecessor, from `records.supersedes_id`); `SUPERSEDES` (claim → predecessor claim, from `claims.supersedes_id`). They map onto W3C PROV (`wasDerivedFrom`, `wasRevisionOf`) if an interchange vocabulary is ever wanted.
 - **Scope:** a selected item plus a bounded number of hops; never the whole vault in one view.
-- **No new authority, no new table, no Forget burden.** Status and support are read live.
+- **No new authority, no new table, no Forget burden, no effect on relevance.** Status and support are read live, and traversal never changes a compiler decision (R3).
 
 ### 8.2 Domain graph — later, governed through existing machinery
 
@@ -154,105 +159,142 @@ Sovereign has two clocks today: **capture time** (`records.created_at`) and **de
 - **Correction:** the capture or interpretation was wrong (a record corrected through `supersedes_id`, or a claim superseded because it was mistaken).
 - **Change:** it was true and stopped being true (a project decision reversed).
 
-Until **D10** is resolved, every view and every prompt treats `superseded` as *"no longer the current approved interpretation"*, never as *"was false"*, and temporal answers cite capture and decision times rather than inventing validity intervals. Recommendation: before typed relations are persisted, extend MemoryClaim with optional `valid_from`/`valid_until` and a supersession reason (`correction | change`) — the established bitemporal model (valid time vs record time) used by SQL:2011 temporal tables and by temporal knowledge-graph memories such as Graphiti — through its own ADR-0003 extension.
+Until **D10** is resolved, every view and every prompt treats `superseded` as *"no longer the current approved interpretation"*, never as *"was false"*, and temporal answers cite capture and decision times rather than inventing validity intervals. Recommendation: before typed relations are persisted, extend MemoryClaim with optional `valid_from`/`valid_until` and a supersession reason (`correction | change`) — the established bitemporal model (valid time vs record time) — through its own ADR-0003 extension.
 
 ## 9. Obsidian — a first-class optional visual client
 
-**Requirement:** the user can open a Sovereign-generated vault in Obsidian, see a meaningful Graph view and Local graph, follow projects, concepts, sources, claims and decisions, and find out from the notes *why* any line exists and *when* things changed. This is an acceptance requirement, not decoration. The full contract is in the [Obsidian projection spec](../second-brain/OBSIDIAN-PROJECTION.md); the rules that bind the architecture are:
+**Requirement:** the user can open a Sovereign-generated vault in Obsidian, see a meaningful Graph view and Local graph, follow projects, concepts, sources, claims and decisions, and find out from the notes *why* any line exists and *when* things changed. This is an acceptance requirement, not decoration. The full contract is in the [Obsidian projection spec](../second-brain/OBSIDIAN-PROJECTION.md); its tests are in the [validation spec](../second-brain/SECOND-BRAIN-VALIDATION.md) §4. The rules that bind the architecture:
 
-- **Local, opt-in, one-way, CLI-generated.** No HTTP endpoint writes files (V0 has no authentication, so an endpoint would let any same-origin client write to disk). Output goes to a user-chosen folder outside any Git working tree; the exporter only creates, rewrites or deletes files it owns.
+- **Local, opt-in, one-way, CLI-generated.** No HTTP endpoint writes files to a caller-chosen path (V0 has no authentication). Output goes to a user-chosen folder outside any Git working tree; the exporter only creates, rewrites or deletes files it owns.
+- **Export is fenced against Forget (Codex F2).** Before writing anything, an export registers its root durably in the projection registry. It then holds the vault's write lock (`BEGIN IMMEDIATE`, which every canonical mutation also takes) from its snapshot read until its last file operation and directory sync. That critical section is the export's **linearization point**: a Forget, claim Forget or trusted restore commits either before it (and is not in the snapshot) or after it (and then reconciles the published files). Forget cleanup is itself a reconciliation run under the same fence. Pending cleanup is reconstructed from durable state alone — monotonic tombstone counts compared with each projection's last reconciled counts — so no separate outbox is needed. The registry lives beside the vault, never in the projection. Filesystem writes are **not** atomic with SQLite; the guarantee is ordering, not atomicity, and the exact protocol, crash recovery and residual limits are in projection spec §11.
+- **Untrusted text is inert (Codex F3).** Record content, claim text, decision notes, quotations and future entity or relationship descriptions are emitted only inside generated fenced `text` blocks whose fence cannot be closed by the content. Titles and filenames pass a character whitelist; frontmatter comes only from a fixed key schema with escaped values; links, embeds, tags and callouts are generated only from the authorized canonical relationship set. A blockquote alone is insufficient. Parser-based and native Obsidian tests, including a zero-unauthorized-network-request test, are acceptance gates.
+- **Scope is closed before edges are built (Codex F4).** The authorized node set is computed first from one snapshot and the confirmed scope; a link is emitted only when both endpoints are in it. An excluded endpoint becomes a fixed, non-identifying "provenance partial" sentence; scope is never widened to complete a link; nothing excluded appears in a title, filename, ID, frontmatter, navigation note or the registry.
 - **Honest about Obsidian.** Graph lines are untyped links; Obsidian can show link *direction* (Arrows) but not edge labels, edge properties or validity. Node labels are filenames. Semantics, evidence and time live in note text under predicate-named headings — **one canonical relationship, one link, one explanation**.
+- **Animate is not history (Codex F6).** Graph view's *Animate* shows notes in file-creation order on that disk. It does not replay capture times, corrections, supersessions or MemoryClaim status changes. Chronology comes from the Timeline note and each claim's decision history; no animation engine is planned.
 - **A snapshot, labeled as such.** Every note carries its generation and states that Sovereign is authoritative; statuses are as of export, never "live".
 - **Shows only what is canonical.** Today: sources, claims, revisions, decision histories and their links. Project/concept hubs require SB-3; typed relations require SB-7; validity intervals require SB-6. Unreviewed model proposals are excluded from the default scope.
-- **Private by default.** Sensitive items excluded unless explicitly included; an opaque-filename mode exists (**D7**); no plugin is required; sync and plugins are the user's explicit choice and are warned about.
-- **Forget and correction** follow §7; edits made in Obsidian are never imported (a governed import would need its own ADR).
+- **Private by default.** Sensitive items excluded unless explicitly included; an opaque-filename mode exists (D7); no plugin is required; sync and plugins are the user's explicit choice and are warned about. Edits made in Obsidian are never imported.
 
-The [synthetic demo vault](../second-brain/obsidian-demo-vault/) shows the target, including future-only elements clearly marked.
+The [synthetic demo vault](../second-brain/obsidian-demo-vault/) shows the target, including an inert adversarial note, a partial-provenance note and future-only elements clearly marked.
 
 ## 10. Cost, cadence and Level 5
 
-**Near term (L3–L4):** deterministic local retrieval, optional local embeddings after measurement, a computed provenance graph, manual exports. **No recurring model bill is needed to keep the brain usable.** Paid calls happen only through the existing approved request path, or through a future capped extraction workflow with its own ADR, disclosure design and per-run cost preview.
+**Near term (L3–L4):** deterministic local retrieval, a computed provenance graph, manual exports. **No recurring model bill is needed to keep the brain usable.** Paid calls happen only through the existing approved request path, or through a future capped extraction workflow with its own ADR, disclosure design and per-run cost preview.
 
-**Level 5:** periodic sync, proactive conflict detection, live connectors, agent coordination. Revisit only when daily utility, security and recovery, explicit user and bystander consent, provider limits and a **measured monthly cost and energy budget** justify it. Always-on is not a permission or retention policy. Local, event-triggered index maintenance and an exporter re-run are **not** Level 5. Future connectors are queried at use time when authorized; copying their content into the vault is capture, with provenance, consent and retention.
+**Level 5:** periodic sync, proactive conflict detection, live connectors, agent coordination. Revisit only when daily utility, security and recovery, explicit user and bystander consent, provider limits and a **measured monthly cost and energy budget** justify it. Always-on is not a permission or retention policy. Local reconciliation after a Forget and a user-run export are **not** Level 5. Future connectors are queried at use time when authorized; copying their content into the vault is capture, with provenance, consent and retention.
 
-**Long horizon.** Far more capable models and very long contexts may make some retrieval unnecessary *for capability*; they do not make it unnecessary *for disclosure*. Art. VI.2 still forbids sending the life history because a model could read it. The durable value is the canonical state plus governance; retrieval methods stay replaceable behind the candidate contract, and the compiler stays the single choke point — including for future agentic retrieval, where a model may propose queries but never decides disclosure.
+**Long horizon.** Far more capable models and very long contexts may make some retrieval unnecessary *for capability*; they do not make it unnecessary *for disclosure*. Art. VI.2 still forbids sending the life history because a model could read it. The durable value is the canonical state plus governance; retrieval methods stay replaceable behind the candidate contract, and the compiler stays the single choke point — including for future agentic retrieval, where a model may propose queries but never decides disclosure. Benchmark optimization does not dictate this architecture: the goal is trustworthy lifelong knowledge continuity, not a synthetic recall score.
 
 ## 11. Delivery slices
 
 Deliberately small first; one numbering (also ROADMAP §G):
 
-| Slice | Delivers | Level | Tier / gate |
+| Slice | Delivers | Level | State / gate |
 | --- | --- | --- | --- |
-| **SB-0** | This ADR, guide, projection spec, demo vault, Benchmark 0003 spec (docs only) | — | Founder decisions §15 |
-| **SB-1** | Benchmark 0003 Stage A: synthetic fixtures, runner, baseline report on the *current* compiler (candidate and bundle level). No production change | L3 evaluation | Tier 1 |
-| **SB-2** | Provenance graph computed on read + one-way Obsidian projection CLI for sources, claims, revisions and histories, with manifest and Forget/correction cleanup. No schema change. **First user-visible slice** | L2 view + L4 provenance | Tier 2 (deletion reaches an external store) |
+| **SB-0** | This ADR, guide, projection spec, validation spec, demo vault (docs only; PR #3) | — | Founder decisions D1–D11 |
+| **SB-1** | Benchmark 0003 retrieval evaluation: synthetic corpus, harness, governed-recall/noise/precision baseline and lexical alternatives | L3 evaluation | **Executed in PR #4, not merged**; Codex P2 (scale timings) open there; founder decisions R1–R7 pending |
+| **SB-2** | Provenance graph computed on read (local navigation only) + one-way Obsidian projection CLI for sources, claims, revisions and histories, with registry, export fence, inert serialization, scope closure and Forget reconciliation. No canonical schema change. **First user-visible slice** | L2 view + L4 provenance | Tier 2 (deletion reaches an external store); validation spec §3–§4 |
 | **SB-3** | Human-declared projects/concepts and membership; projection hubs | L1/L2 | Tier 2 schema ADR; D2 |
-| **SB-4** | FTS5/BM25 candidates inside the vault, measured against SB-1 | L3 lexical | Tier 2; D6 |
-| **SB-5** | Local embeddings + fusion — **only if** SB-1/SB-4 data show paraphrase or cross-lingual misses that matter | L3 semantic | Tier 2; D4, D11 |
+| **SB-4** | Porter normalization of the existing distinct-term score, with a `POLICY_VERSION` bump and regenerated Benchmark 0003 — **only if R1 is approved**, with its precision cost stated. IDF, BM25 and FTS5 deferred (R2) | L3 lexical | Separate Tier 2 PR |
+| **SB-5** | Local embeddings — **deferred** until representative, legitimate usage shows meaningful improvement over deterministic retrieval (R6) | L3 semantic | Tier 2; D4, D11 |
 | **SB-6** | Temporal claim extension: valid time, supersession reason | L4 prerequisite | Tier 2; D10 |
 | **SB-7** | Typed relations as structured MemoryClaims; human-authored first, model-proposed after an extraction ADR | L4 domain | Tier 2/3; D3 |
-| **SB-8** | Graph-assisted context retrieval | L4 retrieval | Tier 2; D5 |
+| **SB-8** | Graph- or provenance-assisted context — **deferred**; local-only exploration and an independent evaluation first (R3) | L4 retrieval | Tier 2; D5 |
 | **SB-9** | Level 5 research only | L5 | §10 gates |
 
 These slices complement, and never displace, M0–M5. Security, recovery and daily capture remain prerequisites for real data; a graph visualization must not delay them.
 
-## 12. Evaluation and gates
+## 12. Evidence and evaluation
 
-Measure, against an unchanged baseline: candidate recall@k and bundle recall of *policy-eligible* expected IDs, exact-ID correctness, temporal accuracy (including correction vs change), abstention, irrelevant-context fraction, grounded edge-path precision, latency, index size and build time, and per-query cost. A better retrieval score never compensates for a broken invariant.
+### 12.1 Benchmark 0003 (PR #4) — executed, not merged
 
-**Must-pass (zero tolerance):** no unauthorized promotion; no forgotten content in any derived store or registered projection after Forget (canary-string scan); no sensitive egress; no candidate, vector or graph content outside the approved preview; identical tokens for an unchanged vault; no third-party sync of personal graph data without an explicit action; canonical export/restore unchanged. Loopback serving is not authentication. The security gate remains **NOT PASSED**: synthetic or intentionally non-sensitive data only.
+Benchmark 0003 is the canonical retrieval evaluation (subject to its own audit and merge). It evaluates the merged Context Compiler on a synthetic corpus of 254 records, 16 claims and 56 queries with an explicit, policy-validated oracle; it measures retrieval before policy and governed context after policy, for local and cloud targets; no provider is called. Results for locally eligible expected items (88):
+
+| Approach | Recalled | Noise | Previews invalidated by an unrelated write |
+| --- | ---: | ---: | ---: |
+| Current baseline | 66/88 | 166 | 0/56 |
+| Porter normalization | 68/88 | 213 | 0/56 |
+| Porter + IDF | 69/88 | 212 | 53/56 |
+| FTS5 Porter BM25 | 69/88 | 212 | 53/56 |
+
+- **What it establishes and does not:** see the validation spec §2. Generated-answer correctness, abstention and temporal interpretation are **NOT MEASURED**; there are no no-evidence queries.
+- **Review dependency:** Codex P2 on PR #4 found that the indicative scale timings in its finding 8 have no reproducible generation path. They must be made reproducible and qualified, or removed from its evidence, **on PR #4**. This ADR relies on none of them, and incidental container timings are not a capacity guarantee.
+
+### 12.2 Founder's intended retrieval positions — pending formal approval
+
+These positions follow from Benchmark 0003 and are reflected throughout this ADR. None is ratified; each needs the founder's formal approval, and implementing any of them is a separate reviewed PR — never PR #3.
+
+| ID | Position (intended, pending) | Where reflected |
+| --- | --- | --- |
+| **R1** | Favor Option B narrowly: Porter normalization as a separate Tier 2 implementation with a policy-version bump. Not an unconditional improvement: +2 expected items, +47 irrelevant items. | §6.1, SB-4 |
+| **R2** | Defer IDF/BM25. Do not weaken the fingerprint for performance or convenience; a policy-equivalent fingerprint is future research needing an ADR-0004 amendment, adversarial review and founder approval. | §6.2–6.3 |
+| **R3** | Provenance links serve deterministic local navigation; traversal never automatically makes items relevant for cloud context; ADR-0004 decision 3 preserved. | §6.5, §8.1, SB-8, D5 |
+| **R4** | Retrieval precision is a priority, especially for cloud; floors, thresholds or cloud-specific policies need separate evaluation and versioned approval. | §6.8 |
+| **R5** | Keep the 12-item and 12,000-character budgets. | §6.6 |
+| **R6** | Defer local embeddings until representative, legitimate usage shows meaningful improvement; no sensitive personal notes while the Security Gate is NOT PASSED. | SB-5, D4, D11 |
+| **R7** | Keep PR #4's synthetic framework, reproducibility discipline, policy-eligibility checks and regression comparisons; resolve its own findings in PR #4. | §12.1, validation spec §1 |
+
+### 12.3 Gates
+
+A better retrieval score never compensates for a broken invariant. **Must-pass (zero tolerance):** no unauthorized promotion; no forgotten content in any store or registered projection after reconciliation (canary scan); no unauthorized network request from a projection; no sensitive egress; no candidate, vector or graph content outside the approved preview; identical tokens for an unchanged vault; no third-party sync of personal graph data without an explicit action; canonical export/restore unchanged. Loopback serving is not authentication. The security gate remains **NOT PASSED**: synthetic or intentionally non-sensitive data only.
 
 ## 13. Prior art — borrowed ideas, not dependencies
 
-Proven: lexical BM25/FTS, dense + lexical hybrid retrieval with rank fusion, parent-document expansion, bitemporal modeling, provenance vocabularies. Established but costly or unproven at personal scale: LLM-built community graphs (GraphRAG), LLM-maintained incremental graphs (LightRAG), LLM-generated chunk context. Research or vendor-reported: personalized-PageRank multi-hop (HippoRAG), autonomous memory layers (Mem0, Letta), temporal agent-memory graphs (Graphiti/Zep). The [guide](../second-brain/LEVELS-AND-OBSIDIAN.md#5-prior-art-what-to-borrow-what-not-to-adopt) records what each would contribute and why none is adopted now: each either makes a model the author of memory, needs an external graph database, or creates derived text whose Forget cost is unbounded — and none answers a problem Sovereign has measured yet.
+Proven: lexical BM25/FTS, dense + lexical hybrid retrieval with rank fusion, parent-document expansion, bitemporal modeling, provenance vocabularies. Established but costly or unproven at personal scale: LLM-built community graphs (GraphRAG), LLM-maintained incremental graphs (LightRAG), LLM-generated chunk context. Research or vendor-reported: personalized-PageRank multi-hop (HippoRAG), autonomous memory layers (Mem0, Letta), temporal agent-memory graphs (Graphiti/Zep). The [guide](../second-brain/LEVELS-AND-OBSIDIAN.md#5-prior-art-what-to-borrow-what-not-to-adopt) records what each would contribute and why none is adopted now: each either makes a model the author of memory, needs an external graph database, or creates derived text whose Forget cost is unbounded — and none answers a problem Sovereign has measured.
 
 ## 14. Alternatives and reversal
 
 - Replace canonical memory with LightRAG/Neo4j/an Obsidian vault: **rejected** (retrieval and extraction must not determine memory authority).
 - A separate relationship review lifecycle: **rejected** in favor of structured MemoryClaims (D3).
 - Vector-only or graph-only retrieval: **rejected as exclusive methods** (weak on exactness, chronology and whole documents; extraction errors).
-- Approximate-NN vector index now: **deferred** (§6.3).
+- Weighted ranking or an approximate-NN index now: **deferred** (R2, §6.3).
+- An outbox table or a background reconciler for exports: **not needed** — the export fence plus tombstone counts give the same guarantees with less state (§9).
 - Generated wiki prose in V0: **deferred**; a generated summary, if ever persisted, is a proposed MemoryClaim with source links.
+- An Obsidian animation engine: **rejected** (F6).
 - Always-on Level 5 now: **deferred** (§10).
 - Bidirectional Obsidian editing: **deferred** (would bypass the approval workflow).
 - Hosted vector/graph databases: **not required** at single-user scale; SQLite tables and recursive queries suffice for bounded traversal.
 
-**Reversal:** derived tables and projections are disposable; dropping them restores lexical/canonical behavior without touching authority or the backup format. Class-3 organization and structured claims are canonical once adopted and need migration, export/restore and Forget tests in their own ADRs.
+**Reversal:** derived structure and projections are disposable; dropping them restores lexical/canonical behavior without touching authority or the backup format. Class-3 organization and structured claims are canonical once adopted and need migration, export/restore and Forget tests in their own ADRs.
 
 ## 15. Decisions requested from the founder
 
 | ID | Decision | Recommendation |
 | --- | --- | --- |
-| **D1** | Approve the L3–L4 target, deferred L5, and the slice order of §11 (benchmark and provenance/Obsidian before retrieval changes) | Approve |
+| **D1** | Approve the L3–L4 target, deferred L5, and the slice order of §11 (evaluation and provenance/Obsidian before retrieval changes) | Approve |
 | **D2** | Where project/concept nodes come from | Human-declared organization (SB-3) first; model suggestions later, accepted only by a human |
 | **D3** | How typed relationships are governed | As structured MemoryClaims; no second lifecycle |
-| **D4** | May semantic-only (zero-term) candidates enter **cloud** plans? | Local-only in the first semantic policy; cloud eligibility only after Benchmark 0003 shows precision at τ no worse than lexical, and always marked in the preview |
-| **D5** | May graph traversal admit context items (revisits ADR-0004 decision 3)? | Not now; navigation and explanation only until SB-8 evidence |
-| **D6** | Where derived indexes live | Inside the vault DB, maintained in the same transaction, excluded from export |
+| **D4** | May semantic-only (zero-term) candidates ever enter **cloud** plans? | Not while embeddings are deferred (R6); if revisited, local-only first, then only with Benchmark 0003 evidence that precision does not fall (R4), always marked in the preview |
+| **D5** | May graph or provenance traversal admit context items (revisits ADR-0004 decision 3)? | No; local navigation only (R3) until an independent evaluation justifies a proposal |
+| **D6** | Where a derived index would live, if one is ever adopted | Inside the vault DB, same-transaction Forget, excluded from export (moot while R2 defers FTS5) |
 | **D7** | Obsidian filenames: readable titles or opaque IDs | `Readable title (short-id).md` for private items in scope; opaque mode available; sensitive items excluded by default |
-| **D8** | Obsidian cleanup on Forget | Automatic post-commit deletion of owned files, pending state shown, residual copies disclosed |
-| **D9** | When projections are rebuilt | Manual CLI run first; local event-triggered rebuild later (not L5) |
+| **D8** | Obsidian cleanup on Forget | Automatic reconciliation of registered projections under the export fence; pending state shown; residual copies disclosed |
+| **D9** | When projections are rebuilt | Manual CLI run, plus reconciliation after Forget or trusted restore; no scheduled rebuilds |
 | **D10** | Temporal claim semantics | Add valid time and supersession reason (correction vs change) before SB-7 |
-| **D11** | Local embedding model, runtime and dependency | Choose only if SB-1/SB-4 data justify it; pin by file hash; new dependency review |
+| **D11** | Local embedding model, runtime and dependency | Not now (R6); choose only after representative usage justifies it; pin by file hash; new dependency review |
+
+R1–R7 (§12.2) are separate intended positions awaiting the founder's formal approval.
 
 ## 16. Open engineering questions (no founder decision needed yet)
 
-- Calibration of τ and fusion constants; multilingual behavior (ADR-0004's stopword list is English-only).
-- Whether FTS5 replaces the compiler's term scan or only supplies candidates, and how that changes `fingerprint`.
+- Calibration and form of any relevance floor (R4), and how a narrower cloud policy is versioned.
 - Export format version for class-3 organization and its import/restore authority rules.
 - Projection scope language (by project, date range, status) and how a scope is previewed.
+- Bounding export duration under the write-lock fence for large vaults (projection spec §11.6).
 - Cost ceilings and preview format for any future extraction run.
 
 **No implementation, new permission, persistent schema, background ingestion or constitutional amendment is authorized by this document.**
 
 ## Revision notes
 
-Revision 2 (independent review, 2026-10-19; findings in [the review record](../reviews/2026-10-19-second-brain-architecture-review.md)) changed revision 1 (`bae766e`) as follows:
+**Revision 3** (2026-10-20; [remediation record](../reviews/2026-10-20-codex-audit-remediation.md)) resolves the Codex architecture audit and reconciles with PR #4:
 
-- Added the state-class table (§3); reclassified model proposals and reviewed relationships as MemoryClaims instead of disposable projections; replaced `review_state` with structured MemoryClaims.
-- Recorded that projects, concepts, decisions and multi-record documents have no canonical basis yet, and made human-declared organization an explicit slice and decision.
-- Replaced "retrievers are drop-in candidate providers" with the concrete compiler policy changes L3/L4 require (§6), including the `cee2c66` fingerprint, ADR-0004 decisions 1 and 3, determinism and retrieval-time disclosure.
-- Specified Forget per representation (§7), including FTS5 segment retention, vector invertibility and non-transactional exports; replaced "atomically reconcile" exports with crash-consistent reconciliation.
-- Added temporal semantics (correction vs change, valid time).
-- Corrected Obsidian capabilities (direction can be shown; labels cannot; labels are filenames), made export CLI-only, and moved the format contract into a dedicated spec.
-- Unified the delivery numbering (SB-0…SB-9) across ADR, guide and roadmap, and listed founder decisions D1–D11.
+- **F1:** this branch now contains `main` (merge of `4fbecbe`, including `cee2c66` and its three regression tests) and targets `main`.
+- **F2:** export publication is fenced by the vault write lock, registered before writing, and reconciled from tombstone counts; projection spec §11.
+- **F3:** inert serialization contract and adversarial tests; projection spec §7, validation spec §4.2.
+- **F4:** authorized node set before edges, non-identifying partial-provenance wording; projection spec §8, validation spec §4.3.
+- **F5:** Benchmark 0003 (PR #4) is the retrieval oracle; what it does not measure is stated as NOT MEASURED; PR #3's draft benchmark became the validation spec.
+- **F6:** Animate is file-creation order, not history.
+- Reflected the founder's intended retrieval positions R1–R7 as pending; SB-1, SB-4, SB-5 and SB-8 updated accordingly; FTS5 and vectors moved to deferred rows.
+
+**Revision 2** (independent review, 2026-10-19; [review record](../reviews/2026-10-19-second-brain-architecture-review.md)) changed revision 1 (`bae766e`): state-class table and MemoryClaim-based relationships; the missing canonical basis for projects, concepts and decisions; the concrete compiler policy changes L3/L4 require; Forget per representation; correction vs change; corrected Obsidian capabilities and a dedicated projection spec; one delivery numbering and decisions D1–D11.
