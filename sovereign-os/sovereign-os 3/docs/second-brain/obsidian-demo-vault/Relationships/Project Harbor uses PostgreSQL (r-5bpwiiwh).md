@@ -20,7 +20,7 @@ tags:
   - sovereign/support/supported
 ---
 > [!NOTE]
-> Synthetic demo of a Sovereign projection. A snapshot, not memory: Sovereign is authoritative, and edits here are never imported. Lists and links only items included in this export. Stored text is shown inert; invisible or control characters appear as ⟪U+XXXX⟫. Generation and date: see Start Here.
+> Snapshot of Sovereign taken 2026-10-20 12:00 UTC, not live memory: it may be out of date, and forgetting something in Sovereign does not change this copy. Sovereign is authoritative; edits here are never imported. Lists and links only items included in this export; stored text is shown inert, with invisible or control characters as ⟪U+XXXX⟫. Scope: see Start Here. *(Synthetic demo.)*
 
 > [!WARNING]
 > **Unreviewed model proposal — not a fact.** A default export leaves proposals out; this demo includes one to show why.

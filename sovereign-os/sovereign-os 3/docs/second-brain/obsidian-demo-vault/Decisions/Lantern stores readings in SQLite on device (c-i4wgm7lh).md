@@ -21,11 +21,11 @@ tags:
   - sovereign/form/decision
 ---
 > [!NOTE]
-> Synthetic demo of a Sovereign projection. A snapshot, not memory: Sovereign is authoritative, and edits here are never imported. Lists and links only items included in this export. Stored text is shown inert; invisible or control characters appear as ⟪U+XXXX⟫. Generation and date: see Start Here.
+> Snapshot of Sovereign taken 2026-10-20 12:00 UTC, not live memory: it may be out of date, and forgetting something in Sovereign does not change this copy. Sovereign is authoritative; edits here are never imported. Lists and links only items included in this export; stored text is shown inert, with invisible or control characters as ⟪U+XXXX⟫. Scope: see Start Here. *(Synthetic demo.)*
 
 # Decision: Lantern stores readings in SQLite on device
 
-**Approved memory** as of this generation: approved by a human, and its evidence is intact.
+**Approved memory** as of this snapshot: approved by a human, and its evidence is intact.
 
 ## Claim text
 

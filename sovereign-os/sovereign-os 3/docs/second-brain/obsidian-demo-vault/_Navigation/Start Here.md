@@ -2,22 +2,23 @@
 sovereign_projection: 1
 kind: "navigation"
 title: "Start Here"
-generation: 1
-generated_at: "2026-10-20"
+snapshot_at: "2026-10-20T12:00:00+00:00"
 scope: "private items; all statuses; review scope on"
 tags:
   - sovereign/navigation
 ---
 > [!NOTE]
-> Synthetic demo of a Sovereign projection. A snapshot, not memory: Sovereign is authoritative, and edits here are never imported. Lists and links only items included in this export. Stored text is shown inert; invisible or control characters appear as ⟪U+XXXX⟫. Generation and date: below.
+> Snapshot of Sovereign taken 2026-10-20 12:00 UTC, not live memory: it may be out of date, and forgetting something in Sovereign does not change this copy. Sovereign is authoritative; edits here are never imported. Lists and links only items included in this export; stored text is shown inert, with invisible or control characters as ⟪U+XXXX⟫. Scope: below.
 >
-> Everything in this vault is **fictional**: a hand-written example of the proposed Sovereign → Obsidian projection (spec: `docs/second-brain/OBSIDIAN-PROJECTION.md` in the Sovereign repository). It is not an exporter and not anyone's memory.
+> Everything in this vault is **fictional**: a hand-written example of the proposed Sovereign → Obsidian snapshot export (spec: `docs/second-brain/OBSIDIAN-PROJECTION.md` in the Sovereign repository). It is not an exporter and not anyone's memory.
 
 # Start here
 
 Two fictional projects — **Lantern**, a garden-sensor prototype, and **Harbor**, an offline notes app — with their sources, claims, decisions and relationships.
 
-**Generation 1 · 2026-10-20.** Statuses in every note are as of this generation.
+**Snapshot taken 2026-10-20 12:00 UTC.** Statuses in every note are as of this moment. This export is not kept in sync with Sovereign: to see newer memory, export again into a new folder.
+
+**Forgetting and this export.** If something is forgotten in Sovereign after this snapshot, it stays in this export and in every copy of it (downloads, backups, sync). Sovereign cannot erase those copies. Delete exports you no longer need, and export again.
 
 **Scope (by filter class only):** private items; all statuses; review scope on, so unreviewed model proposals are included (a default export omits them).
 

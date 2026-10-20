@@ -49,17 +49,17 @@ The founding build is **not a secure personal vault**. Local server is loopback 
 
 ## D. Governed second-brain extension — scoped future decisions
 
-Architectural vocabulary, Level 3–4 target, and Obsidian requirement are documented in [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md), [the levels guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md), [the Obsidian projection spec](docs/second-brain/OBSIDIAN-PROJECTION.md) and [the validation spec](docs/second-brain/SECOND-BRAIN-VALIDATION.md). They are proposed direction, not deployed functionality or a change to memory authority.
+Architectural vocabulary, Level 3–4 target, and Obsidian requirement are documented in [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md), [the levels guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md), [the Obsidian export spec](docs/second-brain/OBSIDIAN-PROJECTION.md) and [the validation spec](docs/second-brain/SECOND-BRAIN-VALIDATION.md). They are proposed direction, not deployed functionality or a change to memory authority.
 
-**Retrieval positions from Benchmark 0003 (PR #4, not merged) — intended, pending formal approval** ([ADR-0005 §12.2](docs/adr/0005-governed-second-brain-architecture.md#122-founders-intended-retrieval-positions--pending-formal-approval)):
+**Retrieval positions from Benchmark 0003 (PR #4, evaluation only, not merged) — consistent with PR #4's founder direction of 2026-10-20, pending formal approval** ([ADR-0005 §12.2](docs/adr/0005-governed-second-brain-architecture.md#122-founders-retrieval-positions--pending-formal-approval)):
 
-- **R1** Porter normalization only as a separate Tier 2 PR with a policy version bump; its precision cost (+47 irrelevant items for +2 expected) stated, not hidden.
+- **R1** No production retrieval change is authorized. Porter normalization (+2 expected items, +47 irrelevant) and the exact-stem tie-break (+1 expected item, no added noise) are evaluated candidates only; either would need its own Tier 2 PR, policy version bump, independent review and founder approval.
 - **R2** Defer IDF/BM25; never weaken the truncation fingerprint for performance or convenience; a policy-equivalent fingerprint would need demonstrated equivalence of every protected decision (ADR-0005 §6.3), an ADR-0004 amendment, independent adversarial review and founder approval.
-- **R3** Provenance links for local navigation only; ADR-0004 decision 3 preserved.
+- **R3** Provenance links for local navigation only (they make 10 of 22 baseline misses discoverable without changing context); ADR-0004 decision 3 preserved.
 - **R4** Precision first, especially for cloud plans; floors, thresholds or cloud-specific budgets need their own evaluation and a versioned policy.
 - **R5** Keep the 12-item and 12,000-character budgets.
 - **R6** Defer local embeddings until representative, legitimate usage shows meaningful improvement; no sensitive personal notes while the Security Gate is NOT PASSED.
-- **R7** Keep PR #4's evaluation framework; resolve its findings (including the Codex P2 on scale timings) in PR #4.
+- **R7** Keep PR #4's evaluation framework; its own findings are resolved there (its Codex P2 on scale timings is resolved at `da52ce9`).
 
 **Second-brain decisions requested**, with recommendations in [ADR-0005 §15](docs/adr/0005-governed-second-brain-architecture.md#15-decisions-requested-from-the-founder):
 
@@ -70,13 +70,13 @@ Architectural vocabulary, Level 3–4 target, and Obsidian requirement are docum
 - **D5** May graph or provenance traversal admit context items (revisits ADR-0004 decision 3)? (Recommended: no, per R3.)
 - **D6** If a derived index is ever adopted, does it live inside the vault database (same-transaction Forget)? (Moot while R2 defers FTS5.)
 - **D7** Obsidian filenames: readable titles with a keyed handle, or the handle alone?
-- **D8** On Forget, does Sovereign automatically reconcile its registered Obsidian projections?
-- **D9** Manual projection rebuilds only, with reconciliation (deletes and rewrites only) after Forget or trusted restore, at start-up, before export or status, and periodically — or anything more automatic?
+- **D8** *Settled by founder direction (2026-10-20):* no automatic cleanup of Obsidian exports; an export is a snapshot outside Sovereign's control, and Forget results say so.
+- **D9** *Settled (2026-10-20):* exports are made only when the user asks (CLI first, a UI button later); no automatic regeneration. Open: is an in-place refresh of an earlier export ever wanted?
 - **D10** Add valid time and a correction-vs-change supersession reason to MemoryClaims?
 - **D11** Which local embedding model and runtime, if representative usage ever justifies one?
 - **D12** Obsidian provenance mode by default: label (one fixed partial sentence) or closed (omit items whose links lead outside scope)?
-- **D13** May projected notes carry raw canonical IDs, and only when they are canonical UUIDs?
-- **D14** Projection registry as a separate SQLite file beside the vault, or as an operational table inside the vault database?
+- **D13** May exported notes carry raw canonical IDs, and only when they are canonical UUIDs?
+- **D14** *Not needed for V0 (2026-10-20):* exports keep no persistent registry.
 - **D15** Should a claim that supersedes a sensitive claim inherit its sensitivity? (A Context Compiler question: an ADR-0004 amendment, Tier 2.)
 
 Level 5 remains deferred: which measured daily-use gains, monthly budget, permission model and interruption controls would justify scheduled sync or agents is a later question. No default always-on ingestion.
