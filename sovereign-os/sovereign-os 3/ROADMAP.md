@@ -109,4 +109,6 @@ See [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) (PROPOSED), 
 | **SB-8** | Graph- or provenance-assisted context | Deferred (R3); local exploration and independent evaluation first |
 | **SB-9** | Level 5 research only | Measured utility, budget, consent, security |
 
+**Evaluation state** (ADR-0005 §12.4): retrieval evaluation executed in PR #4, not merged; provenance-graph and safe-exporter tests specified but not implemented (no native Obsidian check executed); entity, temporal and relationship tests future; semantic/hybrid experiments deferred and, when run, inside the Benchmark 0003 harness; generated-answer evaluation optional, separate and not established by SB-1.
+
 **Delivery discipline:** distinct, reviewable changes; do not conflate visualization with evidence verification. User agency, capture/recovery and security work remain prerequisites for live personal data, independent of this track. Separately, a small repository-hygiene PR should restore `.gitignore` and untrack `data/sovereign.db` and `__pycache__` (see `docs/SECURITY-GATE.md`).

@@ -68,7 +68,7 @@ Text that came from a record, claim or decision note appears in grey `text` bloc
 4. **A contradiction.** [[Lantern battery lasts about 14 days (c-7h2xuih2)|Lantern battery lasts about 14 days]] was contested after a field test.
 5. **Why are two projects connected?** [[Project Harbor depends on Project Lantern (r-urfcpc5x)|Project Harbor depends on Project Lantern]] has evidence and a human approval. [[Project Harbor uses PostgreSQL (r-5bpwiiwh)|Project Harbor uses PostgreSQL]] is an unreviewed model proposal whose own evidence shows it is wrong — the reason model-extracted relationships never count as facts.
 6. **A partial note.** [[Field test log (s-4mfnn4hw)|Field test log]] carries the fixed partial sentence.
-7. **Hostile text stays inert.** [[Feature request from the Harbor beta list (s-45q4l4lw)|Feature request from the Harbor beta list]] contains links, an image, HTML, tags, plugin syntax and a script block. In Graph view it connects only to its hub; nothing in it loads or runs.
+7. **Hostile text stays inert.** [[Feature request from the Harbor beta list (s-45q4l4lw)|Feature request from the Harbor beta list]] contains links, an image, HTML, tags, plugin syntax and a script block. It is designed so that, in Graph view, it connects only to its hub and nothing in it loads or runs (not yet verified in Obsidian).
 
 ## What Sovereign could generate today
 

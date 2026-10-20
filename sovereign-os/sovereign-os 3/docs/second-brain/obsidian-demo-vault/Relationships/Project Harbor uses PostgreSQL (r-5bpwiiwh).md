@@ -7,6 +7,7 @@ status: "proposed"
 support: "supported"
 authoritative: false
 origin: "model"
+sensitivity: "private"
 created_at: "2026-07-05T03:00:00+00:00"
 predicate: "USES"
 available_after: "SB-7"
@@ -50,10 +51,10 @@ Lantern will store sensor readings in PostgreSQL on the home server.
 | --- | --- | --- | --- |
 | 1 | 2026-07-05 | created as proposed | model |
 
-Decision notes (free text) — 29 characters, 1 line — shown verbatim and inert:
+Note on change 1 — 26 characters, 1 line — shown verbatim and inert:
 
 ```text
-1: Extraction run (synthetic)
+Extraction run (synthetic)
 ```
 
 *End of stored text.*

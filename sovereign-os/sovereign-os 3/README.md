@@ -73,7 +73,7 @@ The Pocket hardware and sophisticated world model remain important research trac
 
 ## Governed second brain — planned Level 3–4 extension
 
-Sovereign's next knowledge capability is a **governed second brain**, combining structured project/wiki views (Levels 1–2), local hybrid semantic discovery (Level 3) and source-backed provenance/domain graphs (Level 4). It must preserve the existing canonical vault, MemoryClaim authority, the Context Compiler and exact disclosure approvals. **Level 5 always-on agents and continuous ingestion are deferred** pending demonstrated value, security, and operating-cost budgets.
+Sovereign's next knowledge capability is a **governed second brain**, combining structured project/wiki views (Levels 1–2), local hybrid semantic discovery (Level 3; embeddings deferred under R6 — the first slice is the provenance graph and Obsidian projection) and source-backed provenance/domain graphs (Level 4). It must preserve the existing canonical vault, MemoryClaim authority, the Context Compiler and exact disclosure approvals. **Level 5 always-on agents and continuous ingestion are deferred** pending demonstrated value, security, and operating-cost budgets.
 
 An **Obsidian-compatible, one-way Markdown graph projection** is an explicit future interface requirement ([projection spec](docs/second-brain/OBSIDIAN-PROJECTION.md)). For an immediately viewable **synthetic** Obsidian graph, copy [`docs/second-brain/obsidian-demo-vault/`](docs/second-brain/obsidian-demo-vault/) out of the repository, open it as an Obsidian vault and start at `_Navigation/Start Here`. This is a demonstration, **not** a working exporter or a place to put personal memory.
 

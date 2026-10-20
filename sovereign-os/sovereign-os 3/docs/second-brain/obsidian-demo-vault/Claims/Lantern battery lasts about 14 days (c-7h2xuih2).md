@@ -51,10 +51,10 @@ None in this export.
 | 2 | 2026-06-16 | proposed → approved | human |
 | 3 | 2026-06-21 | approved → contested | human |
 
-Decision notes (free text) — 48 characters, 1 line — shown verbatim and inert:
+Note on change 3 — 45 characters, 1 line — shown verbatim and inert:
 
 ```text
-3: Field test log reports 9 days in cold weather
+Field test log reports 9 days in cold weather
 ```
 
 *End of stored text.*

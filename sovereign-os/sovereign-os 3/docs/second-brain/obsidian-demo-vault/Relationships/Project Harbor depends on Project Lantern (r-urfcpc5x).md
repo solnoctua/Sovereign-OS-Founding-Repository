@@ -7,6 +7,7 @@ status: "approved"
 support: "supported"
 authoritative: true
 origin: "human"
+sensitivity: "private"
 created_at: "2026-07-02T10:00:00+00:00"
 predicate: "DEPENDS_ON"
 available_after: "SB-7"

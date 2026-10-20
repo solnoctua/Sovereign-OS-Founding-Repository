@@ -20,7 +20,7 @@ Keep three numbering schemes apart: **M0–M5** are product milestones (ROADMAP 
 
 **Strengths:** inspectable navigation and cross-project orientation; easy export. **Failure modes:** a backlink is not a predicate (a link between two companies does not mean they compete); generated wiki prose can misstate its sources. **In Sovereign:** deterministic hub and index pages built from canonical items — lists, timelines and status tables, not generated prose. Project and concept hubs need **human-declared organization**, which does not exist yet (SB-3, decision D2).
 
-### Level 3 — semantic and hybrid retrieval (near-term core)
+### Level 3 — semantic and hybrid retrieval (target; embeddings deferred, R6)
 
 **Shape:** lexical/FTS terms plus optional local embeddings over records or bounded segments; rank fusion; whole-document expansion.
 
@@ -47,7 +47,7 @@ Use **whole-record access** for "the entire note", **exact lookup** for an ID or
 | Locate an exact decision, named item or record ID | Exact/lexical lookup | Yes |
 | Read a whole note | Locate (L1/L3), then fetch the entire authorized record | Yes (records ≤ 10,000 chars) |
 | Find a discussion described in other words, or another language | L3 hybrid semantic + lexical | No: embeddings deferred until representative usage shows the need (SB-5, R6) |
-| See how something changed over time | Timeline ordering + revision and supersession lineage | Partly: capture/decision times only; valid time needs SB-6 |
+| See how something changed over time | Timeline ordering + revision and supersession lineage | Partly: stored/decision times only; valid time needs SB-6 |
 | Show why a claim is believed | Provenance graph: claim → sources → revisions, plus decision history | Yes (SB-2) |
 | Browse a project | L2 project hub | After SB-3 |
 | Summarize a multi-part meeting | Group of records, then whole-record expansion | After SB-3 grouping |

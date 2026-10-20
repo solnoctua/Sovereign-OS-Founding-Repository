@@ -54,7 +54,7 @@ Architectural vocabulary, Level 3–4 target, and Obsidian requirement are docum
 **Retrieval positions from Benchmark 0003 (PR #4, not merged) — intended, pending formal approval** ([ADR-0005 §12.2](docs/adr/0005-governed-second-brain-architecture.md#122-founders-intended-retrieval-positions--pending-formal-approval)):
 
 - **R1** Porter normalization only as a separate Tier 2 PR with a policy version bump; its precision cost (+47 irrelevant items for +2 expected) stated, not hidden.
-- **R2** Defer IDF/BM25; never weaken the truncation fingerprint for performance or convenience; a policy-equivalent fingerprint would need an ADR-0004 amendment, adversarial review and founder approval.
+- **R2** Defer IDF/BM25; never weaken the truncation fingerprint for performance or convenience; a policy-equivalent fingerprint would need demonstrated equivalence of every protected decision (ADR-0005 §6.3), an ADR-0004 amendment, independent adversarial review and founder approval.
 - **R3** Provenance links for local navigation only; ADR-0004 decision 3 preserved.
 - **R4** Precision first, especially for cloud plans; floors, thresholds or cloud-specific budgets need their own evaluation and a versioned policy.
 - **R5** Keep the 12-item and 12,000-character budgets.

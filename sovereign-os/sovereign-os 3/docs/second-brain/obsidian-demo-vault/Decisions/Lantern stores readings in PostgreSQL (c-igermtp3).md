@@ -57,10 +57,10 @@ None in this export.
 | 2 | 2026-03-03 | proposed → approved | human |
 | 3 | 2026-06-15 | approved → superseded | human |
 
-Decision notes (free text) — 44 characters, 1 line — shown verbatim and inert:
+Note on change 3 — 41 characters, 1 line — shown verbatim and inert:
 
 ```text
-3: Plan changed after the spring field tests
+Plan changed after the spring field tests
 ```
 
 *End of stored text.*
