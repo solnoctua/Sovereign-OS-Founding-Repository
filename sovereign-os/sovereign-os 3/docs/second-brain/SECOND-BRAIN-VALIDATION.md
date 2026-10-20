@@ -43,7 +43,7 @@ This section reconciles Codex finding F5 (benchmark oracle) with PR #4 as it exi
 
 | Gap | Why it matters | Where |
 | --- | --- | --- |
-| No-evidence queries | Measures what would be offered for disclosure when nothing is relevant (R4). Partly covered for cloud: six queries whose expected items are all `sensitive_cloud` already report cloud noise (22 items under the baseline, 12 in q40; 33 under Porter normalization). Still missing: questions with no relevant item at all, local and cloud | Benchmark 0003 harness: in PR #4 before merge, or a follow-up harness PR — not PR #3 |
+| No-evidence queries | Measures what would be offered for disclosure when nothing is relevant (R4). Partly covered for cloud: six queries whose expected items are all `sensitive_cloud` already report cloud noise (22 items under the baseline, 12 in q40; 33 under Porter normalization). Still missing: questions with no relevant item at all, local and cloud | A follow-up Benchmark 0003 harness PR (PR #4 defers them because they change the fixture; a founder decision there) — not PR #3 |
 | Generated answers, abstention, temporal interpretation | Answer quality is a different property from retrieval | §6, a separate optional evaluation with its own PR and number |
 | Snapshot export and graph behavior | Not retrieval | §3–§4 of this spec |
 
