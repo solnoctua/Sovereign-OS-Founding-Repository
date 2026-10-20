@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "s-g4xykl2z"
-sovereign_id: "f38d305c-d086-5e8a-9e7b-fce2631e9094"
 kind: "source"
 title: "Harbor design memo"
 status: "superseded"
@@ -16,7 +15,7 @@ tags:
 
 # Harbor design memo
 
-Source record · stored 2026-04-10 · **superseded** — no longer the current revision in Sovereign; claims citing it are stale · private
+Source record · stored 2026-04-10 · **superseded** — no longer the current revision in Sovereign · private
 
 ## Content
 

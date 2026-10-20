@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "k-xobntd5u"
-sovereign_id: "4c4e9fa8-320a-5eb6-9ceb-0cae673eea73"
 kind: "concept"
 title: "Local-first storage"
 status: "active"

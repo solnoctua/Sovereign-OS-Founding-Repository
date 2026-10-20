@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "c-hr5ebnrp"
-sovereign_id: "8caf4834-7094-5b5e-8ec9-611fbb261136"
 kind: "claim"
 title: "Harbor syncs every 5 minutes"
 status: "approved"

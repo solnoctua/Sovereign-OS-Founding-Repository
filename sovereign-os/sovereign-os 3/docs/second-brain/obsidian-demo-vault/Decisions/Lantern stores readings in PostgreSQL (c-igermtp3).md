@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "c-igermtp3"
-sovereign_id: "fb7ac297-f39f-576e-be8a-47b3820dea70"
 kind: "claim"
 title: "Lantern stores readings in PostgreSQL"
 status: "superseded"

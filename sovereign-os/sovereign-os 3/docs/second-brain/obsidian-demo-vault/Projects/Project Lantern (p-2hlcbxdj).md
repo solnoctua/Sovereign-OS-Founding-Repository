@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "p-2hlcbxdj"
-sovereign_id: "66ad94ff-af5a-59de-a0b3-43c9fcd86293"
 kind: "project"
 title: "Project Lantern"
 status: "active"

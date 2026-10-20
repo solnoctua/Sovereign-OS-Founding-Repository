@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "s-w2b6dk4e"
-sovereign_id: "7a60781c-088c-5255-b217-9f4dea25a9fe"
 kind: "source"
 title: "Lantern kickoff note"
 status: "active"

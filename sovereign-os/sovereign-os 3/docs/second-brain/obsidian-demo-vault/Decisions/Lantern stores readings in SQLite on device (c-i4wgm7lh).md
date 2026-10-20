@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "c-i4wgm7lh"
-sovereign_id: "dbe11bcc-2727-58be-94c7-aa7e118ad1f6"
 kind: "claim"
 title: "Lantern stores readings in SQLite on device"
 status: "approved"

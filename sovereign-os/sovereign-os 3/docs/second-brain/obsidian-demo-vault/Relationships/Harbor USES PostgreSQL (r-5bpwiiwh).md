@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "r-5bpwiiwh"
-sovereign_id: "2e6210e7-1c73-5ef3-95ae-40769e086140"
 kind: "relationship"
 title: "Harbor USES PostgreSQL"
 status: "proposed"

@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "p-f5pxkhbo"
-sovereign_id: "ebe264e3-6683-5026-a9c3-4e10c8f8321b"
 kind: "project"
 title: "Project Harbor"
 status: "active"

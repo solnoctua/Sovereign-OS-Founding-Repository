@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "s-6qv5nso4"
-sovereign_id: "0bbc634c-d3fb-51bf-8898-6d623938a06e"
 kind: "source"
 title: "Harbor planning call"
 status: "active"

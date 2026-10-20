@@ -100,7 +100,7 @@ See [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) (PROPOSED), 
 | --- | --- | --- |
 | **SB-0** | Direction docs, Obsidian and validation specs, synthetic demo vault (PR #3) | Founder decisions D1–D15 (ADR-0005 §15) |
 | **SB-1** | Benchmark 0003 retrieval evaluation (synthetic corpus, harness, governed recall/noise/precision, lexical alternatives) | Executed in PR #4, not merged; Codex P2 on its scale timings open there; R1–R7 pending |
-| **SB-2** | Provenance graph computed on read (local navigation only) + one-way Obsidian projection CLI with registry, export fence, inert serialization, scope closure and Forget reconciliation — **first user-visible slice** | Tier 2; no canonical schema change; validation spec §3–§4 |
+| **SB-2** | Provenance graph computed on read (local navigation only) + one-way Obsidian projection CLI with registry, export fence, inert serialization, scope closure and Forget reconciliation — **first user-visible slice** | Tier 2; no canonical schema change (given D14's recommended separate registry file); validation spec §3–§4 |
 | **SB-3** | Human-declared projects/concepts and membership → project/concept hubs | Tier 2 schema ADR |
 | **SB-4** | Porter normalization of the existing score, with a policy version bump — only if R1 is approved, precision cost stated | Separate Tier 2 PR; IDF/BM25/FTS5 deferred (R2) |
 | **SB-5** | Local embeddings | Deferred (R6) until representative, legitimate usage shows meaningful improvement |

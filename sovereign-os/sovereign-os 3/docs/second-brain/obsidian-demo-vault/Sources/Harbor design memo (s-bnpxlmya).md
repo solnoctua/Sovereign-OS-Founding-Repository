@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "s-bnpxlmya"
-sovereign_id: "dc75b7d5-4677-5776-8dd9-3e90744a307a"
 kind: "source"
 title: "Harbor design memo"
 status: "active"

@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "s-45q4l4lw"
-sovereign_id: "96d1f083-3b54-570f-8538-473aa6512f28"
 kind: "source"
 title: "Feature request from the Harbor beta list"
 status: "active"

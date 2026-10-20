@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "k-knp5642d"
-sovereign_id: "8e5fba37-1263-5c8a-80a2-2d95deb13f16"
 kind: "concept"
 title: "PostgreSQL"
 status: "active"

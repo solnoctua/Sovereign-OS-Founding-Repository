@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "s-4mfnn4hw"
-sovereign_id: "53f85b67-43e7-525c-9f0f-d91fe0b19a0f"
 kind: "source"
 title: "Field test log"
 status: "superseded"
@@ -17,7 +16,7 @@ tags:
 
 # Field test log
 
-Source record · stored 2026-06-20 · **superseded** — no longer the current revision in Sovereign; claims citing it are stale · private
+Source record · stored 2026-06-20 · **superseded** — no longer the current revision in Sovereign · private
 
 Provenance partial: at least one directly linked item is not included in this export.
 

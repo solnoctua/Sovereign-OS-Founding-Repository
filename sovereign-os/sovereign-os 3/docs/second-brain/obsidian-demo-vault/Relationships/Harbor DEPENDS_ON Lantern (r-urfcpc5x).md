@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "r-urfcpc5x"
-sovereign_id: "1d7167ae-6d0b-58f2-90ee-d8458813857a"
 kind: "relationship"
 title: "Harbor DEPENDS_ON Lantern"
 status: "approved"

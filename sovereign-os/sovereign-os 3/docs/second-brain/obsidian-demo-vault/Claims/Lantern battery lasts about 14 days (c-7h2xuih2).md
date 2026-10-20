@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "c-7h2xuih2"
-sovereign_id: "3e28ee96-5f5a-54e2-8b4f-6afa82ab184d"
 kind: "claim"
 title: "Lantern battery lasts about 14 days"
 status: "contested"

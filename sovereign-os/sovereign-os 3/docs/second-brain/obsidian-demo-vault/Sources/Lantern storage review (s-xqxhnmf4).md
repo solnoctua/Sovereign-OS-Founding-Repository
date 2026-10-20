@@ -1,7 +1,6 @@
 ---
 sovereign_projection: 1
 sovereign_handle: "s-xqxhnmf4"
-sovereign_id: "66ae0de7-c0e2-582a-a062-728814618ef5"
 kind: "source"
 title: "Lantern storage review"
 status: "active"
