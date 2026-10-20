@@ -19,7 +19,7 @@ import re
 import sqlite3
 from typing import Callable
 
-from sovereign.context import STOPWORDS, scorer as production_scorer
+from sovereign.context import STOPWORDS, scorer as production_scorer, terms_of
 
 Score = Callable[[str], tuple[float, tuple[str, ...]]]
 _WORD = re.compile(r"\w+")    # the production word pattern (context._WORD)
@@ -42,6 +42,19 @@ def documents(snapshot: dict) -> list[Document]:
             for r in snapshot["records"]]
     docs += [Document(c["id"], "claim", c["text"], c["created_at"], tuple(c["source_ids"])) for c in snapshot["claims"]]
     return sorted(docs, key=lambda d: d.id)
+
+
+def neighbours(docs: list[Document]) -> dict[str, frozenset[str]]:
+    """One hop along links storage already holds: claim → cited record, record → citing claim, and a
+    record's correction ↔ the record it corrects. No inference, no new store (ADR-0005 §8.1's
+    `SUPPORTED_BY` and `CORRECTS`; claim supersession is not used)."""
+    found: dict[str, set[str]] = {d.id: set() for d in docs}
+    for d in docs:
+        for other in d.links:
+            if other in found:
+                found[d.id].add(other)
+                found[other].add(d.id)
+    return {k: frozenset(v) for k, v in found.items()}
 
 
 def query_words(question: str) -> list[str]:
@@ -132,6 +145,46 @@ class TermMatch(Retriever):
         return score
 
 
+class ExactStem(Retriever):
+    """Exact matches first, Porter-stem matches second (evaluation candidate, not a proposal).
+
+    The question's terms are the production ones (`context.terms_of`). For a text, each distinct term
+    counts once: as an **exact** match if the text's production terms contain it (so the exact count is
+    precisely the baseline score), otherwise as a **stem** match if the Porter stem of a question word
+    that produced the term is among the Porter stems of the text. The score is the pair (exact, stem)
+    in lexicographic order, encoded as `exact + stem / (terms + 1)`: any extra exact match outranks every
+    stem match, stems only break ties between equal exact counts or rescue texts with no exact match,
+    and ties keep the production order (newest first, then id). The score depends on the question and
+    the text alone, never on other documents, so an unrelated write cannot change it.
+
+    With `admit_stem_only=False` stems only order texts that already match exactly: the set of relevant
+    texts (and so the relevance gate) is exactly the baseline's.
+    """
+
+    def __init__(self, name: str, description: str, docs: list[Document], admit_stem_only: bool = True):
+        self.name, self.description, self._admit = name, description, admit_stem_only
+        texts = [d.text for d in docs]
+        self._exact = {t: frozenset(terms_of(t)) for t in texts}
+        self._stems = dict(zip(texts, tokenize(texts, PORTER)))
+
+    def scorer(self, question: str) -> Score:
+        wanted = terms_of(question)
+        words = query_words(question)
+        stems: dict[str, set[str]] = {t: set() for t in wanted}
+        for word, stemmed in zip(words, tokenize(words, PORTER) if words else []):
+            for t in terms_of(word):
+                stems[t] |= stemmed
+        tiers = len(wanted) + 1
+
+        def score(text: str) -> tuple[float, tuple[str, ...]]:
+            exact = [t for t in wanted if t in self._exact[text]]
+            stem = [t for t in wanted if t not in self._exact[text] and stems[t] & self._stems[text]]
+            if not exact and not self._admit:
+                return 0, ()
+            return _rounded(len(exact) + len(stem) / tiers), tuple(exact) + tuple(f"~{t}" for t in stem)
+        return score
+
+
 class BM25(Retriever):
     """SQLite FTS5 full-text search ranked by its built-in bm25() over every record and claim text."""
 
@@ -169,13 +222,7 @@ class Provenance(Retriever):
 
     def __init__(self, name: str, description: str, inner: Retriever, docs: list[Document]):
         self.name, self.description, self._inner, self._docs = name, description, inner, docs
-        neighbours: dict[str, set[str]] = {d.id: set() for d in docs}
-        for d in docs:
-            for other in d.links:
-                if other in neighbours:
-                    neighbours[d.id].add(other)
-                    neighbours[other].add(d.id)
-        self._neighbours = neighbours
+        self._neighbours = neighbours(docs)
 
     def scorer(self, question: str) -> Score:
         direct = self._inner.scorer(question)
@@ -196,6 +243,8 @@ class Provenance(Retriever):
 def build(docs: list[Document], aliases: Aliases) -> list[Retriever]:
     """The fixed experiment ladder, in report order."""
     best = BM25("fts5_porter_bm25", "SQLite FTS5 (Porter stemming) ranked by bm25().", docs, PORTER)
+    exact_stem = ExactStem("exact_stem", "Exact production-term matches first; Porter-stem matches only as a "
+                           "secondary signal (ties and texts with no exact match).", docs)
     return [
         Baseline(),
         TermMatch("porter_count", "Baseline scoring (distinct terms matched) over Porter-stemmed tokens: normalisation only.",
@@ -209,4 +258,11 @@ def build(docs: list[Document], aliases: Aliases) -> list[Retriever]:
              docs, PORTER, aliases),
         Provenance("fts5_porter_bm25_provenance", "Diagnostic: fts5_porter_bm25 plus one hop of relevance along "
                    "citation and correction links.", best, docs),
+        exact_stem,
+        ExactStem("exact_stem_tiebreak", "exact_stem without admission: stems only order texts that already match "
+                  "exactly, so the relevance gate stays the baseline's.", docs, admit_stem_only=False),
+        Provenance("baseline_provenance", "Counterfactual context admission: the merged baseline plus one hop of "
+                   "relevance along citation and correction links.", Baseline(), docs),
+        Provenance("exact_stem_provenance", "Counterfactual: exact_stem plus one hop of relevance along citation and "
+                   "correction links.", exact_stem, docs),
     ]

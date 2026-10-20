@@ -19,6 +19,10 @@ Noise counts included items that are neither expected nor acceptable; in a cloud
 | `fts5_porter_bm25` | 43.1% | 72.7% | 75.5% | 77.1% | 0.705 | 76.1% | 69/88 | 76.2% | 62/79 | 212 / 209 | 29.1% / 27.4% |
 | `fts5_porter_bm25_aliases` | 54.7% | 79.8% | 80.9% | 82.4% | 0.797 | 81.5% | 72/88 | 80.2% | 64/79 | 225 / 220 | 28.6% / 26.9% |
 | `fts5_porter_bm25_provenance` | 43.1% | 77.3% | 80.2% | 82.6% | 0.705 | 82.1% | 74/88 | 82.9% | 67/79 | 223 / 220 | 29.2% / 27.6% |
+| `exact_stem` | 45.8% | 72.4% | 74.8% | 76.2% | 0.712 | 74.5% | 68/88 | 74.4% | 61/79 | 213 / 210 | 28.8% / 27.1% |
+| `exact_stem_tiebreak` | 45.8% | 70.6% | 73.0% | 74.4% | 0.709 | 72.7% | 67/88 | 72.4% | 60/79 | 165 / 162 | 34.0% / 32.2% |
+| `baseline_provenance` | 44.0% | 74.3% | 76.7% | 78.1% | 0.691 | 77.7% | 72/88 | 77.0% | 64/79 | 173 / 170 | 34.2% / 32.3% |
+| `exact_stem_provenance` | 45.8% | 77.9% | 80.3% | 81.7% | 0.712 | 81.3% | 74/88 | 81.0% | 66/79 | 223 / 221 | 29.2% / 27.3% |
 
 ## Outcomes of expected items (local)
 
@@ -31,6 +35,10 @@ Noise counts included items that are neither expected nor acceptable; in a cloud
 | `fts5_porter_bm25` | 69 | 10 | 17 | 3 | 0 | 0 | 0 |
 | `fts5_porter_bm25_aliases` | 72 | 10 | 14 | 3 | 0 | 0 | 0 |
 | `fts5_porter_bm25_provenance` | 74 | 10 | 11 | 4 | 0 | 0 | 0 |
+| `exact_stem` | 68 | 10 | 17 | 2 | 2 | 0 | 0 |
+| `exact_stem_tiebreak` | 67 | 10 | 18 | 2 | 2 | 0 | 0 |
+| `baseline_provenance` | 72 | 10 | 12 | 3 | 2 | 0 | 0 |
+| `exact_stem_provenance` | 74 | 10 | 11 | 2 | 2 | 0 | 0 |
 
 ## Outcomes of expected items (cloud)
 
@@ -43,6 +51,10 @@ Noise counts included items that are neither expected nor acceptable; in a cloud
 | `fts5_porter_bm25` | 62 | 17 | 17 | 3 | 0 | 0 | 0 |
 | `fts5_porter_bm25_aliases` | 64 | 18 | 14 | 3 | 0 | 0 | 0 |
 | `fts5_porter_bm25_provenance` | 67 | 18 | 11 | 3 | 0 | 0 | 0 |
+| `exact_stem` | 61 | 17 | 17 | 2 | 2 | 0 | 0 |
+| `exact_stem_tiebreak` | 60 | 17 | 18 | 2 | 2 | 0 | 0 |
+| `baseline_provenance` | 64 | 18 | 12 | 3 | 2 | 0 | 0 |
+| `exact_stem_provenance` | 66 | 18 | 11 | 2 | 2 | 0 | 0 |
 
 ## Failure details (local)
 
@@ -55,21 +67,46 @@ Noise counts included items that are neither expected nor acceptable; in a cloud
 | `fts5_porter_bm25` | 15 | 2 | 0 | 3 | 0 |
 | `fts5_porter_bm25_aliases` | 12 | 2 | 0 | 3 | 0 |
 | `fts5_porter_bm25_provenance` | 11 | 0 | 0 | 4 | 0 |
+| `exact_stem` | 15 | 2 | 1 | 1 | 2 |
+| `exact_stem_tiebreak` | 16 | 2 | 1 | 1 | 2 |
+| `baseline_provenance` | 12 | 0 | 2 | 1 | 2 |
+| `exact_stem_provenance` | 11 | 0 | 1 | 1 | 2 |
 
-## Candidates and budget (local)
+## Candidates, budget and token stability (local unless noted)
 
-Scanned: rows scored per query (every record and claim). Matched: mean records and claims with a non-zero score. Returned: mean candidates the compiler received (before policy). Included: mean items in the context.
-Tokens changed: of the queries' local context tokens, how many one unrelated write (a record matching no question) invalidates.
+Scanned: rows scored per query (every record and claim). Matched: mean records and claims with a non-zero score. Returned: mean candidates the compiler received (before policy). Included: mean items in the context; cloud total: every item across the 56 cloud plans. Displaced: expected eligible items the budget excluded (outranked or budget too small). Unrelated write: tokens one write of a record matching no question invalidates. Unchanged vault: tokens identical on a repeat compile and on an independently rebuilt identical vault.
 
-| Retriever | Scanned | Matched | Returned | Included | Budget binding (queries) | Budget dropped an expected item (queries) | Tokens changed by an unrelated write |
-|---|---|---|---|---|---|---|---|
-| `baseline` | 270 | 9.7 | 9.2 | 4.5 | 8 | 2 | 0/56 |
-| `porter_count` | 270 | 12.5 | 11.8 | 5.3 | 10 | 2 | 0/56 |
-| `porter_idf` | 270 | 12.5 | 11.8 | 5.3 | 10 | 1 | 53/56 |
-| `fts5_bm25` | 270 | 9.2 | 8.6 | 4.0 | 7 | 0 | 51/56 |
-| `fts5_porter_bm25` | 270 | 12.5 | 11.8 | 5.3 | 10 | 1 | 53/56 |
-| `fts5_porter_bm25_aliases` | 270 | 12.8 | 12.1 | 5.6 | 11 | 1 | 54/56 |
-| `fts5_porter_bm25_provenance` | 270 | 13.1 | 12.1 | 5.6 | 10 | 2 | 53/56 |
+| Retriever | Scanned | Matched | Returned | Included | Cloud items (total) | Budget binding (queries) | Displaced (local / cloud) | Tokens changed by an unrelated write | Tokens identical, unchanged vault |
+|---|---|---|---|---|---|---|---|---|---|
+| `baseline` | 270 | 9.7 | 9.2 | 4.5 | 239 | 8 | 3 / 3 | 0/56 | 56/56 |
+| `porter_count` | 270 | 12.5 | 11.8 | 5.3 | 288 | 10 | 3 / 3 | 0/56 | 56/56 |
+| `porter_idf` | 270 | 12.5 | 11.8 | 5.3 | 288 | 10 | 2 / 2 | 53/56 | 56/56 |
+| `fts5_bm25` | 270 | 9.2 | 8.6 | 4.0 | 217 | 7 | 0 / 0 | 51/56 | 56/56 |
+| `fts5_porter_bm25` | 270 | 12.5 | 11.8 | 5.3 | 288 | 10 | 3 / 3 | 53/56 | 56/56 |
+| `fts5_porter_bm25_aliases` | 270 | 12.8 | 12.1 | 5.6 | 301 | 11 | 3 / 3 | 54/56 | 56/56 |
+| `fts5_porter_bm25_provenance` | 270 | 13.1 | 12.1 | 5.6 | 304 | 10 | 4 / 3 | 53/56 | 56/56 |
+| `exact_stem` | 270 | 12.5 | 11.8 | 5.3 | 288 | 10 | 3 / 3 | 0/56 | 56/56 |
+| `exact_stem_tiebreak` | 270 | 9.7 | 9.2 | 4.5 | 239 | 8 | 3 / 3 | 0/56 | 56/56 |
+| `baseline_provenance` | 270 | 10.1 | 9.4 | 4.7 | 251 | 8 | 3 / 3 | 0/56 | 56/56 |
+| `exact_stem_provenance` | 270 | 13.1 | 12.1 | 5.6 | 304 | 10 | 3 / 3 | 0/56 | 56/56 |
+
+## Local navigation (discovery, not admission)
+
+Items one stored link (claim ↔ cited record, record ↔ its correction) away from what the local preview shows: from the context (included items) or from the whole preview (included and excluded candidates). This is what a local view could offer for exploration without changing relevance, context or token. Reachable: items one hop away that are not already shown. Recoverable: expected eligible items the context missed that are one hop away or, from the preview, listed in it as excluded.
+
+| Retriever | From context: reachable / irrelevant / recoverable | From preview: reachable / irrelevant / recoverable |
+|---|---|---|
+| `baseline` | 29 / 16 / 6 | 13 / 8 / 10 |
+| `porter_count` | 33 / 20 / 6 | 20 / 15 / 10 |
+| `porter_idf` | 36 / 24 / 5 | 20 / 15 / 9 |
+| `fts5_bm25` | 27 / 16 / 4 | 11 / 7 / 6 |
+| `fts5_porter_bm25` | 37 / 26 / 4 | 18 / 14 / 9 |
+| `fts5_porter_bm25_aliases` | 39 / 28 / 4 | 18 / 14 / 9 |
+| `fts5_porter_bm25_provenance` | 32 / 22 / 1 | 2 / 2 / 4 |
+| `exact_stem` | 36 / 23 / 6 | 20 / 15 / 10 |
+| `exact_stem_tiebreak` | 29 / 16 / 6 | 13 / 8 / 10 |
+| `baseline_provenance` | 28 / 17 / 2 | 3 / 2 / 4 |
+| `exact_stem_provenance` | 34 / 23 / 2 | 5 / 4 / 4 |
 
 ## Exclusion reasons over all candidates (local / cloud)
 
@@ -82,110 +119,114 @@ Tokens changed: of the queries' local context tokens, how many one unrelated wri
 | `fts5_porter_bm25` | 13 / 13 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 15 | 10 / 10 | 0 / 0 | 320 / 316 |
 | `fts5_porter_bm25_aliases` | 13 / 13 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 19 | 12 / 11 | 0 / 0 | 321 / 317 |
 | `fts5_porter_bm25_provenance` | 14 / 14 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 18 | 0 / 0 | 0 / 0 | 329 / 322 |
+| `exact_stem` | 13 / 13 | 2 / 2 | 6 / 6 | 4 / 4 | 4 / 4 | 1 / 1 | 0 / 15 | 9 / 9 | 0 / 0 | 320 / 316 |
+| `exact_stem_tiebreak` | 10 / 10 | 2 / 2 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 13 | 7 / 7 | 0 / 0 | 232 / 230 |
+| `baseline_provenance` | 11 / 11 | 2 / 2 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 15 | 0 / 0 | 0 / 0 | 235 / 232 |
+| `exact_stem_provenance` | 14 / 14 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 18 | 0 / 0 | 0 / 0 | 329 / 322 |
 
 ## Governed recall by query category (local, items recalled / eligible)
 
-| Category | Queries | `baseline` | `porter_count` | `porter_idf` | `fts5_bm25` | `fts5_porter_bm25` | `fts5_porter_bm25_aliases` | `fts5_porter_bm25_provenance` |
-|---|---|---|---|---|---|---|---|---|
-| abbreviation | 5 | 3/5 | 3/5 | 3/5 | 3/5 | 3/5 | 5/5 | 3/5 |
-| approved_vs_evidence | 8 | 14/19 | 14/19 | 15/19 | 16/19 | 16/19 | 16/19 | 17/19 |
-| budget | 1 | 12/14 | 12/14 | 12/14 | 1/14 | 11/14 | 11/14 | 11/14 |
-| claims_lifecycle | 7 | 6/8 | 6/8 | 6/8 | 6/8 | 6/8 | 6/8 | 7/8 |
-| corrections | 3 | 2/3 | 2/3 | 2/3 | 2/3 | 2/3 | 2/3 | 3/3 |
-| distractors | 7 | 7/10 | 8/10 | 9/10 | 9/10 | 10/10 | 10/10 | 10/10 |
-| exact | 7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 |
-| morphology | 7 | 8/11 | 10/11 | 10/11 | 9/11 | 11/11 | 11/11 | 11/11 |
-| multi_evidence | 3 | 6/8 | 6/8 | 6/8 | 6/8 | 6/8 | 6/8 | 7/8 |
-| multiple_related | 4 | 20/22 | 20/22 | 20/22 | 9/22 | 19/22 | 19/22 | 19/22 |
-| names | 11 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 |
-| old_among_newer | 6 | 5/7 | 6/7 | 6/7 | 6/7 | 7/7 | 7/7 | 7/7 |
-| paraphrase | 7 | 0/7 | 0/7 | 0/7 | 0/7 | 0/7 | 0/7 | 1/7 |
-| provenance | 4 | 5/9 | 5/9 | 5/9 | 5/9 | 5/9 | 5/9 | 7/9 |
-| sensitive | 6 | 7/9 | 7/9 | 7/9 | 7/9 | 7/9 | 8/9 | 7/9 |
-| synonym | 5 | 5/6 | 5/6 | 5/6 | 5/6 | 5/6 | 6/6 | 5/6 |
-| temporal | 5 | 16/18 | 16/18 | 16/18 | 5/18 | 15/18 | 15/18 | 15/18 |
+| Category | Queries | `baseline` | `porter_count` | `porter_idf` | `fts5_bm25` | `fts5_porter_bm25` | `fts5_porter_bm25_aliases` | `fts5_porter_bm25_provenance` | `exact_stem` | `exact_stem_tiebreak` | `baseline_provenance` | `exact_stem_provenance` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| abbreviation | 5 | 3/5 | 3/5 | 3/5 | 3/5 | 3/5 | 5/5 | 3/5 | 3/5 | 3/5 | 3/5 | 3/5 |
+| approved_vs_evidence | 8 | 14/19 | 14/19 | 15/19 | 16/19 | 16/19 | 16/19 | 17/19 | 14/19 | 14/19 | 16/19 | 16/19 |
+| budget | 1 | 12/14 | 12/14 | 12/14 | 1/14 | 11/14 | 11/14 | 11/14 | 12/14 | 12/14 | 12/14 | 12/14 |
+| claims_lifecycle | 7 | 6/8 | 6/8 | 6/8 | 6/8 | 6/8 | 6/8 | 7/8 | 6/8 | 6/8 | 7/8 | 7/8 |
+| corrections | 3 | 2/3 | 2/3 | 2/3 | 2/3 | 2/3 | 2/3 | 3/3 | 2/3 | 2/3 | 3/3 | 3/3 |
+| distractors | 7 | 7/10 | 8/10 | 9/10 | 9/10 | 10/10 | 10/10 | 10/10 | 8/10 | 8/10 | 7/10 | 8/10 |
+| exact | 7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 | 7/7 |
+| morphology | 7 | 8/11 | 10/11 | 10/11 | 9/11 | 11/11 | 11/11 | 11/11 | 10/11 | 9/11 | 8/11 | 10/11 |
+| multi_evidence | 3 | 6/8 | 6/8 | 6/8 | 6/8 | 6/8 | 6/8 | 7/8 | 6/8 | 6/8 | 7/8 | 7/8 |
+| multiple_related | 4 | 20/22 | 20/22 | 20/22 | 9/22 | 19/22 | 19/22 | 19/22 | 20/22 | 20/22 | 20/22 | 20/22 |
+| names | 11 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 | 12/14 |
+| old_among_newer | 6 | 5/7 | 6/7 | 6/7 | 6/7 | 7/7 | 7/7 | 7/7 | 6/7 | 6/7 | 5/7 | 6/7 |
+| paraphrase | 7 | 0/7 | 0/7 | 0/7 | 0/7 | 0/7 | 0/7 | 1/7 | 0/7 | 0/7 | 1/7 | 1/7 |
+| provenance | 4 | 5/9 | 5/9 | 5/9 | 5/9 | 5/9 | 5/9 | 7/9 | 5/9 | 5/9 | 8/9 | 8/9 |
+| sensitive | 6 | 7/9 | 7/9 | 7/9 | 7/9 | 7/9 | 8/9 | 7/9 | 7/9 | 7/9 | 8/9 | 8/9 |
+| synonym | 5 | 5/6 | 5/6 | 5/6 | 5/6 | 5/6 | 6/6 | 5/6 | 5/6 | 5/6 | 5/6 | 5/6 |
+| temporal | 5 | 16/18 | 16/18 | 16/18 | 5/18 | 15/18 | 15/18 | 15/18 | 16/18 | 16/18 | 16/18 | 16/18 |
 
 ## MRR by query category (retrieval before policy)
 
-| Category | `baseline` | `porter_count` | `porter_idf` | `fts5_bm25` | `fts5_porter_bm25` | `fts5_porter_bm25_aliases` | `fts5_porter_bm25_provenance` |
-|---|---|---|---|---|---|---|---|
-| abbreviation | 0.307 | 0.307 | 0.307 | 0.500 | 0.400 | 1.000 | 0.400 |
-| approved_vs_evidence | 0.794 | 0.672 | 0.672 | 0.886 | 0.886 | 0.824 | 0.886 |
-| budget | 1.000 | 1.000 | 1.000 | 0.333 | 1.000 | 1.000 | 1.000 |
-| claims_lifecycle | 0.857 | 0.857 | 0.857 | 0.786 | 0.857 | 0.857 | 0.857 |
-| corrections | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
-| distractors | 0.719 | 0.860 | 0.860 | 0.730 | 0.870 | 0.870 | 0.870 |
-| exact | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
-| morphology | 0.576 | 0.674 | 0.745 | 0.515 | 0.756 | 0.756 | 0.756 |
-| multi_evidence | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
-| multiple_related | 0.875 | 0.875 | 0.875 | 0.708 | 0.875 | 0.875 | 0.875 |
-| names | 0.594 | 0.594 | 0.586 | 0.536 | 0.582 | 0.700 | 0.582 |
-| old_among_newer | 0.672 | 0.836 | 0.836 | 0.685 | 0.849 | 0.849 | 0.849 |
-| paraphrase | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 |
-| provenance | 1.000 | 0.756 | 0.756 | 1.000 | 1.000 | 1.000 | 1.000 |
-| sensitive | 0.722 | 0.559 | 0.559 | 0.833 | 0.833 | 0.917 | 0.833 |
-| synonym | 0.392 | 0.392 | 0.387 | 0.473 | 0.462 | 0.900 | 0.462 |
-| temporal | 0.733 | 0.733 | 0.717 | 0.340 | 0.473 | 0.473 | 0.473 |
+| Category | `baseline` | `porter_count` | `porter_idf` | `fts5_bm25` | `fts5_porter_bm25` | `fts5_porter_bm25_aliases` | `fts5_porter_bm25_provenance` | `exact_stem` | `exact_stem_tiebreak` | `baseline_provenance` | `exact_stem_provenance` |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| abbreviation | 0.307 | 0.307 | 0.307 | 0.500 | 0.400 | 1.000 | 0.400 | 0.307 | 0.307 | 0.307 | 0.307 |
+| approved_vs_evidence | 0.794 | 0.672 | 0.672 | 0.886 | 0.886 | 0.824 | 0.886 | 0.794 | 0.794 | 0.794 | 0.794 |
+| budget | 1.000 | 1.000 | 1.000 | 0.333 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| claims_lifecycle | 0.857 | 0.857 | 0.857 | 0.786 | 0.857 | 0.857 | 0.857 | 0.857 | 0.857 | 0.857 | 0.857 |
+| corrections | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| distractors | 0.719 | 0.860 | 0.860 | 0.730 | 0.870 | 0.870 | 0.870 | 0.860 | 0.860 | 0.719 | 0.860 |
+| exact | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| morphology | 0.576 | 0.674 | 0.745 | 0.515 | 0.756 | 0.756 | 0.756 | 0.745 | 0.717 | 0.576 | 0.745 |
+| multi_evidence | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| multiple_related | 0.875 | 0.875 | 0.875 | 0.708 | 0.875 | 0.875 | 0.875 | 0.875 | 0.875 | 0.875 | 0.875 |
+| names | 0.594 | 0.594 | 0.586 | 0.536 | 0.582 | 0.700 | 0.582 | 0.594 | 0.594 | 0.594 | 0.594 |
+| old_among_newer | 0.672 | 0.836 | 0.836 | 0.685 | 0.849 | 0.849 | 0.849 | 0.836 | 0.836 | 0.672 | 0.836 |
+| paraphrase | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 | 0.143 |
+| provenance | 1.000 | 0.756 | 0.756 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 | 1.000 |
+| sensitive | 0.722 | 0.559 | 0.559 | 0.833 | 0.833 | 0.917 | 0.833 | 0.722 | 0.722 | 0.722 | 0.722 |
+| synonym | 0.392 | 0.392 | 0.387 | 0.473 | 0.462 | 0.900 | 0.462 | 0.392 | 0.392 | 0.392 | 0.392 |
+| temporal | 0.733 | 0.733 | 0.717 | 0.340 | 0.473 | 0.473 | 0.473 | 0.733 | 0.733 | 0.733 | 0.733 |
 
 ## Per-query outcomes (local)
 
 One letter per expected item, in ground-truth order: R recalled, P policy-excluded as expected, N no match, L provenance link only, C below cutoff, O outranked within the budget, B budget too small, ! policy violation or mismatch.
 
-| Query | Tags | `baseline` | `porter_count` | `porter_idf` | `fts5_bm25` | `fts5_porter_bm25` | `fts5_porter_bm25_aliases` | `fts5_porter_bm25_provenance` |
-|---|---|---|---|---|---|---|---|---|
-| q01 When did I replace the brake pads on the touring bike? | exact | R | R | R | R | R | R | R |
-| q02 How much has the touring bike cost me so far? | multi_evidence | RR | RR | RR | RR | RR | RR | RR |
-| q03 Which bike repairs have I done? | morphology, distractors | RR | RR | RR | RR | RR | RR | RR |
-| q04 Do I like riding to the office? | paraphrase, claims_lifecycle | NN | NN | NN | NN | NN | NN | NN |
-| q05 Do I enjoy cycling? | exact, claims_lifecycle | RP | RP | RP | RP | RP | RP | RP |
-| q06 What did I decide about the garden budget? | old_among_newer, morphology, distractors | C | R | R | C | R | R | R |
-| q07 What vegetables did I plant? | morphology | N | R | R | N | R | R | R |
-| q08 Who did we choose as the deployment checklist owner? | old_among_newer, morphology, distractors, approved_vs_evidence | RC | RC | RC | RR | RR | RR | RR |
-| q09 What did Priya say about the launch date? | names | R | R | R | R | R | R | R |
-| q10 What happened in the Larkspur security audit? | multiple_related, names | RRR | RRR | RRR | RRR | RRR | RRR | RRR |
-| q11 What did we decide about the CI pipeline? | abbreviation | N | N | N | N | N | R | N |
-| q12 Who is the PM for Larkspur? | abbreviation, names | R | R | R | R | R | R | R |
-| q13 How many days of PTO do I have left? | abbreviation | R | R | R | R | R | R | R |
-| q14 Why did we start the release checklist? | old_among_newer, exact | R | R | R | R | R | R | R |
-| q15 When is the grant report due? | exact | R | R | R | R | R | R | R |
-| q16 What did Odile ask for after releases? | names, morphology | R | R | R | R | R | R | R |
-| q17 What did the doctor say about my knee? | synonym, sensitive, approved_vs_evidence | RR | RR | RR | RR | RR | RR | RR |
-| q18 Who is my GP? | abbreviation, sensitive | N | N | N | N | N | R | N |
-| q19 When is my next blood test appointment? | exact, sensitive | R | R | R | R | R | R | R |
-| q20 Why do I sleep badly? | paraphrase | N | N | N | N | N | N | N |
-| q21 How do I calm down before presentations? | paraphrase | N | N | N | N | N | N | N |
-| q22 Should I be running at the moment? | approved_vs_evidence, sensitive, provenance | RN | RN | RN | RN | RN | RN | RO |
-| q23 What was my pace target when I started running? | old_among_newer, exact | R | R | R | R | R | R | R |
-| q24 When did I first run 10 km? | old_among_newer, distractors | R | R | R | R | R | R | R |
-| q25 What does Dr. Amsel recommend for Biscuit? | names, multiple_related | RR | RR | RR | RR | RR | RR | RR |
-| q26 How has Biscuit's weight changed? | multiple_related, approved_vs_evidence, morphology | RRR | RRR | RRR | RRR | RRR | RRR | RRR |
-| q27 How is my sister's little one getting on? | paraphrase, names | N | N | N | N | N | N | N |
-| q28 What is Wren's address in Porto? | corrections, names | RP | RP | RP | RP | RP | RP | RP |
-| q29 Am I planning to move to Porto? | claims_lifecycle | PR | PR | PR | PR | PR | PR | PR |
-| q30 Where should we eat when my parents visit? | paraphrase | N | N | N | N | N | N | N |
-| q31 What gift did I get Wren? | synonym, names | R | R | R | R | R | R | R |
-| q32 Which sofa did we pick? | synonym | N | N | N | N | N | R | N |
-| q33 How much is the flat per month? | synonym | R | R | R | R | R | R | R |
-| q34 What did I write about the roof last March? | temporal | R | R | R | R | R | R | R |
-| q35 What happened with the boiler in 2024? | temporal | R | R | R | R | R | R | R |
-| q36 Who fixed the leaking tap? | morphology | R | R | R | R | R | R | R |
-| q37 What did the landlord agree to fix? | exact, old_among_newer | R | R | R | R | R | R | R |
-| q38 Am I becoming vegetarian? | claims_lifecycle, paraphrase | PN | PN | PN | PN | PN | PN | PR |
-| q39 How much do I spend at restaurants? | provenance | RL | RL | RL | RL | RL | RL | RR |
-| q40 What is my salary after the review? | sensitive, distractors | R | R | R | R | R | R | R |
-| q41 How big should my emergency fund be? | sensitive, approved_vs_evidence | RR | RR | RR | RR | RR | RR | RR |
-| q42 What principles have I established for Sovereign? | approved_vs_evidence, provenance, multi_evidence | RRNP | RRNP | RRNP | RRNP | RRNP | RRNP | RRNP |
-| q43 What did Liz recommend reading? | names, paraphrase | N | N | N | N | N | N | N |
-| q44 When does the book club meet? | corrections | NP | NP | NP | NP | NP | NP | RP |
-| q45 What temperature does Tomasz fire stoneware at? | distractors, names | R | R | R | R | R | R | R |
-| q46 When do I do pottery? | provenance | RL | RL | RL | RL | RL | RL | RR |
-| q47 Is Sunday morning studio time protected? | approved_vs_evidence, distractors | RO | RO | RR | RR | RR | RR | RR |
-| q48 What was I worried about before the Lisbon trip? | temporal, names | R | R | R | R | R | R | R |
-| q49 What's the ETA on the new laptop? | abbreviation | R | R | R | R | R | R | R |
-| q50 When does my car insurance renew? | corrections, claims_lifecycle | RPP | RPP | RPP | RPP | RPP | RPP | RPP |
-| q51 When is the car due for inspection? | synonym | R | R | R | R | R | R | R |
-| q52 Who has the spare key? | claims_lifecycle | RP | RP | RP | RP | RP | RP | RP |
-| q53 Which films did I watch this year? | multiple_related, temporal, budget | BBRRRRRRRRRRRR | BBRRRRRRRRRRRR | BBRRRRRRRRRRRR | NNNNNNRNNNNNNN | OORRRORRRRRRRR | OORRRORRRRRRRR | OORRRORRRRRRRR |
-| q54 What is the latest decision about the newsletter? | temporal | R | R | R | R | R | R | R |
-| q55 How much coffee do I allow myself? | claims_lifecycle | RPR | RPR | RPR | RPR | RPR | RPR | RPR |
-| q56 What are my rules for meetings? | approved_vs_evidence, multi_evidence | RRN | RRN | RRN | RRN | RRN | RRN | RRR |
+| Query | Tags | `baseline` | `porter_count` | `porter_idf` | `fts5_bm25` | `fts5_porter_bm25` | `fts5_porter_bm25_aliases` | `fts5_porter_bm25_provenance` | `exact_stem` | `exact_stem_tiebreak` | `baseline_provenance` | `exact_stem_provenance` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| q01 When did I replace the brake pads on the touring bike? | exact | R | R | R | R | R | R | R | R | R | R | R |
+| q02 How much has the touring bike cost me so far? | multi_evidence | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR |
+| q03 Which bike repairs have I done? | morphology, distractors | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR |
+| q04 Do I like riding to the office? | paraphrase, claims_lifecycle | NN | NN | NN | NN | NN | NN | NN | NN | NN | NN | NN |
+| q05 Do I enjoy cycling? | exact, claims_lifecycle | RP | RP | RP | RP | RP | RP | RP | RP | RP | RP | RP |
+| q06 What did I decide about the garden budget? | old_among_newer, morphology, distractors | C | R | R | C | R | R | R | R | R | C | R |
+| q07 What vegetables did I plant? | morphology | N | R | R | N | R | R | R | R | N | N | R |
+| q08 Who did we choose as the deployment checklist owner? | old_among_newer, morphology, distractors, approved_vs_evidence | RC | RC | RC | RR | RR | RR | RR | RC | RC | RC | RC |
+| q09 What did Priya say about the launch date? | names | R | R | R | R | R | R | R | R | R | R | R |
+| q10 What happened in the Larkspur security audit? | multiple_related, names | RRR | RRR | RRR | RRR | RRR | RRR | RRR | RRR | RRR | RRR | RRR |
+| q11 What did we decide about the CI pipeline? | abbreviation | N | N | N | N | N | R | N | N | N | N | N |
+| q12 Who is the PM for Larkspur? | abbreviation, names | R | R | R | R | R | R | R | R | R | R | R |
+| q13 How many days of PTO do I have left? | abbreviation | R | R | R | R | R | R | R | R | R | R | R |
+| q14 Why did we start the release checklist? | old_among_newer, exact | R | R | R | R | R | R | R | R | R | R | R |
+| q15 When is the grant report due? | exact | R | R | R | R | R | R | R | R | R | R | R |
+| q16 What did Odile ask for after releases? | names, morphology | R | R | R | R | R | R | R | R | R | R | R |
+| q17 What did the doctor say about my knee? | synonym, sensitive, approved_vs_evidence | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR |
+| q18 Who is my GP? | abbreviation, sensitive | N | N | N | N | N | R | N | N | N | N | N |
+| q19 When is my next blood test appointment? | exact, sensitive | R | R | R | R | R | R | R | R | R | R | R |
+| q20 Why do I sleep badly? | paraphrase | N | N | N | N | N | N | N | N | N | N | N |
+| q21 How do I calm down before presentations? | paraphrase | N | N | N | N | N | N | N | N | N | N | N |
+| q22 Should I be running at the moment? | approved_vs_evidence, sensitive, provenance | RN | RN | RN | RN | RN | RN | RO | RN | RN | RR | RR |
+| q23 What was my pace target when I started running? | old_among_newer, exact | R | R | R | R | R | R | R | R | R | R | R |
+| q24 When did I first run 10 km? | old_among_newer, distractors | R | R | R | R | R | R | R | R | R | R | R |
+| q25 What does Dr. Amsel recommend for Biscuit? | names, multiple_related | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR |
+| q26 How has Biscuit's weight changed? | multiple_related, approved_vs_evidence, morphology | RRR | RRR | RRR | RRR | RRR | RRR | RRR | RRR | RRR | RRR | RRR |
+| q27 How is my sister's little one getting on? | paraphrase, names | N | N | N | N | N | N | N | N | N | N | N |
+| q28 What is Wren's address in Porto? | corrections, names | RP | RP | RP | RP | RP | RP | RP | RP | RP | RP | RP |
+| q29 Am I planning to move to Porto? | claims_lifecycle | PR | PR | PR | PR | PR | PR | PR | PR | PR | PR | PR |
+| q30 Where should we eat when my parents visit? | paraphrase | N | N | N | N | N | N | N | N | N | N | N |
+| q31 What gift did I get Wren? | synonym, names | R | R | R | R | R | R | R | R | R | R | R |
+| q32 Which sofa did we pick? | synonym | N | N | N | N | N | R | N | N | N | N | N |
+| q33 How much is the flat per month? | synonym | R | R | R | R | R | R | R | R | R | R | R |
+| q34 What did I write about the roof last March? | temporal | R | R | R | R | R | R | R | R | R | R | R |
+| q35 What happened with the boiler in 2024? | temporal | R | R | R | R | R | R | R | R | R | R | R |
+| q36 Who fixed the leaking tap? | morphology | R | R | R | R | R | R | R | R | R | R | R |
+| q37 What did the landlord agree to fix? | exact, old_among_newer | R | R | R | R | R | R | R | R | R | R | R |
+| q38 Am I becoming vegetarian? | claims_lifecycle, paraphrase | PN | PN | PN | PN | PN | PN | PR | PN | PN | PR | PR |
+| q39 How much do I spend at restaurants? | provenance | RL | RL | RL | RL | RL | RL | RR | RL | RL | RR | RR |
+| q40 What is my salary after the review? | sensitive, distractors | R | R | R | R | R | R | R | R | R | R | R |
+| q41 How big should my emergency fund be? | sensitive, approved_vs_evidence | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR | RR |
+| q42 What principles have I established for Sovereign? | approved_vs_evidence, provenance, multi_evidence | RRNP | RRNP | RRNP | RRNP | RRNP | RRNP | RRNP | RRNP | RRNP | RRNP | RRNP |
+| q43 What did Liz recommend reading? | names, paraphrase | N | N | N | N | N | N | N | N | N | N | N |
+| q44 When does the book club meet? | corrections | NP | NP | NP | NP | NP | NP | RP | NP | NP | RP | RP |
+| q45 What temperature does Tomasz fire stoneware at? | distractors, names | R | R | R | R | R | R | R | R | R | R | R |
+| q46 When do I do pottery? | provenance | RL | RL | RL | RL | RL | RL | RR | RL | RL | RR | RR |
+| q47 Is Sunday morning studio time protected? | approved_vs_evidence, distractors | RO | RO | RR | RR | RR | RR | RR | RO | RO | RO | RO |
+| q48 What was I worried about before the Lisbon trip? | temporal, names | R | R | R | R | R | R | R | R | R | R | R |
+| q49 What's the ETA on the new laptop? | abbreviation | R | R | R | R | R | R | R | R | R | R | R |
+| q50 When does my car insurance renew? | corrections, claims_lifecycle | RPP | RPP | RPP | RPP | RPP | RPP | RPP | RPP | RPP | RPP | RPP |
+| q51 When is the car due for inspection? | synonym | R | R | R | R | R | R | R | R | R | R | R |
+| q52 Who has the spare key? | claims_lifecycle | RP | RP | RP | RP | RP | RP | RP | RP | RP | RP | RP |
+| q53 Which films did I watch this year? | multiple_related, temporal, budget | BBRRRRRRRRRRRR | BBRRRRRRRRRRRR | BBRRRRRRRRRRRR | NNNNNNRNNNNNNN | OORRRORRRRRRRR | OORRRORRRRRRRR | OORRRORRRRRRRR | BBRRRRRRRRRRRR | BBRRRRRRRRRRRR | BBRRRRRRRRRRRR | BBRRRRRRRRRRRR |
+| q54 What is the latest decision about the newsletter? | temporal | R | R | R | R | R | R | R | R | R | R | R |
+| q55 How much coffee do I allow myself? | claims_lifecycle | RPR | RPR | RPR | RPR | RPR | RPR | RPR | RPR | RPR | RPR | RPR |
+| q56 What are my rules for meetings? | approved_vs_evidence, multi_evidence | RRN | RRN | RRN | RRN | RRN | RRN | RRR | RRN | RRN | RRR | RRR |

@@ -1,17 +1,39 @@
 # Benchmark 0003 — Retrieval evaluation (Context Compiler V0)
 
-**Purpose:** measure how well the merged Context Compiler retrieval finds what a question needs, and say with evidence which upgrade, if any, the next retrieval change should be. The aim is not a more sophisticated retriever. The aim is to earn the right to one with evidence.
+**Purpose:** measure how well the merged Context Compiler retrieval finds what a question needs, what it costs in irrelevant context and disclosure surface, and what cheap, deterministic, local alternatives would change. The aim is not a more sophisticated retriever. The aim is trustworthy, auditable evidence for any future retrieval change.
 
-**Scope:** evaluation only. No production code changes, and every ADR-0003 / ADR-0004 invariant still holds. The decisions this benchmark informs (a retrieval change, a policy change) are Tier 2 and belong in separate reviewed PRs.
+**Scope:** evaluation only. This is the second-brain workstream's **SB-1**, the synthetic evaluation slice. It changes no production code: memory authority, retrieval, the Context Compiler, disclosure and storage are exactly as merged. Every ADR-0003 and ADR-0004 invariant holds.
 
-## Starting point
+## Status and founder direction (2026-10-20)
 
-- `main` at `4fbecbefd0c0bd0f3b159111fb48902b21cf4171`: the merge of Context Compiler V0, with policy `sovereign.context.v0`.
-- **Builder:** Claude Code in a cloud session.
-- **Run:**
-  - no human interventions during the run;
-  - no paid API cost (no provider is ever called);
-  - the full evaluation takes about 4 s.
+**Production retrieval stays exactly as merged.** The founder has decided:
+
+1. **Production retriever.** Keep the merged Context Compiler V0 lexical retriever unchanged. **No experimental retriever in this benchmark is approved for production.**
+2. **Porter normalisation** is a measured candidate, not an approved implementation.
+3. **Deferred:** IDF, BM25, FTS5 and embeddings. No derived index is adopted.
+4. **ADR-0004 founder decision 3 is preserved.** Records or claims reached only through provenance or graph links do not become relevant model context. The provenance experiments below are counterfactual.
+5. **Budget:** 12 items and 12,000 characters, unchanged.
+6. **Disclosure:** no new cloud-disclosure eligibility or permission.
+7. **Fingerprint.** The context fingerprint is not weakened for ranking convenience.
+   - It binds the complete policy-relevant retrieval state, including matching candidates below the cutoff.
+   - A future *policy-equivalent* fingerprint would need its own ADR-0004 amendment, formal proof obligations, adversarial tests and founder approval. Nothing here implements or assumes one.
+8. **Security Gate: NOT PASSED.** Synthetic data only. No real or sensitive personal data enters these experiments.
+
+**Relationship to PR #3** ([solnoctua/Sovereign-OS-Founding-Repository#3](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/3), proposed, not merged):
+
+- PR #3 proposes ADR-0005 (governed second brain).
+- It retired its own draft retrieval benchmark in favour of `docs/second-brain/SECOND-BRAIN-VALIDATION.md`, which specifies the future graph, Obsidian, temporal and relational acceptance tests.
+- **This document is the only executed Benchmark 0003.** It does not re-specify those tests.
+- ADR-0005's decisions D1–D15 and intended retrieval positions R1–R7 belong to PR #3 and are not ratified here.
+
+## Starting point and run record
+
+- **Base:** `main` at `4fbecbefd0c0bd0f3b159111fb48902b21cf4171`, the merge of Context Compiler V0 with policy `sovereign.context.v0`.
+- **Builder:** Claude Code in a cloud session. No human interventions during the run, and no paid API cost (no provider is ever called).
+- **Environment:** SQLite 3.45.1, with identical results under Python 3.12 and 3.13.
+- **Ground truth:** unchanged since it was written, before the first experiment ran, including through this revision.
+- **Results artifact:** every result number in this document comes from the committed `evaluation/retrieval/results.json`. The test suite and `python -m evaluation.retrieval --check` verify that file against the code.
+- **No timing claims.** This benchmark measures no latency or wall-clock time.
 
 ## Task
 
@@ -19,7 +41,8 @@ Build a small, deterministic synthetic corpus and a harness that evaluate Contex
 
 - measure it before policy filtering, and as the governed context the model would actually receive;
 - separate the reasons something is missing (the failure taxonomy below);
-- compare the merged lexical retrieval with cheap, deterministic, local alternatives.
+- compare the merged lexical retrieval with cheap, deterministic, local alternatives;
+- report every relevance gain together with its precision, privacy and token-stability cost.
 
 Run it with `python -m evaluation.retrieval` from the project directory, which writes `results.json` and `report.md`. `--check` verifies that the committed artifacts are current.
 
@@ -29,7 +52,7 @@ Run it with `python -m evaluation.retrieval` from the project directory, which w
 | `evaluation/retrieval/queries.json` | 56 queries with explicit ground truth. |
 | `evaluation/retrieval/aliases.json` | The fixed alias map used by one experiment. |
 | `evaluation/retrieval/retrievers.py` | The experimental relevance functions (evaluation only; the app never imports them). |
-| `evaluation/retrieval/harness.py` | Corpus loading, ground-truth validation, metrics, taxonomy and report. |
+| `evaluation/retrieval/harness.py` | Corpus loading, ground-truth validation, metrics, taxonomy, navigation, token stability and report. |
 | `evaluation/retrieval/results.json` | Machine-readable results, per retriever and per query. |
 | `evaluation/retrieval/report.md` | Generated tables, including per-query outcomes. |
 | `tests/test_retrieval_evaluation.py` | Harness tests (see *Tests*). |
@@ -68,7 +91,7 @@ Three generated families supply realistic, newer distractors that share vocabula
 
 ### Ground truth
 
-**Judged by meaning, not by word overlap,** and fixed before any experiment ran. It was not edited after seeing results.
+**Judged by meaning, not by word overlap,** fixed before any experiment ran, and never edited after seeing results.
 
 Each query lists:
 
@@ -82,7 +105,7 @@ In total there are 99 expected items:
 - **88 eligible locally**, of which 79 are eligible for cloud;
 - **11 intentionally excluded**, each with its reason.
 
-**Validation.** Before measuring, the harness checks every expected outcome against the production policy, treating the item as relevant (`context._reasons`). An expectation that disagrees with policy is a ground-truth error and stops the run, and a test proves that typos are caught.
+**Validation.** Before measuring, the harness checks every expected outcome against the production policy, treating the item as relevant (`context._reasons`). An expectation that disagrees with policy stops the run, and a test proves that typos are caught.
 
 ### What an experiment may change
 
@@ -97,23 +120,34 @@ The experiments' indexes are in-memory SQLite databases. They are built from a r
 
 ### Metrics
 
-**Retrieval, before policy.** All matching records and claims are ranked by the retriever's score, with ties broken newest first and then by id (the production tie-break). This is the retriever's own relevance order, independent of the compiler's role ordering.
+**Retrieval, before policy (candidate recall).** All matching records and claims are ranked by the retriever's score, with ties broken newest first and then by id (the production tie-break).
 
-- **Recall@1/5/10/50:** the mean share of a query's expected items in the top K, so a 3-item query contributes 1/3 per item. Every expected item counts, including ineligible ones: retrieval cannot know eligibility, and surfacing an ineligible item is what lets the receipt explain its exclusion.
-- **MRR:** mean reciprocal rank of the first expected item.
+- **Recall@1/5/10/50:** the mean share of a query's expected items in the top K. Every expected item counts, including ineligible ones: surfacing an ineligible item is what lets the receipt explain its exclusion.
+- **MRR**, overall and per category: mean reciprocal rank of the first expected item. *Temporal MRR* is MRR over the 5 temporal queries.
 
 **Governed context, after policy.**
 
-- **Governed recall:**
-  - per query, the share of eligible expected items included in their expected role;
-  - reported as the mean over queries, and as item counts (`recalled / eligible`), for local and cloud.
+- **Governed recall** for local and cloud: per query, the share of eligible expected items included in their expected role; reported as the mean over queries and as item counts (`recalled / eligible`).
 - **Noise:** included items that are neither expected nor acceptable. In a cloud plan these are private items that would be disclosed if the plan were approved.
 - **Precision:** the share of included items that are not noise.
-- **Counts:**
-  - rows scanned per compile, matches, candidates returned before policy and items included;
-  - exclusion reasons over all candidates;
-  - queries where the budget was binding, and where it dropped an expected item.
-- **Token stability:** how many of the 56 local context tokens one unrelated write invalidates. The unrelated write is a record matching no question.
+- **Cloud items:** the total number of items across all 56 cloud plans. This is the private disclosure surface an approval would cover.
+- **Budget displacement:** expected eligible items excluded by the budget, either outranked or with a budget too small.
+
+**Policy outcomes.** Exclusion reasons over all candidates, policy violations and policy mismatches.
+
+**Load:** rows scanned per compile, matches, and candidates returned before policy. These are deterministic counts, not timings.
+
+**Token stability.**
+
+- *Unrelated write:* how many of the 56 local context tokens one unrelated write invalidates (a record matching no question).
+- *Unchanged vault:* how many stay identical on a repeat compile *and* on an independently rebuilt, identical vault with freshly built retrievers. ADR-0005 §6.4 (PR #3) requires 100% here.
+
+**Local navigation (discovery, not admission).** Items one stored link away (claim ↔ cited record, record ↔ its correction):
+
+- from the **context** (included items);
+- from the **preview** (included and excluded candidates, which the receipt lists).
+
+Navigation never changes relevance, context or token. It counts how many expected items the context missed that a local view could still surface, and how many irrelevant items it would show.
 
 ### Failure taxonomy
 
@@ -130,29 +164,58 @@ Every expected item gets exactly one outcome per target:
 
 ### Experiments
 
-These are cheap and deterministic only: no model, no network, no embeddings or vector store.
+These are cheap and deterministic only: no model, no network, no embeddings or vector store. **None is a proposal.** Each is measured to inform future, separately reviewed work.
 
 | Retriever | What changes |
 |---|---|
 | `baseline` | Merged V0, unchanged: distinct question terms matched (`\w+`, English stopwords, one plural `s` trimmed). |
-| `porter_count` | The same score over Porter-stemmed tokens (the SQLite FTS5 `porter` tokenizer): **normalisation only**. |
-| `porter_idf` | Porter tokens, each match weighted by IDF: **normalisation + term weighting**. |
-| `fts5_bm25` | SQLite FTS5 (`unicode61`, no stemming) with `bm25()`: weighting and length normalisation only. |
+| `porter_count` | The same score over Porter-stemmed tokens (the SQLite FTS5 `porter` tokenizer): broad normalisation. |
+| `porter_idf` | Porter tokens, each match weighted by IDF: normalisation + term weighting. |
+| `fts5_bm25` | SQLite FTS5 (`unicode61`, no stemming) with `bm25()`. |
 | `fts5_porter_bm25` | SQLite FTS5 with Porter stemming and `bm25()`. |
-| `fts5_porter_bm25_aliases` | The previous retriever plus the fixed alias map (28 generic groups such as couch/sofa, GP/general practitioner and CI/continuous integration). This is an optimistic **upper bound**, because the queries' author also wrote the map. |
-| `fts5_porter_bm25_provenance` | **Diagnostic, not a proposal.** It adds one hop of relevance along links storage already holds (citation and correction), at half the neighbour's score. It would change ADR-0004 founder decision 3. |
+| `fts5_porter_bm25_aliases` | The previous retriever plus a fixed alias map of 28 generic groups. This is an optimistic **upper bound**, because the queries' author also wrote the map. |
+| `fts5_porter_bm25_provenance` | The previous BM25 retriever plus one hop of relevance along stored links. Counterfactual. |
+| `exact_stem` | **Experiment A:** exact matches first, stem matches second, and stem-only texts are admitted. |
+| `exact_stem_tiebreak` | **Experiment A, without admission:** stems only order texts that already match exactly. |
+| `baseline_provenance` | **Experiment B, context admission (counterfactual):** the merged baseline plus one hop of relevance along stored links. |
+| `exact_stem_provenance` | **Experiment C:** A combined with B. |
+
+**Experiment A — exact-primary / stem-secondary, defined precisely:**
+
+- **Exact match.** A distinct question term (the production `terms_of`) that is among the text's production terms. The exact count is therefore exactly the baseline score; a test checks this for every query and document.
+- **Stem match.** A question term with no exact match whose Porter stem (of any question word producing that term) is among the text's Porter stems.
+- **Each term counts once.** A term that matches exactly is never counted again as a stem match, so a text matching a term in both tiers counts it as exact.
+- **Score and ordering.** The pair (exact, stem) in lexicographic order, encoded as `exact + stem / (terms + 1)`.
+  - One more exact match always outranks any number of stem matches.
+  - Stem matches only break ties between equal exact counts.
+  - In `exact_stem`, stem matches also admit texts with no exact match, ranked below every exact match.
+  - In `exact_stem_tiebreak`, a text with no exact match scores 0, so the set of relevant texts is exactly the baseline's (also tested).
+- **Recency and tie-breaking.** Unchanged: equal scores sort newest first, then by id.
+- **Cutoff.** Unchanged: the top 50 per kind by that order. Stem-only texts therefore enter only after every exact-matching text.
+- **Token binding.**
+  - The score depends on the question and the text alone, never on other documents, so an unrelated write cannot change it.
+  - Scores still enter the fingerprint unchanged; nothing is relaxed.
+  - Adopting either variant would change relevance or ranking, so it would need a new `policy_version`.
+
+**Experiment B — one-hop existing provenance links.** The links are only those storage already holds canonically: claim → cited record (`claim_sources`), record → citing claim, and a record's correction ↔ the record it corrects (`records.supersedes_id`). There is no graph database, no new schema and no inference. Two modes:
+
+- **Navigation and discovery** (measured for every retriever, see *Metrics*): local exploration of stored links from what the preview shows. It adds no relevance, and context and token are unchanged.
+- **Context admission** (`baseline_provenance`): **counterfactual, not authorised.**
+  - A document with no direct match inherits half the best direct score among its one-hop neighbours, and so becomes relevant within the unchanged Context Compiler policy.
+  - Inherited items still pass every authority, sensitivity, budget and disclosure rule.
+  - It would reverse ADR-0004 founder decision 3, which the founder has preserved.
 
 ## Results
 
-All tables, the per-category breakdown and per-query outcomes are in [`evaluation/retrieval/report.md`](../../evaluation/retrieval/report.md). Every number below comes from `results.json`.
+All tables are in [`evaluation/retrieval/report.md`](../../evaluation/retrieval/report.md), including per-query outcome letters for every retriever.
 
 ### Baseline (merged V0)
 
-**Retrieval quality**
+**Retrieval and governed context**
 
-| R@1 | R@5 | R@10 | R@50 | MRR | Governed recall, local | Governed recall, cloud | Precision, local / cloud |
-|---|---|---|---|---|---|---|---|
-| 44.0% | 68.8% | 71.2% | 72.6% | 0.691 | 70.9% (66/88) | 70.4% (59/79) | 33.6% / 31.8% |
+| R@1 | R@5 | R@10 | R@50 | MRR | Governed recall, local | Governed recall, cloud | Precision, local / cloud | Cloud items |
+|---|---|---|---|---|---|---|---|---|
+| 44.0% | 68.8% | 71.2% | 72.6% | 0.691 | 70.9% (66/88) | 70.4% (59/79) | 33.6% / 31.8% | 239 |
 
 **Outcomes of expected items (local)**
 
@@ -167,7 +230,7 @@ All tables, the per-category breakdown and per-query outcomes are in [`evaluatio
 | Budget failures | 2 |
 | Policy violations | 0 |
 
-**Load, budget and token stability (local)**
+**Load and token stability**
 
 | Measure | Value |
 |---|---|
@@ -176,152 +239,236 @@ All tables, the per-category breakdown and per-query outcomes are in [`evaluatio
 | Mean candidates returned | 9.2 |
 | Mean items included | 4.5 |
 | Queries where the budget was binding | 8 |
-| Queries where the budget dropped an expected item | 2 |
+| Budget-displaced expected items | 3 |
 | Tokens changed by an unrelated write | 0/56 |
+| Tokens identical on an unchanged vault | 56/56 |
 
-Policy behaves exactly as ADR-0004 specifies, and every expected exclusion is retrieved and explained, with one exception: the rejected claim behind a paraphrased question was never retrieved (q04).
+Every expected exclusion is retrieved and explained, with one exception: the rejected claim behind a paraphrased question (q04) was never retrieved.
 
-The 22 eligible items the baseline misses (local), grouped by the cheapest mechanism that could recover them:
+**The 22 eligible items the baseline misses** (local), grouped by the cheapest mechanism that could recover them:
 
 | Mechanism needed | Items | Queries |
 |---|---|---|
-| Morphology: stemming | 2 | q06 *decide/decided*: old evidence tied with 60 newer reviews and **fell below the cutoff**. q07 *plant/planted*. |
+| Morphology: stemming | 2 | q06 *decide/decided*: old evidence tied with 60 newer reviews and **fell below the cutoff**. q07 *plant/planted*: no exact match at all. |
 | Term weighting / length normalisation | 2 | q08 owner record **below the cutoff** behind 55 stand-ups (its approved claim was still recalled). q47 outranked by 40 run logs. |
 | Fixed vocabulary (aliases) | 3 | q11 CI, q18 GP, q32 sofa/couch. |
-| A link storage already holds (citation, correction) | 6 | q22, q38, q44, q56 (evidence of a matching claim, or a correction of a matching record); q39, q46 (approved claim surfaced only by provenance). |
+| A link storage already holds (citation, correction) | 6 | q22, q38, q44, q56: evidence of a matching claim, or a correction of a matching record. q39, q46: approved claim surfaced only by provenance. |
 | Meaning: paraphrase with no shared words | 7 | q04, q20, q21, q27, q30, q42 (one item), q43. |
 | A larger budget, or temporal filtering | 2 | q53: 14 films this year, 12-item budget. |
 
-### What each upgrade fixes
+### Gains versus costs, every retriever
 
-Items are local governed recall out of 88 eligible items.
+Items recalled are out of 88 eligible locally and 79 for cloud. *Noise* and *precision* are local / cloud. *Displaced* is local budget displacement. *Unrelated* and *Unchanged* are local tokens out of 56.
 
-**Recall**
+**Recall and ranking**
 
-| Retriever | Items | Fixed vs baseline | Broken vs baseline | R@10 | MRR | Temporal MRR |
+| Retriever | Local | Cloud | R@1 | R@10 | MRR | Temporal MRR |
 |---|---|---|---|---|---|---|
-| `baseline` | 66 | — | — | 71.2% | 0.691 | 0.733 |
-| `porter_count` | 68 | q06, q07 | none | 73.9% | 0.686 | 0.733 |
-| `porter_idf` | 69 | q06, q07, q47 | none | 74.8% | 0.693 | 0.717 |
-| `fts5_bm25` (no stemming) | 57 | q08, q47 | 11 of q53 (*films*/*film*, *watch*/*watched*) | 71.0% | 0.664 | 0.340 |
-| `fts5_porter_bm25` | 69 | q06, q07, q08, q47 | 1 of q53 (2025 films outrank 2026 ones) | 75.5% | 0.705 | 0.473 |
-| `+ aliases` (upper bound) | 72 | the previous four + q11, q18, q32 | the same q53 item | 80.9% | 0.797 | 0.473 |
-| `+ provenance` (diagnostic) | 74 | the previous four + q38, q39, q44, q46, q56 | the same q53 item | 80.2% | 0.705 | 0.473 |
+| `baseline` | 66 | 59 | 44.0% | 71.2% | 0.691 | 0.733 |
+| `porter_count` | 68 | 61 | 43.1% | 73.9% | 0.686 | 0.733 |
+| `porter_idf` | 69 | 62 | 44.9% | 74.8% | 0.693 | 0.717 |
+| `fts5_bm25` | 57 | 50 | 40.6% | 71.0% | 0.664 | 0.340 |
+| `fts5_porter_bm25` | 69 | 62 | 43.1% | 75.5% | 0.705 | 0.473 |
+| `fts5_porter_bm25_aliases` | 72 | 64 | 54.7% | 80.9% | 0.797 | 0.473 |
+| `fts5_porter_bm25_provenance` | 74 | 67 | 43.1% | 80.2% | 0.705 | 0.473 |
+| `exact_stem` | 68 | 61 | 45.8% | 74.8% | 0.712 | 0.733 |
+| `exact_stem_tiebreak` | 67 | 60 | 45.8% | 73.0% | 0.709 | 0.733 |
+| `baseline_provenance` | 72 | 64 | 44.0% | 76.7% | 0.691 | 0.733 |
+| `exact_stem_provenance` | 74 | 66 | 45.8% | 80.3% | 0.712 | 0.733 |
 
-**Costs**
+**Costs and stability**
 
-| Retriever | Noise, local / cloud | Tokens changed by an unrelated write |
-|---|---|---|
-| `baseline` | 166 / 163 | 0/56 |
-| `porter_count` | 213 / 210 | 0/56 |
-| `porter_idf` | 212 / 209 | 53/56 |
-| `fts5_bm25` (no stemming) | 151 / 150 | 51/56 |
-| `fts5_porter_bm25` | 212 / 209 | 53/56 |
-| `+ aliases` (upper bound) | 225 / 220 | 54/56 |
-| `+ provenance` (diagnostic) | 223 / 220 | 53/56 |
+| Retriever | Noise | Precision | Cloud items | Displaced | Unrelated | Unchanged |
+|---|---|---|---|---|---|---|
+| `baseline` | 166 / 163 | 33.6% / 31.8% | 239 | 3 | 0 | 56 |
+| `porter_count` | 213 / 210 | 28.8% / 27.1% | 288 | 3 | 0 | 56 |
+| `porter_idf` | 212 / 209 | 29.1% / 27.4% | 288 | 2 | 53 | 56 |
+| `fts5_bm25` | 151 / 150 | 33.2% / 30.9% | 217 | 0 | 51 | 56 |
+| `fts5_porter_bm25` | 212 / 209 | 29.1% / 27.4% | 288 | 3 | 53 | 56 |
+| `fts5_porter_bm25_aliases` | 225 / 220 | 28.6% / 26.9% | 301 | 3 | 54 | 56 |
+| `fts5_porter_bm25_provenance` | 223 / 220 | 29.2% / 27.6% | 304 | 4 | 53 | 56 |
+| `exact_stem` | 213 / 210 | 28.8% / 27.1% | 288 | 3 | 0 | 56 |
+| `exact_stem_tiebreak` | 165 / 162 | 34.0% / 32.2% | 239 | 3 | 0 | 56 |
+| `baseline_provenance` | 173 / 170 | 34.2% / 32.3% | 251 | 3 | 0 | 56 |
+| `exact_stem_provenance` | 223 / 221 | 29.2% / 27.3% | 304 | 3 | 0 | 56 |
 
-Cloud results follow the same pattern, out of 79 eligible items: 59 → 61 → 62 → 50 → 62 → 64 → 67. No retriever produces a policy violation, and no sensitive item enters a cloud plan under any of them.
+No retriever produces a policy violation or mismatch, and no sensitive item enters a cloud plan under any of them (checked for every cloud bundle of every retriever).
 
-**Findings**
+**What a production version would need**
 
-1. **The lexical upgrades are real but small.** Stemming plus weighting recovers 3 or 4 of the 22 misses. Normalisation alone recovers 2 with no regression, and those 2 include the only case where correct old evidence silently fell below the cutoff (q06).
-2. **Plain FTS5 regresses.** Its default tokenizer loses the baseline's plural trimming (57/88). FTS5 helps only with stemming.
-3. **BM25 removes an implicit temporal prior.** The baseline's ties sort newest first, which is right for "latest" and "this year" questions. BM25's length normalisation breaks those ties: temporal MRR falls from 0.733 to 0.473, and older films displace this year's in q53.
-4. **Vault-wide statistics break token stability.** With IDF or BM25, the score of every match depends on the whole vault, and scores are bound into the retrieval fingerprint (ADR-0004). One unrelated write therefore invalidates 51–54 of 56 pending previews. This is still fail-closed (409, then re-preview), so nothing leaks, but almost any write makes a pending approval stale. The baseline and `porter_count` invalidate none.
-5. **Paraphrase is untouched by everything lexical:** none of the 7 items that need meaning is recovered by any retriever. It is the largest single failure class here (7 of 22), but only because the corpus contains 7 paraphrase queries by design. This benchmark cannot say how common it is in real use.
-6. **Links already in storage are the largest deterministic lever.** One hop along citation and correction links recovers 5 more items, with no new index and no model. Adopting it would reverse ADR-0004 founder decision 3 for claims.
-7. **Governed context is precision-poor under every retriever (about 27–34%).** Whenever 12 or more eligible items share any question word, the budget fills with lexical noise, and in a cloud plan that noise is private data offered for disclosure. Stemming makes this slightly worse (precision 33.6% → 28.8%). The fix is a policy question (a relevance floor, or a smaller cloud budget), not a choice of retrieval engine.
-8. **Scale is not yet a reason for an index.** The baseline compile is linear in vault size, measured on the development container and indicative only:
+| Retriever | Derived state | Vault-wide statistics | Other dependencies |
+|---|---|---|---|
+| `baseline` | none (merged) | no | — |
+| `porter_count`, `exact_stem`, `exact_stem_tiebreak` | none | no | A Porter stemmer: the FTS5 tokenizer, a vendored stemmer or a new dependency |
+| `porter_idf` | none | yes, document frequencies per compile | A Porter stemmer |
+| `fts5_bm25`, `fts5_porter_bm25` | a persistent FTS5 index, with Forget (`secure-delete`) and rebuild semantics | yes | — |
+| `fts5_porter_bm25_aliases` | the FTS5 index | yes | A maintained vocabulary file |
+| provenance variants | none: they read `claim_sources` and `supersedes_id` in the same snapshot | as their inner scorer | Reverses ADR-0004 decision 3 |
 
-   | Records | Median compile time |
-   |---|---|
-   | 254 | 3 ms |
-   | 2,254 | 23 ms |
-   | 10,254 | 93 ms |
-   | 50,254 | 480 ms |
+### Experiment A — exact-primary / stem-secondary
 
-## Recommendation: **B, narrowly — stronger lexical normalisation, not FTS5 yet**
+- **`exact_stem` recovers exactly what broad Porter recovers, and costs exactly as much noise.**
+  - It recovers q06 and q07 locally and in cloud, with no regression.
+  - It admits the same 213 / 210 noise items in total as `porter_count`; 8 local items differ, all in q22, q27 and q40.
+  - It improves ranking over both broad Porter and the baseline: R@1 45.8% (Porter 43.1%, baseline 44.0%) and MRR 0.712 (0.686, 0.691). It keeps the baseline's temporal MRR (0.733).
+  - **The hypothesis that tiering avoids Porter's noise is not supported.** The noise comes from *admission* (any stem-only match becomes relevant and fills unused budget), not from ordering.
+- **`exact_stem_tiebreak` separates the two effects.** With stems only ordering exact matches:
+  - it recovers q06 (old evidence that fell below the cutoff) and not q07 (which has no exact match), so 67/88 locally and 60/79 for cloud;
+  - noise is 165 / 162 (baseline 166 / 163), precision 34.0% / 32.2% (baseline 33.6% / 31.8%), and cloud items 239 (baseline 239);
+  - token stability is unchanged (0 and 56).
+  - Recovering a morphology failure with **no exact match at all** necessarily widens the relevance gate, and that is where the noise comes from. Recovering one that is merely ranked too low does not.
 
-Adopt Porter normalisation of the existing distinct-term score (`porter_count`) in a separate, reviewed Tier 2 PR. That PR should bump `POLICY_VERSION`, carry its own tests and regenerate this benchmark. Do not adopt IDF, BM25, FTS5 or the alias map now.
+### Experiment B — one-hop existing provenance links
 
-Why:
+**Navigation and discovery.** No relevance, context or token change; all counts are local.
 
-- **It is the only upgrade with no regression and no new risk.**
-  - It gains +2 items locally and +2 in cloud.
-  - It removes the invisible below-cutoff miss of old evidence (q06).
-  - It keeps every property V0 tokens and receipts rely on:
-    - 0/56 tokens disturbed by unrelated writes;
-    - recency tie-breaks unchanged (temporal MRR 0.733);
-    - no derived index, so no new Forget, restore or rebuild semantics.
-  - Its cost is honest: +47 noise items locally and +47 in cloud (precision 33.6% → 28.8%), visible in every preview.
-- **Weighting does not pay for itself yet.**
-  - IDF adds one item (q47); BM25 adds the same one and q08.
-  - Both make 95% of pending previews stale on any write.
-  - BM25 also loses the recency prior and, as FTS5, needs a persistent derived index. That index would need explicit deletion (Forget must purge it, including FTS5 segments) and rebuild semantics.
-  - At V0 sizes (under 100 ms at 10,000 records) there is no scale reason to pay that cost.
-  - Revisit when weighting can be bound without over-invalidation, or when the vault size makes the O(n) scan matter.
+| Start set (baseline) | Missed items discoverable | Neighbours shown | Of which irrelevant |
+|---|---|---|---|
+| From the context (included items) | 6 of 22: q08, q22, q39, q46, q47, q56 | 29 | 16 |
+| From the whole preview (included and excluded candidates) | 10 of 22 (listed as excluded, or one hop away): the 6 above + q38, q44 and both q53 films | 13 beyond what the preview already lists | 8 |
 
-Not A: normalisation fixes measured failures at no measured cost to binding, ordering or authority.
+Without changing a single compiler decision, a local view of stored links and of the existing receipt already surfaces 10 of the baseline's 22 misses.
 
-Not C:
+**Context admission (`baseline_provenance`, counterfactual):**
 
-- Paraphrase failures exist (7 of 22 here) but their frequency is unmeasured.
-- Embeddings would add non-determinism and a derived index that must itself be governed and forgotten (ADR-0004).
-- C needs evidence from real usage first.
+- **Recovered:** 72/88 locally (+6: q22, q38, q39, q44, q46, q56) and 64/79 for cloud (+5). In cloud, q22's sensitive record becomes correctly `sensitive_cloud`-excluded instead of unretrieved.
+- **Lost:** none.
+- **Noise:** 173 / 170 (+7 / +7). Precision rises slightly, to 34.2% / 32.3%.
+- **Cloud plans:** 251 items, up from 239. That is 12 more private items offered for approval: 5 expected, 7 irrelevant.
+- **Policy handling:** inherited items pass every rule unchanged (0 violations, 0 mismatches), and ranking and temporal MRR are unchanged.
+- **Tokens:** 0 changed by an unrelated write, and 56/56 identical on an unchanged vault.
+- **Admission and navigation recover different items.** Admission gets q38 and q44, whose links start from excluded candidates. Navigation from the context gets q08 and q47, whose records are linked to included claims but lose ranking or budget under admission.
 
-Not D now, but the evidence points there next:
+### Experiment C — combination (`exact_stem_provenance`)
 
-- Link-reachable failures (6 of 22) are the largest class that deterministic code can fix.
-- They need no graph store, only the provenance and correction links already stored.
-- Adopting them is a founder decision on ADR-0004 decision 3, not a retrieval-engine change.
-- Temporal needs appear in two places: q53, and BM25's loss of recency ordering. That argues for keeping recency explicit in any future ranking, not for a temporal engine yet.
+- **Recovered:** 74/88 locally and 66/79 for cloud.
+- **Its gains are exactly the union of A and B:** q06 and q07 from `exact_stem`, plus the 6 provenance items. No item appears in both, and none regresses.
+- **Its cost is almost exactly the sum of both:** noise 223 / 221 (A alone 213 / 210, B alone 173 / 170), precision 29.2% / 27.3%, and 304 cloud items.
+- **Token stability holds:** 0 changed by an unrelated write, and 56/56 identical on an unchanged vault.
+- **Comparison with the BM25-based provenance diagnostic:** it matches its 74/88 locally (66 vs 67 in cloud) without its token churn (53/56) or its lost recency prior (temporal MRR 0.473), and with the same local noise (223).
 
-## Decisions for the founder
+### Findings
 
-1. **Authorise the narrow B change** as its own Tier 2 PR (Porter normalisation, policy version bump), and choose its stemmer implementation:
-   - SQLite FTS5's `porter` tokenizer in a transient in-memory table, as here: no new dependency, but it requires an SQLite built with FTS5;
-   - a small vendored pure-Python Porter stemmer;
-   - a new dependency.
-2. **Token binding under weighted scores.** If IDF or BM25 is ever wanted, either accept that any write stales pending previews, or bind an order-preserving projection (membership, order, matched terms) instead of raw scores. The latter is an ADR-0004 amendment and must not weaken retrieval-state binding.
-3. **Provenance-link relevance** (founder decision 3): it is the largest measured deterministic gain (+5 items). Should a claim citing relevant evidence, the evidence of a relevant claim, and the correction of a relevant record count as relevant?
-4. **Context precision and disclosure.** About two thirds of included items are lexical noise in crowded vocabularies, and they would be disclosed in an approved cloud plan. Consider a relevance floor or a smaller cloud budget (a policy version change).
-5. **Budget constants** (founder decision 5): one list question needs 14 items against a budget of 12. No change is recommended on one query; keep it measured.
-6. **Before C:** run this harness on a private, founder-authored local query set over real notes. It would never be committed and would follow the Security Gate. A small follow-up would let the harness read a corpus from a path.
-7. **Evaluation infrastructure:**
-   - `evaluation/` is a non-shipped package.
-   - pytest gains `pythonpath = ["."]`.
-   - A test requires the committed results to match the code, so any change to retrieval or policy must regenerate them in the same PR.
+1. **Lexical upgrades are real but small.** Stemming and weighting recover 1–4 of the 22 misses. Broad stemming recovers 2, at +47 local noise items (213 against 166) and +49 cloud items (288 against 239).
+2. **The cheapest noise-free gain is ordering, not admission.** Stem-as-tie-break recovers the one *invisible* failure (q06, old evidence below the cutoff) with no extra noise, cloud items or token churn. Every recovery that needs a wider relevance gate (q07, the provenance items) adds disclosure surface.
+3. **Plain FTS5 regresses.** Its default tokenizer loses the baseline's plural trimming (57/88).
+4. **BM25 removes an implicit temporal prior.** The baseline's ties sort newest first, which suits "latest" and "this year" questions. BM25 breaks those ties: temporal MRR falls from 0.733 to 0.473.
+5. **Vault-wide statistics break token stability under unrelated writes.** IDF and BM25 scores depend on the whole vault, and scores are bound into the fingerprint, so one unrelated write invalidates 51–54 of 56 previews.
+   - This is fail-closed (409, then re-preview), but almost any write would stale a pending approval.
+   - Every text-local scorer (baseline, Porter, the exact-stem variants and the provenance variants over them) invalidates none.
+   - All eleven retrievers keep 56/56 tokens on an unchanged vault.
+   - Per the founder, the fingerprint is not relaxed to accommodate weighted scores.
+6. **Paraphrase is untouched by everything lexical.** None of the 7 items that need meaning is recovered by any retriever. The corpus over-represents paraphrase by design, so its real frequency is unknown.
+7. **Stored links are the largest deterministic lever, and most of it is available without admission.**
+   - Admission recovers 6 items for 7 noise items.
+   - Navigation, a local view of links from what the preview already shows, makes 10 misses discoverable without changing relevance, context or disclosure. This is the SB-2 direction.
+8. **Governed context is precision-poor under every retriever (27–34%).** Whenever 12 or more eligible items share any question word, the budget fills with lexical noise, and in a cloud plan that noise is private data offered for disclosure. Any future recall gain must be judged against this.
+9. **Scale is not measured.** Every compile scores every record and claim: rows scanned equals vault size (270 here), a deterministic count. This benchmark measures no latency and draws no conclusion about when an index would become necessary.
+
+## Candidates for future evaluation — none authorised for production
+
+Each candidate below would need its own Tier 2 PR, a `policy_version` bump, regenerated results here, independent review and founder approval.
+
+- **Exact-stem tie-break** (`exact_stem_tiebreak`): the lowest-risk ranking candidate measured.
+  - It recovers the one below-cutoff old-evidence miss without widening relevance.
+  - It adds no noise, no cloud items, no derived state and no token churn.
+  - It still changes ranking, so it is a policy change.
+- **Navigation of stored links** (ADR-0005's SB-2, proposed in PR #3): measured here as discovery only.
+  - It needs no compiler change at all.
+  - It belongs with the provenance-graph slice, not in context admission.
+- **Stem admission** (`porter_count`, `exact_stem`) and **provenance admission**: measured, not recommended.
+  - Each recovers items only by widening the relevance gate.
+  - Provenance admission also reverses ADR-0004 decision 3 (ADR-0005's SB-8, deferred).
+- **Deferred by founder decision:** IDF, BM25, FTS5, aliases and embeddings.
+
+## Dependencies and sequencing
+
+- **Workstream order** (ADR-0005 §11, proposed in PR #3):
+  1. SB-1: this benchmark.
+  2. SB-2: the computed, read-only provenance graph and a safe one-way Obsidian projection.
+  3. SB-3: human-declared projects, concepts and membership.
+  4. SB-4: further lexical or FTS evaluation, if justified.
+  5. SB-5: local semantic retrieval, if evidence justifies it.
+  6. SB-6 and SB-7: temporal semantics and structured typed MemoryClaims.
+  7. SB-8: possible graph-assisted model context, after evaluation and a new ADR-0004 policy decision.
+
+  Level 5 stays deferred.
+- **Storage-integrity dependency.** PR #3's review found a pre-existing storage-contract defect on `main`.
+  - Raw SQLite `INSERT OR REPLACE`, `REPLACE` and `UPDATE OR REPLACE` naming an existing rowid can bypass the tombstone and immutability triggers on connections with `recursive_triggers` off, which is SQLite's default.
+  - That threatens permanent Forget identity and immutable history.
+  - It needs a separate, independently audited Tier 2 storage fix and **blocks production SB-2**.
+  - It does not affect this benchmark's results: the harness writes only through `Vault.restore_trusted`, which issues plain `INSERT`s, and no evaluation code issues `REPLACE`.
+- **Integration order:**
+  1. PR #3 completes its independent audit.
+  2. The founder approves its decisions.
+  3. PR #3 merges.
+  4. This PR integrates the updated `main`, reconciles overlapping documentation (ROADMAP and status references) and regenerates its results.
+  5. This PR reruns all tests and CI.
+  6. This PR receives a fresh independent audit.
+  7. The founder decides on merge.
+
+## Remaining founder decisions
+
+These are not settled by the 2026-10-20 direction:
+
+1. Whether any candidate above, most plausibly the exact-stem tie-break, should ever be prepared as a production proposal. Several sub-questions would follow:
+   - the stemmer implementation (FTS5 tokenizer, vendored stemmer or new dependency);
+   - its availability where SQLite lacks FTS5;
+   - its `policy_version`.
+2. A relevance floor, threshold or cloud-specific policy to address precision (27–34%). Each needs its own evaluation and a versioned policy approval.
+3. Evaluation follow-ups:
+   - **No-evidence queries.** Every query has at least one expected item, so what is offered for disclosure when nothing is relevant is not measured. Adding them changes the fixture, so it belongs in a follow-up.
+   - **A private, founder-run local evaluation on real notes**, never committed and only after the Security Gate. It needs the harness to read a corpus from a path.
+4. Evaluation infrastructure:
+   - `evaluation/` as a non-shipped package;
+   - pytest `pythonpath = ["."]`;
+   - a test that requires the committed results to match the code, so any change to retrieval or policy regenerates them in the same PR.
 
 ## Tests
 
 `tests/test_retrieval_evaluation.py` runs in the normal suite:
 
-- The committed `results.json` and `report.md` are exactly what the code produces, and two runs are identical.
-- Ground truth agrees with production policy, and injected typos are caught.
-- The corpus restores completely and carries no contact details.
-- The experiment path with the production scorer is token-identical to `compile_context` for every query and target.
-- No retriever can put an ineligible, non-authoritative or sensitive item into a plan. Every cloud bundle of every retriever is checked.
-- The merged retrieval keeps tokens stable under unrelated writes, while weighted retrievers do not.
-- Every branch of the outcome taxonomy, the ranking tie-break and the alias rewriting are tested.
+- **Artifacts:** the committed `results.json` and `report.md` are exactly what the code produces, and two runs are identical.
+- **Ground truth:**
+  - it agrees with production policy, and injected typos are caught;
+  - the corpus restores completely and carries no contact details.
+- **Production path:** with the production scorer, the experiment path is token-identical to `compile_context` for every query and target.
+- **Policy invariants:** no retriever can put an ineligible, non-authoritative or sensitive item into a plan. Every cloud bundle of every retriever is checked.
+- **Token stability:**
+  - every retriever is deterministic on an unchanged vault;
+  - text-local scorers are stable under an unrelated write;
+  - weighted ones are not.
+- **Exact-stem scorer:**
+  - the exact tier equals the baseline score for every query and document;
+  - the tie-break variant's relevant set equals the baseline's;
+  - exact matches outrank stem matches, with no double counting.
+- **Harness logic:** every branch of the outcome taxonomy, the ranking tie-break and the alias rewriting are tested.
 
 The module is skipped where SQLite lacks FTS5.
+
+## NOT MEASURED
+
+- **Answer quality:** generated-answer correctness, abstention, and the temporal interpretation of answers ("then" vs "now", correction vs change). No model is called.
+- **Questions with no relevant evidence.**
+- **Narrower settings:** pinned questions, other languages, and real usage frequencies.
+- **Latency and scale behaviour.**
 
 ## Threats to validity
 
 - **Self-authored:** one author wrote the corpus, the queries, the ground truth and the alias map. Hard categories are deliberately over-represented, so counts show which mechanism fixes which failure, not how often each failure occurs.
-- **Small:** with 88 eligible items, one item is about 1.1 points. Differences of one or two items, such as IDF vs BM25, are not significant.
-- **Narrow:** English only; unpinned questions only (pins are policy-checked elsewhere); fixed "now" (2026-10-19). Noise depends on the `acceptable` lists.
-- **Platform:** `bm25()` scores are rounded to 6 decimals. Results were generated with SQLite 3.45.1 on Python 3.12 and 3.13.
+- **Small:** with 88 eligible items, one item is about 1.1 points. Differences of one or two items are not significant.
+- **Inheritance rule:** the provenance experiments use one rule (half the best neighbour's score). It decides ranking among admitted items, not which items are admitted.
+- **Platform:** `bm25()` and the exact-stem scores are rounded to 6 decimals. Noise depends on the `acceptable` lists.
 
 ## Out of scope
 
 The following are excluded:
 
-- production retrieval changes;
+- production retrieval, Context Compiler, disclosure or storage changes;
 - agents and external actions;
 - autonomous memory promotion;
 - embeddings or vector databases;
-- knowledge graphs;
+- graph databases or new schema;
 - background jobs;
 - cloud infrastructure;
 - mobile or Pocket work;
@@ -330,6 +477,6 @@ The following are excluded:
 ## Evaluation procedure
 
 1. Run `pytest -q`, `pytest -q tests/adversarial`, `python -m evaluation.retrieval --check`, `git diff --check` and `python -m compileall -q src tests evaluation`.
-2. Review the corpus and ground truth for bias toward any retriever, then check the claimed fixes against the per-query table in `report.md`.
+2. Review the corpus and ground truth for bias toward any retriever, then check the claimed gains and costs against `report.md` and `results.json`.
 3. Confirm that no experiment code is imported by `src/`, and that the baseline is `compile_context` unchanged.
-4. The founder decides on the recommendation and on the decisions above. This PR changes no production behaviour.
+4. The founder decides. This PR changes no production behaviour.

@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 from evaluation.retrieval import harness
-from evaluation.retrieval.retrievers import Aliases, Document, Retriever, build, documents
+from evaluation.retrieval.retrievers import Aliases, Document, ExactStem, Retriever, build, documents
 from sovereign.context import compile_context, scorer
 
 
@@ -103,10 +103,40 @@ def test_no_relevance_function_can_include_ineligible_or_sensitive_items(results
                 assert (c.type, c.status, c.support) in {("source", "active", None), ("claim", "approved", "supported")}
 
 
-def test_merged_retrieval_keeps_tokens_stable_under_unrelated_writes(results):
-    changed = {name: r["summary"]["tokens_changed_by_unrelated_write"] for name, r in results["retrievers"].items()}
-    assert changed["baseline"] == changed["porter_count"] == 0
+def test_token_stability(results):
+    """Every retriever is deterministic on an unchanged vault; only vault-wide statistics react to unrelated writes."""
+    summaries = {name: r["summary"] for name, r in results["retrievers"].items()}
+    assert all(s["tokens_identical_on_unchanged_vault"] == s["queries"] for s in summaries.values())
+    changed = {name: s["tokens_changed_by_unrelated_write"] for name, s in summaries.items()}
+    local_scores = ("baseline", "porter_count", "exact_stem", "exact_stem_tiebreak", "baseline_provenance", "exact_stem_provenance")
+    assert all(changed[name] == 0 for name in local_scores)
     assert changed["porter_idf"] > 0 and changed["fts5_porter_bm25"] > 0   # vault-wide statistics enter the fingerprint
+
+
+def test_exact_stem_keeps_the_baseline_score_as_its_primary_tier(setup):
+    """The exact tier is exactly the baseline score, stems never outweigh one exact match, and without stem
+    admission the set of relevant texts is exactly the baseline's."""
+    full = next(r for r in setup.retrievers if r.name == "exact_stem")
+    tiebreak = next(r for r in setup.retrievers if r.name == "exact_stem_tiebreak")
+    for q in setup.queries["queries"]:
+        base, stemmed, ordered = scorer(q["question"]), full.scorer(q["question"]), tiebreak.scorer(q["question"])
+        for d in setup.docs:
+            exact = base(d.text)[0]
+            assert int(stemmed(d.text)[0]) == exact
+            assert (ordered(d.text)[0] > 0) == (exact > 0)
+
+
+def test_exact_stem_orders_exact_before_stem_matches():
+    docs = [Document("a", "source", "Decided the budget.", "2024-01-01", ()),
+            Document("b", "source", "The budget decision and the decide button.", "2025-01-01", ()),
+            Document("c", "source", "Budgets were planned.", "2026-01-01", ()),
+            Document("d", "source", "Deciding things.", "2026-06-01", ())]
+    score = ExactStem("x", "", docs).scorer("What did I decide about the budget?")
+    assert score(docs[1].text) == (2, ("budget", "decide"))            # both terms exact
+    assert score(docs[0].text) == (round(1 + 1 / 3, 6), ("budget", "~decide"))   # one exact + one stem match
+    assert score(docs[2].text) == (1, ("budget",))                     # exact after the plural trim, no stem
+    assert score(docs[3].text) == (round(1 / 3, 6), ("~decide",))      # stem only: relevant, below every exact match
+    assert ExactStem("y", "", docs, admit_stem_only=False).scorer("What did I decide about the budget?")(docs[3].text) == (0, ())
 
 
 def _bundle(included=(), excluded=()):

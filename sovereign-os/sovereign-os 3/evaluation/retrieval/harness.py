@@ -24,7 +24,7 @@ from sovereign import context
 from sovereign.context import POLICY, build_bundle, compile_context, inherited_sensitivity
 from sovereign.store import Vault, evidence_hash
 
-from .retrievers import Aliases, Document, Retriever, build, documents
+from .retrievers import Aliases, Document, Retriever, build, documents, neighbours
 
 HERE = Path(__file__).resolve().parent
 BENCHMARK = "0003-retrieval-evaluation"
@@ -206,7 +206,27 @@ def _outcome(item_id: str, want: str, bundle, scores: dict, expected: set[str]) 
     return "ranking_failure/below_cutoff" if scores[item_id] else "retrieval_failure/no_match"
 
 
-def evaluate_query(vault: Vault, docs: list[Document], retriever: Retriever, q: dict) -> dict:
+def navigation(bundle, links: dict, outcomes: dict, eligible: list[str], relevant: set[str]) -> dict:
+    """Local navigation: the items one stored link away from what the preview shows.
+
+    Two start sets: the context (included items) and the whole preview (included and excluded
+    candidates, which the receipt lists with reasons). An expected item the context missed is
+    discoverable if it is one hop from the start set or, for the preview, listed in it. This is what a
+    local view could offer for exploration (ADR-0005 SB-2) without changing any relevance, context or
+    token: discovery, not admission.
+    """
+    out = {}
+    starts = {"context": {i.candidate.id for i in bundle.included}}
+    starts["preview"] = starts["context"] | {e.candidate.id for e in bundle.excluded}
+    for name, shown in starts.items():
+        reachable = set().union(*(links[i] for i in shown)) - shown if shown else set()
+        visible = reachable | (shown if name == "preview" else set())
+        out[name] = {"reachable": len(reachable), "irrelevant": len(reachable - relevant),
+                     "recovers": sorted(i for i in eligible if outcomes[i] != "recalled" and i in visible)}
+    return out
+
+
+def evaluate_query(vault: Vault, docs: list[Document], retriever: Retriever, q: dict, links: dict) -> dict:
     score = retriever.scorer(q["question"])
     scores = {d.id: score(d.text)[0] for d in docs}
     ranked = ranking(docs, score)
@@ -239,6 +259,8 @@ def evaluate_query(vault: Vault, docs: list[Document], retriever: Retriever, q: 
             "budget_binding": "budget_exceeded" in reasons,
             "budget_dropped_expected": any(o in ("budget_failure", "ranking_failure/outranked") for o in outcomes.values()),
         }
+        if boundary == "local":
+            out[boundary]["navigation"] = navigation(bundle, links, outcomes, eligible, relevant)
     return out
 
 
@@ -277,10 +299,18 @@ def summarise(per_query: dict, queries: list[dict], docs: list[Document]) -> dic
             "context_precision": _round(1 - sum(len(row["noise"]) for row in rows) / sum(row["included"] for row in rows)),
             "returned_mean": _round(sum(row["returned"] for row in rows) / n),
             "included_mean": _round(sum(row["included"] for row in rows) / n),
+            "included_total": sum(row["included"] for row in rows),
+            "budget_displaced": sum(o in ("budget_failure", "ranking_failure/outranked")
+                                    for row in rows for o in row["outcomes"].values()),
             "excluded_reasons": dict(sorted(reasons.items())),
             "budget_binding_queries": sum(row["budget_binding"] for row in rows),
             "budget_dropped_expected_queries": sum(row["budget_dropped_expected"] for row in rows),
         }
+    summary["local"]["navigation"] = {
+        start: {"reachable_total": sum(r["local"]["navigation"][start]["reachable"] for r in per_query.values()),
+                "irrelevant_total": sum(r["local"]["navigation"][start]["irrelevant"] for r in per_query.values()),
+                "recoverable_expected": sum(len(r["local"]["navigation"][start]["recovers"]) for r in per_query.values())}
+        for start in ("context", "preview")}
     return summary
 
 
@@ -301,6 +331,20 @@ def by_tag(per_query: dict, queries: list[dict]) -> dict:
 
 def local_tokens(vault: Vault, retriever: Retriever, queries: list[dict]) -> dict[str, str]:
     return {q["id"]: compile_with(vault, retriever, q["question"], "local").context_token for q in queries}
+
+
+def tokens_unchanged(directory: Path, corpus: dict, queries: list[dict], aliases: Aliases, before: dict,
+                     vault: Vault, retrievers: list[Retriever]) -> dict[str, int]:
+    """Per retriever, how many local tokens stay identical on an unchanged vault (ADR-0005 §6.4): both on a
+    repeat compile and on an independently rebuilt, identical vault with freshly built retrievers."""
+    rebuilt = build_vault(str(directory), corpus)
+    fresh = {r.name: r for r in build(documents(rebuilt.export()), aliases)}
+    stable = {}
+    for retriever in retrievers:
+        again = local_tokens(vault, retriever, queries)
+        other = local_tokens(rebuilt, fresh[retriever.name], queries)
+        stable[retriever.name] = sum(again[qid] == other[qid] == token for qid, token in before[retriever.name].items())
+    return stable
 
 
 def token_changes(directory: Path, corpus: dict, queries: list[dict], aliases: Aliases, before: dict) -> dict[str, int]:
@@ -331,9 +375,10 @@ def evaluate() -> dict:
         if errors:
             raise ValueError("Invalid ground truth:\n" + "\n".join(errors))
         retrievers = build(docs, aliases)
+        links = neighbours(docs)
         results = {}
         for retriever in retrievers:
-            per_query = {q["id"]: evaluate_query(vault, docs, retriever, q) for q in queries["queries"]}
+            per_query = {q["id"]: evaluate_query(vault, docs, retriever, q, links) for q in queries["queries"]}
             results[retriever.name] = {"description": retriever.description,
                                        "summary": summarise(per_query, queries["queries"], docs),
                                        "by_tag": by_tag(per_query, queries["queries"]),
@@ -343,6 +388,10 @@ def evaluate() -> dict:
         control.mkdir()
         for name, count in token_changes(control, corpus, queries["queries"], aliases, before).items():
             results[name]["summary"]["tokens_changed_by_unrelated_write"] = count
+        same = Path(directory) / "unchanged"
+        same.mkdir()
+        for name, count in tokens_unchanged(same, corpus, queries["queries"], aliases, before, vault, retrievers).items():
+            results[name]["summary"]["tokens_identical_on_unchanged_vault"] = count
     return {
         "benchmark": BENCHMARK,
         "inputs_sha256": fingerprint(),
@@ -415,18 +464,34 @@ def report(results: dict) -> str:
         lines.append(f"| `{name}` | " + " | ".join(str(d.get(k, 0)) for k in (
             "retrieval_failure/no_match", "retrieval_failure/provenance_only", "ranking_failure/below_cutoff",
             "ranking_failure/outranked", "budget_failure")) + " |")
-    lines += ["", "## Candidates and budget (local)", "",
+    lines += ["", "## Candidates, budget and token stability (local unless noted)", "",
               "Scanned: rows scored per query (every record and claim). Matched: mean records and claims with a non-zero score. "
-              "Returned: mean candidates the compiler received (before policy). Included: mean items in the context.",
-              "Tokens changed: of the queries' local context tokens, how many one unrelated write (a record matching no question) "
-              "invalidates.",
-              "", "| Retriever | Scanned | Matched | Returned | Included | Budget binding (queries) | Budget dropped an expected item (queries) | Tokens changed by an unrelated write |",
-              "|---|---|---|---|---|---|---|---|"]
+              "Returned: mean candidates the compiler received (before policy). Included: mean items in the context; cloud "
+              "total: every item across the 56 cloud plans. Displaced: expected eligible items the budget excluded (outranked "
+              "or budget too small). Unrelated write: tokens one write of a record matching no question invalidates. "
+              "Unchanged vault: tokens identical on a repeat compile and on an independently rebuilt identical vault.",
+              "", "| Retriever | Scanned | Matched | Returned | Included | Cloud items (total) | Budget binding (queries) | "
+              "Displaced (local / cloud) | Tokens changed by an unrelated write | Tokens identical, unchanged vault |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
     for name in names:
         s = r[name]["summary"]
         lines.append(f"| `{name}` | {s['scanned_per_query']} | {s['matched_mean']:.1f} | {s['local']['returned_mean']:.1f} | "
-                     f"{s['local']['included_mean']:.1f} | {s['local']['budget_binding_queries']} | {s['local']['budget_dropped_expected_queries']} | "
-                     f"{s['tokens_changed_by_unrelated_write']}/{s['queries']} |")
+                     f"{s['local']['included_mean']:.1f} | {s['cloud']['included_total']} | {s['local']['budget_binding_queries']} | "
+                     f"{s['local']['budget_displaced']} / {s['cloud']['budget_displaced']} | "
+                     f"{s['tokens_changed_by_unrelated_write']}/{s['queries']} | {s['tokens_identical_on_unchanged_vault']}/{s['queries']} |")
+    lines += ["", "## Local navigation (discovery, not admission)", "",
+              "Items one stored link (claim ↔ cited record, record ↔ its correction) away from what the local preview shows: "
+              "from the context (included items) or from the whole preview (included and excluded candidates). This is what a "
+              "local view could offer for exploration without changing relevance, context or token. Reachable: items one hop "
+              "away that are not already shown. Recoverable: expected eligible items the context missed that are one hop away "
+              "or, from the preview, listed in it as excluded.", "",
+              "| Retriever | From context: reachable / irrelevant / recoverable | From preview: reachable / irrelevant / recoverable |",
+              "|---|---|---|"]
+    for name in names:
+        nav = r[name]["summary"]["local"]["navigation"]
+        lines.append(f"| `{name}` | " + " | ".join(
+            f"{nav[k]['reachable_total']} / {nav[k]['irrelevant_total']} / {nav[k]['recoverable_expected']}"
+            for k in ("context", "preview")) + " |")
     lines += ["", "## Exclusion reasons over all candidates (local / cloud)", "", "| Retriever | " + " | ".join(context.REASONS) + " |",
               "|---|" + "---|" * len(context.REASONS)]
     for name in names:

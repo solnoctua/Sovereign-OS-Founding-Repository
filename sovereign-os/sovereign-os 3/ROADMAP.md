@@ -86,7 +86,7 @@ Tier 2/3 changes (state schemas, memory authority, permissions/disclosure, delet
 - API for save/search/correct/delete/export/import is implemented and tested on synthetic records.
 - UI previews the compiled context and requires approval of that exact context before any cloud request; no cloud model is contacted by default.
 - MemoryClaim authority (ADR-0003, Benchmark 0001) and **Context Compiler V0 / governed retrieval** (ADR-0004, Benchmark 0002) are merged: deterministic local retrieval, MemoryClaim-derived authority, inherited sensitivity and exact-plan cloud approval (M2).
-- **Retrieval evaluation** ([Benchmark 0003](docs/benchmarks/0003-retrieval-evaluation.md)) is in review: a synthetic corpus and harness measuring retrieval before and after policy; production retrieval is unchanged pending founder decisions.
+- **Retrieval evaluation** ([Benchmark 0003](docs/benchmarks/0003-retrieval-evaluation.md), the second-brain track's SB-1) is in review: a synthetic corpus and harness measuring retrieval before and after policy, with its precision, disclosure and token-stability costs. By founder decision (2026-10-20) production retrieval stays the merged lexical retriever: no experimental retriever is approved, and IDF, BM25, FTS5 and embeddings are deferred.
 - One provider adapter supports Moonshot/Kimi and OpenAI Chat Completions if separately configured. Live provider calls are **not** verified here without credentials.
 - `python -m sovereign` serves at `127.0.0.1:8765`.
 - **Not yet safe for sensitive real-world data:** unencrypted database, no app login, backups/recovery and audit trails incomplete.
