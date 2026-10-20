@@ -66,7 +66,7 @@ Both may be drawn together; canonical evidence always wins over generated graph 
 
 ## 3. Time: correction is not change
 
-Sovereign records **when something was captured** and **when a human decided about a claim**, but not **when a proposition was true**. A corrected typo and a reversed project decision both end in `superseded`. Until the temporal claim extension (SB-6, D10) exists, read `superseded` as "no longer the current approved interpretation", never as "was false", and answer "what did we decide then vs now" in local views from capture and decision times; model prompts cannot carry that history through the governed path yet (ADR-0005 §8.3). Benchmark 0003 does not measure this distinction (validation spec §2); SB-6's tests score correction and change separately (validation spec §5).
+Sovereign records **when something was stored** (capture time, or a time carried in by import or restore) and **when a human decided about a claim**, but not **when a proposition was true**. A corrected typo and a reversed project decision both end in `superseded`. Until the temporal claim extension (SB-6, D10) exists, read `superseded` as "no longer the current approved interpretation", never as "was false", and answer "what did we decide then vs now" in local views from stored and decision times; model prompts cannot carry that history through the governed path yet (ADR-0005 §8.3). Benchmark 0003 does not measure this distinction (validation spec §2); SB-6's tests score correction and change separately (validation spec §5).
 
 ## 4. Obsidian: requirement, constraints and demo
 
@@ -79,7 +79,7 @@ The user explicitly wants to **browse Sovereign's brain as an Obsidian graph**. 
 | Draw a line for every link between notes; show its **direction** with the *Arrows* display option | Label a line, type it, or attach evidence, time or confidence to it |
 | Color nodes by search query (folder, tag, property) | Distinguish two kinds of line between the same notes |
 | Local graph of one note at a chosen depth | Show validity intervals or filter by date |
-| *Animate*: notes appear in **file-creation** order, i.e. the order files were written on this disk | Replay history: it knows nothing of capture times, corrections, supersessions or MemoryClaim status changes. Use the Timeline and decision-history notes for chronology |
+| *Animate*: notes appear in **file-creation** order, i.e. the order files were written on this disk | Replay history: it knows nothing of stored times, corrections, supersessions or MemoryClaim status changes. Use the Timeline and decision-history notes for chronology |
 | Backlinks pane: every note that links here | Validate anything, or query Sovereign live |
 | Node labels from **filenames** | Use a title property as the graph label (without a plugin) |
 

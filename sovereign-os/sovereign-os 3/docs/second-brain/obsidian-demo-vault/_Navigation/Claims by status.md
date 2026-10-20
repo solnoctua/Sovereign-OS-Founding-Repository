@@ -15,7 +15,7 @@ Lists only items included in this export. Only claims that are **approved and su
 ## Approved memory (approved, evidence intact)
 
 - [[Lantern stores readings in SQLite on device (c-i4wgm7lh)|Lantern stores readings in SQLite on device]]
-- [[Harbor DEPENDS_ON Lantern (r-urfcpc5x)|Harbor DEPENDS_ON Lantern]] *(future structured claim)*
+- [[Project Harbor depends on Project Lantern (r-urfcpc5x)|Project Harbor depends on Project Lantern]] *(future structured claim)*
 
 ## Needs review: approved but stale
 
@@ -31,7 +31,7 @@ None in this export.
 
 ## Proposed, unreviewed
 
-- [[Harbor USES PostgreSQL (r-5bpwiiwh)|Harbor USES PostgreSQL]] *(model proposal; a default export omits proposals)*
+- [[Project Harbor uses PostgreSQL (r-5bpwiiwh)|Project Harbor uses PostgreSQL]] *(model proposal; a default export omits proposals)*
 
 ## Superseded (history, not current)
 

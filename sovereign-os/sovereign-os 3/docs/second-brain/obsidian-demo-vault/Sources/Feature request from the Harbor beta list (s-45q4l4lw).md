@@ -20,7 +20,7 @@ Source record · stored 2026-07-09 · **active evidence** — what was written d
 
 ## Content
 
-Stored content — 775 characters, 15 lines — shown verbatim and inert:
+Stored content — 719 characters, 15 lines — shown verbatim and inert:
 
 ``````text
 Feature request from the Harbor beta list

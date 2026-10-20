@@ -23,6 +23,6 @@ Stored times and decision times of included items, oldest first. Lists only item
 - **2026-06-20** — source stored: [[Field test log (s-4mfnn4hw)|Field test log]]
 - **2026-06-21** — claim contested: [[Lantern battery lasts about 14 days (c-7h2xuih2)|Lantern battery lasts about 14 days]]
 - **2026-07-01** — source stored: [[Harbor planning call (s-6qv5nso4)|Harbor planning call]]
-- **2026-07-02** — relationship approved: [[Harbor DEPENDS_ON Lantern (r-urfcpc5x)|Harbor DEPENDS_ON Lantern]]
-- **2026-07-05** — relationship proposed by a model, unreviewed: [[Harbor USES PostgreSQL (r-5bpwiiwh)|Harbor USES PostgreSQL]]
+- **2026-07-02** — relationship approved: [[Project Harbor depends on Project Lantern (r-urfcpc5x)|Project Harbor depends on Project Lantern]]
+- **2026-07-05** — relationship proposed by a model, unreviewed: [[Project Harbor uses PostgreSQL (r-5bpwiiwh)|Project Harbor uses PostgreSQL]]
 - **2026-07-09** — source stored: [[Feature request from the Harbor beta list (s-45q4l4lw)|Feature request from the Harbor beta list]]

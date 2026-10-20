@@ -9,7 +9,9 @@ tags:
   - sovereign/navigation
 ---
 > [!NOTE]
-> Everything in this vault is **fictional**: a hand-written example of the proposed Sovereign → Obsidian projection (spec: `docs/second-brain/OBSIDIAN-PROJECTION.md` in the Sovereign repository). It is not an exporter and not anyone's memory. Lists only items included in this export.
+> Synthetic demo of a Sovereign projection. A snapshot, not memory: Sovereign is authoritative, and edits here are never imported. Lists and links only items included in this export. Stored text is shown inert; invisible or control characters appear as ⟪U+XXXX⟫. Generation and date: below.
+>
+> Everything in this vault is **fictional**: a hand-written example of the proposed Sovereign → Obsidian projection (spec: `docs/second-brain/OBSIDIAN-PROJECTION.md` in the Sovereign repository). It is not an exporter and not anyone's memory.
 
 # Start here
 
@@ -64,7 +66,7 @@ Text that came from a record, claim or decision note appears in grey `text` bloc
 2. **What changed, and when?** Open [[Timeline]], then [[Lantern stores readings in PostgreSQL (c-igermtp3)|Lantern stores readings in PostgreSQL]]: an approved decision superseded because the plan *changed*, not because it was wrong.
 3. **A corrected source.** Two notes share the title *Harbor design memo*: [[Harbor design memo (s-g4xykl2z)|Harbor design memo]] is the superseded revision and [[Harbor design memo (s-bnpxlmya)|Harbor design memo]] its correction, so the claim citing the old one, [[Harbor syncs every 5 minutes (c-hr5ebnrp)|Harbor syncs every 5 minutes]], is stale.
 4. **A contradiction.** [[Lantern battery lasts about 14 days (c-7h2xuih2)|Lantern battery lasts about 14 days]] was contested after a field test.
-5. **Why are two projects connected?** [[Harbor DEPENDS_ON Lantern (r-urfcpc5x)|Harbor DEPENDS_ON Lantern]] has evidence and a human approval. [[Harbor USES PostgreSQL (r-5bpwiiwh)|Harbor USES PostgreSQL]] is an unreviewed model proposal whose own evidence shows it is wrong — the reason model-extracted relationships never count as facts.
+5. **Why are two projects connected?** [[Project Harbor depends on Project Lantern (r-urfcpc5x)|Project Harbor depends on Project Lantern]] has evidence and a human approval. [[Project Harbor uses PostgreSQL (r-5bpwiiwh)|Project Harbor uses PostgreSQL]] is an unreviewed model proposal whose own evidence shows it is wrong — the reason model-extracted relationships never count as facts.
 6. **A partial note.** [[Field test log (s-4mfnn4hw)|Field test log]] carries the fixed partial sentence.
 7. **Hostile text stays inert.** [[Feature request from the Harbor beta list (s-45q4l4lw)|Feature request from the Harbor beta list]] contains links, an image, HTML, tags, plugin syntax and a script block. In Graph view it connects only to its hub; nothing in it loads or runs.
 
@@ -79,6 +81,6 @@ Text that came from a record, claim or decision note appears in grey `text` bloc
 | Typed relationships | No: needs structured MemoryClaims (SB-7) |
 | Valid-from dates; "changed" vs "corrected" | No: needs the temporal claim extension (SB-6) |
 
-A note's `available_after` property names the slice it needs; `future_fields` lists properties Sovereign does not have yet.
+A note's `available_after` property names the slice it needs; `future_fields` lists properties Sovereign does not have yet; `adversarial_fixture` marks the hostile test note. These three keys exist only in this demo; an exporter never writes them.
 
 Indexes: [[Timeline]] · [[Claims by status]]

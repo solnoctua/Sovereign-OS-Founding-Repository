@@ -2,7 +2,7 @@
 sovereign_projection: 1
 sovereign_handle: "r-5bpwiiwh"
 kind: "relationship"
-title: "Harbor USES PostgreSQL"
+title: "Project Harbor uses PostgreSQL"
 status: "proposed"
 support: "supported"
 authoritative: false
@@ -24,7 +24,7 @@ tags:
 > [!WARNING]
 > **Unreviewed model proposal — not a fact.** A default export leaves proposals out; this demo includes one to show why.
 
-# Harbor USES PostgreSQL
+# Project Harbor uses PostgreSQL
 
 Proposed by a model; not reviewed. The cited evidence is about **Lantern**, not Harbor, and that plan was later replaced, so a reviewer should reject it. A misattributed extraction still draws a confident-looking line in the graph; that is why model-extracted relationships never become approved memory without review.
 

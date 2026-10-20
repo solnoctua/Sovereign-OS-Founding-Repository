@@ -2,7 +2,7 @@
 sovereign_projection: 1
 sovereign_handle: "r-urfcpc5x"
 kind: "relationship"
-title: "Harbor DEPENDS_ON Lantern"
+title: "Project Harbor depends on Project Lantern"
 status: "approved"
 support: "supported"
 authoritative: true
@@ -22,7 +22,7 @@ tags:
 > [!NOTE]
 > Synthetic demo of a Sovereign projection. A snapshot, not memory: Sovereign is authoritative, and edits here are never imported. Lists and links only items included in this export. Stored text is shown inert; invisible or control characters appear as ⟪U+XXXX⟫. Generation and date: see Start Here.
 
-# Harbor DEPENDS_ON Lantern
+# Project Harbor depends on Project Lantern
 
 A typed relationship: in Sovereign, a MemoryClaim with a structured form (future, SB-7). Approved by a human, evidence intact, so it is approved memory. Valid from 2026-07-01, as stated in the evidence (a future field). Obsidian draws plain lines from this note to its subject, object and evidence; the meaning is written here.
 
