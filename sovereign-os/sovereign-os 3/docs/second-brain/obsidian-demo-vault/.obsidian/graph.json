@@ -1,6 +1,6 @@
 {
   "collapse-filter": false,
-  "search": "-path:_Navigation",
+  "search": "-tag:#sovereign/navigation",
   "showTags": false,
   "showAttachments": false,
   "hideUnresolved": false,
@@ -36,42 +36,42 @@
       }
     },
     {
-      "query": "path:Projects",
+      "query": "tag:#sovereign/project",
       "color": {
         "a": 1,
         "rgb": 2001125
       }
     },
     {
-      "query": "path:Concepts",
+      "query": "tag:#sovereign/concept",
       "color": {
         "a": 1,
         "rgb": 4431943
       }
     },
     {
-      "query": "path:Sources",
+      "query": "tag:#sovereign/source",
       "color": {
         "a": 1,
         "rgb": 9268835
       }
     },
     {
-      "query": "path:Decisions",
+      "query": "tag:#sovereign/form/decision",
       "color": {
         "a": 1,
         "rgb": 12986408
       }
     },
     {
-      "query": "path:Claims",
+      "query": "tag:#sovereign/claim",
       "color": {
         "a": 1,
         "rgb": 35195
       }
     },
     {
-      "query": "path:Relationships",
+      "query": "tag:#sovereign/relationship",
       "color": {
         "a": 1,
         "rgb": 14162784

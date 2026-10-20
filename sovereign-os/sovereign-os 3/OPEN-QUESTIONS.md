@@ -74,5 +74,9 @@ Architectural vocabulary, Level 3–4 target, and Obsidian requirement are docum
 - **D9** Manual projection rebuilds plus reconciliation after Forget, or anything more automatic?
 - **D10** Add valid time and a correction-vs-change supersession reason to MemoryClaims?
 - **D11** Which local embedding model and runtime, if representative usage ever justifies one?
+- **D12** Obsidian provenance mode by default: label (one fixed partial sentence) or closed (omit items whose links lead outside scope)?
+- **D13** May projected notes carry raw canonical IDs, and only when they are canonical UUIDs?
+- **D14** Projection registry as a separate SQLite file beside the vault, or as an operational table inside the vault database?
+- **D15** Should a claim that supersedes a sensitive claim inherit its sensitivity? (A Context Compiler question: an ADR-0004 amendment, Tier 2.)
 
 Level 5 remains deferred: which measured daily-use gains, monthly budget, permission model and interruption controls would justify scheduled sync or agents is a later question. No default always-on ingestion.

@@ -1,37 +1,38 @@
 ---
 sovereign_projection: 1
-sovereign_projection_id: "demo-projection"
-kind: navigation
+kind: "navigation"
 title: "Claims by status"
-tags: [sovereign/navigation]
-generation: 1
-generated_at: "2026-10-19"
-demo: synthetic
+tags:
+  - sovereign/navigation
 ---
 > [!NOTE]
-> Synthetic demo of a Sovereign projection (generation 1, 2026-10-19). A snapshot, not memory: Sovereign is authoritative, and edits here are never imported.
+> Synthetic demo of a Sovereign projection. A snapshot, not memory: Sovereign is authoritative, and edits here are never imported. Lists and links only items included in this export. Stored text is shown inert; invisible or control characters appear as ⟪U+XXXX⟫. Generation and date: see Start Here.
 
 # Claims by status
 
-Status as of generation 1, for claims in this export's scope. Only claims that are **approved and supported** are approved memory the Context Compiler may use.
+Lists only items included in this export. Only claims that are **approved and supported** are approved memory the Context Compiler may use.
 
 ## Approved memory (approved, evidence intact)
 
-- [[Lantern stores readings in SQLite on device (c-39798e)]]
-- [[Harbor DEPENDS_ON Lantern (r-8222a6)]] *(future structured claim)*
+- [[Lantern stores readings in SQLite on device (c-i4wgm7lh)|Lantern stores readings in SQLite on device]]
+- [[Harbor DEPENDS_ON Lantern (r-urfcpc5x)|Harbor DEPENDS_ON Lantern]] *(future structured claim)*
 
-## Needs review: approved but stale (evidence corrected)
+## Needs review: approved but stale
 
-- [[Harbor syncs every 5 minutes (c-96826c)]]
+- [[Harbor syncs every 5 minutes (c-hr5ebnrp)|Harbor syncs every 5 minutes]]
 
 ## Contested
 
-- [[Lantern battery lasts about 14 days (c-acdade)]]
+- [[Lantern battery lasts about 14 days (c-7h2xuih2)|Lantern battery lasts about 14 days]]
 
 ## Proposed, unreviewed
 
-- [[Harbor USES PostgreSQL (r-6b50eb)]] *(model proposal; a default export omits proposals)*
+- [[Harbor USES PostgreSQL (r-5bpwiiwh)|Harbor USES PostgreSQL]] *(model proposal; a default export omits proposals)*
 
 ## Superseded (history, not current)
 
-- [[Lantern stores readings in PostgreSQL (c-fcbaf2)]]
+- [[Lantern stores readings in PostgreSQL (c-igermtp3)|Lantern stores readings in PostgreSQL]]
+
+## Rejected
+
+None in this export.
