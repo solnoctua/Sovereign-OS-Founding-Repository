@@ -20,3 +20,4 @@ sovereign = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]   # the offline evaluation package (evaluation/)
