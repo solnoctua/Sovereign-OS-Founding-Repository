@@ -262,6 +262,26 @@ def evidence_hash(record: Mapping) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _record_retrieval_state(record: Mapping, score: int) -> list:
+    """Policy projection of a relevant record for the retrieval fingerprint (ADR-0004).
+
+    A record is immutable apart from its status (ADR-0003 triggers); its evidence hash pins the rest of
+    its identity (content, source, sensitivity, time, lineage) without carrying raw content.
+    """
+    return [record["id"], score, record["created_at"], record["status"], record["sensitivity"], evidence_hash(record)]
+
+
+def _claim_retrieval_state(claim: Mapping, score: int) -> list:
+    """Policy projection of a relevant claim for the retrieval fingerprint (ADR-0004): everything the
+    Context Compiler's decisions about it depend on, derived from current evidence and never from stored
+    authority: lifecycle status, support, inherited sensitivity, authority, and each source's current
+    state and sensitivity plus the evidence hash its link pins."""
+    from .context import inherited_sensitivity   # the compiler's own rule, so the two cannot drift apart
+    return [claim["id"], score, claim["created_at"], claim["status"], claim["support"],
+            inherited_sensitivity(claim["sources"]), rules.is_authoritative(claim["status"], claim["support"]),
+            [[s["id"], s["state"], s["sensitivity"], claim["source_hashes"][s["id"]]] for s in claim["sources"]]]
+
+
 def _encode_cursor(created_at: str, claim_id: str) -> str:
     return base64.urlsafe_b64encode(json.dumps([created_at, claim_id]).encode("utf-8")).decode("ascii")
 
@@ -451,11 +471,12 @@ class Vault:
                 pinned.append({"id": pid, "kind": kind})
             pinned_records = [p["id"] for p in pinned if p["kind"] == "record"]
 
-            matches = []
-            for row in db.execute("SELECT id, content, created_at FROM records"):
+            matches, record_state = [], []
+            for row in db.execute("SELECT * FROM records").fetchall():
                 points, _ = score(row["content"])
                 if points:
                     matches.append({"id": row["id"], "created_at": row["created_at"], "score": points})
+                    record_state.append(_record_retrieval_state(row, points))
             records = []
             for rid in dict.fromkeys(pinned_records + [m["id"] for m in best(matches)]):
                 row = db.execute("SELECT * FROM records WHERE id=?", (rid,)).fetchone()
@@ -463,31 +484,38 @@ class Vault:
                 records.append({**{k: row[k] for k in ("id", "content", "sensitivity", "status", "created_at")},
                                 "score": points, "matched_terms": terms, "pinned": rid in pinned_records})
 
-            claim_matches = []
-            for row in db.execute("SELECT id, text, created_at FROM claims"):
+            derived: dict[str, dict] = {}
+
+            def claim_of(cid: str) -> dict:   # derived from current evidence once per claim, in this snapshot
+                if cid not in derived:
+                    derived[cid] = self._get_claim(db, cid)
+                return derived[cid]
+
+            claim_matches, claim_state = [], []
+            for row in db.execute("SELECT id, text, created_at FROM claims").fetchall():
                 points, _ = score(row["text"])
                 if points:
                     claim_matches.append({"id": row["id"], "created_at": row["created_at"], "score": points})
+                    claim_state.append(_claim_retrieval_state(claim_of(row["id"]), points))
             linked = []
             if records:
                 marks = ",".join("?" * len(records))
                 linked = [{"id": r["id"], "created_at": r["created_at"], "score": 0} for r in db.execute(
                     f"""SELECT DISTINCT c.id, c.created_at FROM claims c JOIN claim_sources s ON s.claim_id = c.id
                         WHERE s.record_id IN ({marks})""", [r["id"] for r in records])]
+            linked_state = [_claim_retrieval_state(claim_of(m["id"]), 0) for m in linked]
             claims = []
             for cid in dict.fromkeys([m["id"] for m in best(claim_matches)] + [m["id"] for m in best(linked)]):
-                claim = self._get_claim(db, cid)
+                claim = claim_of(cid)
                 points, terms = score(claim["text"])
                 claims.append({**{k: claim[k] for k in ("id", "text", "origin", "status", "created_at", "support", "source_ids")},
                                "sources": [{"id": s["id"], "state": s["state"], "sensitivity": s["sensitivity"]}
                                            for s in claim["sources"]],
                                "score": points, "matched_terms": terms})
-            # The complete relevant retrieval state before truncation, in this same snapshot: every matching
-            # record and claim with its ranking keys, and every provenance-linked claim. Local only: it is
-            # bound into the context token and never sent anywhere.
-            state = {"records": sorted([m["id"], m["score"], m["created_at"]] for m in matches),
-                     "claims": sorted([m["id"], m["score"], m["created_at"]] for m in claim_matches),
-                     "linked": sorted([m["id"], m["created_at"]] for m in linked)}
+            # The complete relevant retrieval state before truncation, in this same snapshot: the policy
+            # projection (not only membership and ranking) of every matching record and claim and of every
+            # provenance-linked claim. Local only: it is bound into the context token and never sent anywhere.
+            state = {"records": sorted(record_state), "claims": sorted(claim_state), "linked": sorted(linked_state)}
             fingerprint = hashlib.sha256(json.dumps(state, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()
             return {"pinned": pinned, "records": records, "claims": claims,
                     "retrieval_state": {"records_matched": len(matches), "claims_matched": len(claim_matches),
