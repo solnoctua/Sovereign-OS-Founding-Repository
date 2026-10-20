@@ -42,7 +42,7 @@ Two fictional projects — **Lantern**, a garden-sensor prototype, and **Harbor*
 | --- | --- | --- |
 | Grey | `tag:#sovereign/status/superseded` | Superseded: replaced by a newer version (not "false") |
 | Charcoal | `tag:#sovereign/status/rejected` | Rejected by a human: not memory |
-| Blue-grey | `tag:#sovereign/support/orphaned` | Evidence it cites is missing or fails its hash check (orphaned): not approved memory |
+| Blue-grey | `tag:#sovereign/support/orphaned` | Evidence it cites is missing or fails its hash check (orphaned): not approved memory. Appears only when sensitive items are included (with opaque filenames) |
 | Amber | `tag:#sovereign/support/stale` | Evidence it cites was corrected (stale): not approved memory |
 | Orange | `tag:#sovereign/status/contested` | Contested |
 | Purple | `tag:#sovereign/status/proposed` | Proposed and unreviewed: not a fact |
