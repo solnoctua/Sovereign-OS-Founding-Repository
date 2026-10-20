@@ -30,7 +30,7 @@ Use **whole-record access** for "the entire note", **exact lookup** for an ID or
 
 ### Level 4 — typed knowledge/relationship graph (near-term extension)
 
-**Shape:** nodes for evidence, claims, projects and other entities; edges with a relationship type, source references, valid time and review status. A query can traverse `Project → DEPENDS_ON → Project → SUPPORTED_BY → Source`.
+**Shape:** nodes for evidence, claims, projects and other entities; typed relationships with source references, valid time and MemoryClaim status. In Sovereign a typed edge is itself a relation claim: `Project ← subject — [DEPENDS_ON relation claim] — object → Project`, and that relation claim is `SUPPORTED_BY` its source records.
 
 **Strengths:** multi-hop connections, dependencies, contradictory assumptions, tracing a conclusion to its sources. **Failure modes:** invented predicates, conflated entities, stale edges, unreadable dense visuals, and *authority laundering* — an edge looking approved because the claim beside it is. **In Sovereign:** first a deterministic provenance graph computed from existing links (SB-2); later typed relations as **structured MemoryClaims** (SB-7) with the normal approval lifecycle. Model-extracted relations remain `proposed` until a human approves them.
 
@@ -66,7 +66,7 @@ Both may be drawn together; canonical evidence always wins over generated graph 
 
 ## 3. Time: correction is not change
 
-Sovereign records **when something was captured** and **when a human decided about a claim**, but not **when a proposition was true**. A corrected typo and a reversed project decision both end in `superseded`. Until the temporal claim extension (SB-6, D10) exists, read `superseded` as "no longer the current approved interpretation", never as "was false", and answer "what did we decide then vs now" from capture and decision times. Benchmark 0003 tests both cases separately.
+Sovereign records **when something was captured** and **when a human decided about a claim**, but not **when a proposition was true**. A corrected typo and a reversed project decision both end in `superseded`. Until the temporal claim extension (SB-6, D10) exists, read `superseded` as "no longer the current approved interpretation", never as "was false", and answer "what did we decide then vs now" in local views from capture and decision times; model prompts cannot carry that history through the governed path yet (ADR-0005 §8.3). Benchmark 0003 does not measure this distinction (validation spec §2); SB-6's tests score correction and change separately (validation spec §5).
 
 ## 4. Obsidian: requirement, constraints and demo
 
@@ -104,7 +104,7 @@ No plugin, account or online service is needed.
 
 | Technique / project | Maturity | Borrow | Do not adopt now, because |
 | --- | --- | --- | --- |
-| BM25 / SQLite FTS5 | Proven | Porter normalization alone, if approved (SB-4, R1) | Measured in Benchmark 0003: +3 items over baseline, but 53/56 previews invalidated by an unrelated write and the recency prior lost; deferred (R2); an index would also need FTS5 `secure-delete` |
+| BM25 / SQLite FTS5 | Proven | Porter normalization alone, if approved (SB-4, R1) | Measured in Benchmark 0003: FTS5 BM25 with Porter stemming gives +3 items over baseline, only +1 over Porter alone; without stemming it gives −9 (57/88). 51–53/56 previews are invalidated by an unrelated write and the recency prior is lost; deferred (R2); an index would also need FTS5 `secure-delete` |
 | Dense + lexical hybrid with Reciprocal Rank Fusion | Proven | Fusion rule if embeddings ever land | Embeddings deferred (R6); fusion is weighted ranking, so R2 applies |
 | Parent-document ("small-to-big") retrieval | Established practice | Chunk hits resolve to the whole record | Records are already ≤ 10,000 chars |
 | Approximate-NN indexes (HNSW etc.) | Proven at scale | — | Non-reproducible candidate universe breaks exact-plan tokens; personal scale fits brute force |

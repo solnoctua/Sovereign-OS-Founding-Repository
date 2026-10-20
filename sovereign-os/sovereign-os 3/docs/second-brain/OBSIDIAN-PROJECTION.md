@@ -140,7 +140,7 @@ An export must not reveal objects outside its scope through links, titles, filen
 A graph is useful when a local neighborhood answers a question; a global hairball is decoration. Defaults:
 
 - **Filter** `-tag:#sovereign/navigation`; **Tags** off; **Arrows** on; **Orphans** on (an item not cited by any claim in this export is informative).
-- **Color groups, applied top-down, by generated tags only** (content cannot forge them, and folder-substring queries could be matched by titles): superseded (grey), stale (amber), contested (orange), proposed (purple), then projects, concepts, sources, decisions, claims, relationships.
+- **Color groups, applied top-down, by generated tags only** (content cannot forge them, and folder-substring queries could be matched by titles): superseded (grey), rejected (charcoal), orphaned support (blue-grey), stale support (amber), contested (orange), proposed (purple), then projects, concepts, sources, decisions, claims, relationships. Every status and support state that is not approved memory therefore has its own color and never takes the color of its kind; the stale and orphaned groups match any status, so their labels never say "approved".
 - **Start from a hub or claim with Local graph, depth 1–2**, not from the global graph.
 - **Health metrics reported by the exporter over A:** link resolution (must be 100%), orphan share, largest component share, maximum hub degree, share of readable titles.
 

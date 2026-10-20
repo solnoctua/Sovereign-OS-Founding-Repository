@@ -8,7 +8,7 @@
 
 | Area | Owner | State (2026-10-20) |
 | --- | --- | --- |
-| Retrieval and governed-context evaluation (SB-1) | **Benchmark 0003 — retrieval evaluation**: `docs/benchmarks/0003-retrieval-evaluation.md` and the `evaluation/retrieval/` harness, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) | Executed on synthetic data; **not merged**; its Codex P2 finding on scale timings is open; its founder decisions (R1–R7 in ADR-0005 §12) are pending |
+| Retrieval and governed-context evaluation (SB-1) | **Benchmark 0003 — retrieval evaluation**: `docs/benchmarks/0003-retrieval-evaluation.md` and the `evaluation/retrieval/` harness, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) | Executed on synthetic data; **not merged**; its Codex P2 finding on scale timings is open; the founder's intended positions on it (R1–R7 in ADR-0005 §12.2) are pending, and its decisions 1, 2 and 6 stay open (ADR-0005 §12.2) |
 | A future lexical change (SB-4, Porter normalization) | The implementing PR regenerates Benchmark 0003 | Not started; depends on R1 |
 | Provenance graph (SB-2) | §3 | Not implemented |
 | Safe Obsidian projection (SB-2) | §4 | Not implemented |
@@ -42,7 +42,8 @@ This section reconciles Codex finding F5 (benchmark oracle) with PR #4 as it exi
 
 | Gap | Why it matters | Where |
 | --- | --- | --- |
-| No-evidence queries | Measures what would be offered for disclosure when nothing is relevant (R4) | Benchmark 0003 harness: in PR #4 before merge, or a follow-up harness PR — not PR #3 |
+| No-evidence queries | Measures what would be offered for disclosure when nothing is relevant (R4). Partly covered for cloud: six queries whose expected items are all `sensitive_cloud` already report cloud noise (22 items, 12 in q40). Still missing: questions with no relevant item at all, local and cloud | Benchmark 0003 harness: in PR #4 before merge, or a follow-up harness PR — not PR #3 |
+| Unchanged-vault token stability | Repeat compiles of the same question on the same vault state give the same token (ADR-0005 §6.4). The harness reports only tokens changed by an unrelated write | Benchmark 0003 harness follow-up, before SB-5 — not PR #3 |
 | Generated answers, abstention, temporal interpretation | Answer quality is a different property from retrieval | §6, a separate optional evaluation with its own PR and number |
 | Projection and graph behavior | Not retrieval | §3–§4 of this spec |
 
@@ -53,7 +54,7 @@ The provenance graph is computed on read from `claim_sources`, `records.supersed
 1. **Edges are exactly canonical:** every `SUPPORTED_BY`, `CORRECTS` and `SUPERSEDES` edge corresponds to one stored link, and nothing else produces an edge. These are structural facts and need no claims about themselves.
 2. **Status, support and authority are read live**, equal `claims.is_authoritative` and derived support, and change immediately after a decision or correction.
 3. **Forget leaves nothing:** after record or claim Forget, no node, edge, title or count of the forgotten item is returned.
-4. **Navigation is not relevance (R3):** traversing the graph never changes a Context Compiler decision. A test compiles every Benchmark 0003 query with and without graph code loaded and requires identical tokens.
+4. **Navigation is not relevance (R3):** traversing the graph never changes a Context Compiler decision. A test compiles every Benchmark 0003 query (requires PR #4 merged; otherwise the SB-2 synthetic corpus) with and without graph code loaded and requires identical tokens.
 5. **Bounded and local:** neighborhood queries are hop- and size-bounded; graph responses never enter `outbound`, provider messages or receipts.
 6. **Read-only:** the canonical export before and after any graph query is byte-identical.
 
@@ -125,7 +126,7 @@ No native Obsidian test has been run in any review environment so far. Items 13�
 
 - **SB-3 human-declared organization:** migration, export/restore round trip, import authority (an imported membership never raises authority), Forget of a member and of an entity, hub regeneration, and scope closure for hubs.
 - **SB-6 temporal claims:** correction and change cases scored separately; `superseded` never rendered or prompted as "false"; valid intervals only from canonical fields.
-- **SB-7 structured relations:** relation claims follow the MemoryClaim lifecycle exactly; an edge never inherits approval from supporting claims or sources; the predicate registry is versioned; entity merges are reversible and never rewrite claims; people nodes are sensitive by default; a relation is projected only when the claim, subject and object are all authorized.
+- **SB-7 structured relations:** relation claims follow the MemoryClaim lifecycle exactly; an edge never inherits approval from supporting claims or sources; the predicate registry is versioned; entity merges are reversible and never rewrite claims; people nodes are sensitive by default; a relation is projected only when the claim, subject and object are all authorized. After the ADR-0004 amendment for entity-aware sensitivity (ADR-0005 §8.2), an approved relation claim that cites only private records but names a sensitive entity is excluded from a cloud plan as `sensitive_cloud`, and changing the entity's sensitivity invalidates a pending token. A merge or split of an entity a relation claim pins removes that claim from approved memory until a human re-approves or supersedes it, and invalidates a pending token. Forgetting a subject or object entity forgets every relation claim that names it. Contradictions are tested only as `contested` claims until a `CONTRADICTS` relation is designed; if one is, forgetting either endpoint claim must forget it.
 - **SB-5 semantic/hybrid (deferred, R6):** inside the Benchmark 0003 harness; report governed recall *and* noise and precision, local and cloud (R4); token stability on an unchanged vault must be 100%; the truncation fingerprint keeps binding the complete relevant candidate state (R2); no real sensitive notes while the Security Gate is NOT PASSED.
 - **SB-8 graph-assisted context (deferred, R3):** local-only exploration first; any proposal to make linked items relevant needs an independent evaluation and a founder decision on ADR-0004 decision 3.
 

@@ -38,7 +38,9 @@ Two fictional projects — **Lantern**, a garden-sensor prototype, and **Harbor*
 | Color | Group query | Meaning |
 | --- | --- | --- |
 | Grey | `tag:#sovereign/status/superseded` | Superseded: replaced by a newer version (not "false") |
-| Amber | `tag:#sovereign/support/stale` | Approved, but evidence it cites was corrected: needs review |
+| Charcoal | `tag:#sovereign/status/rejected` | Rejected by a human: not memory |
+| Blue-grey | `tag:#sovereign/support/orphaned` | Evidence it cites is missing or fails its hash check (orphaned): not approved memory |
+| Amber | `tag:#sovereign/support/stale` | Evidence it cites was corrected (stale): not approved memory |
 | Orange | `tag:#sovereign/status/contested` | Contested |
 | Purple | `tag:#sovereign/status/proposed` | Proposed and unreviewed: not a fact |
 | Blue | `tag:#sovereign/project` | Project hub *(future: human-declared organization, SB-3)* |

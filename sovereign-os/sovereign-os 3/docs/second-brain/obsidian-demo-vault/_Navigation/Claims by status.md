@@ -21,6 +21,10 @@ Lists only items included in this export. Only claims that are **approved and su
 
 - [[Harbor syncs every 5 minutes (c-hr5ebnrp)|Harbor syncs every 5 minutes]]
 
+## Needs review: evidence missing or failing its hash check (orphaned)
+
+None in this export.
+
 ## Contested
 
 - [[Lantern battery lasts about 14 days (c-7h2xuih2)|Lantern battery lasts about 14 days]]

@@ -15,6 +15,20 @@
       }
     },
     {
+      "query": "tag:#sovereign/status/rejected",
+      "color": {
+        "a": 1,
+        "rgb": 4342338
+      }
+    },
+    {
+      "query": "tag:#sovereign/support/orphaned",
+      "color": {
+        "a": 1,
+        "rgb": 6323595
+      }
+    },
+    {
       "query": "tag:#sovereign/support/stale",
       "color": {
         "a": 1,
