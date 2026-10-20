@@ -17,6 +17,13 @@
 
 No finding remains blocking at the documentation level. The red-team reviews also surfaced four questions that are the founder's to decide and are recorded as ADR-0005 D12–D15 (provenance mode, raw IDs, registry placement, and lineage sensitivity of claims — the last a pre-existing Context Compiler question, not a projection one). Native Obsidian tests (F3) and the SB-2 implementation gates (F2) cannot be executed until an exporter exists; they are acceptance gates, not open design questions.
 
+## Final review rounds
+
+After the dispositions above were first written, the documents went through two more independent rounds. Each finding was checked against the files, the code and PR #4's data before it was applied.
+
+- **Cross-document review** (memory authority and Context Compiler, PR #4 reconciliation, repository consistency), applied in `0333904`, `a82cf3a` and `22710f4`. It named the ADR-0004 amendments later slices would need (entity-aware sensitivity, entity identity pinning, weighted-score staleness), stated the unmeasured gaps (unchanged-vault token stability, questions with no relevant item), recorded PR #4's decisions 1, 2 and 6 as open, and aligned D7, D9, titles, banners and labels.
+- **Completeness critic** against the founder's brief, two critics with one adversarial verifier per finding, applied in `2bcb430` and `6971467`. Of 21 findings, 13 were confirmed or partially confirmed; the other 8 had already been fixed by the time they were verified; none was rejected on substance. It found one **blocker that an earlier F2 fix had introduced**: the vault identity fingerprinted the whole tombstone sets, so every Forget would have looked like a different vault and stopped reconciliation before any deletion. The registry now keeps, per tombstone table, the count and a keyed fingerprint of the insertion-ordered prefix (projection spec §11.1, §11.3 and §11.5); a probe on a scratch vault confirmed that the prefix survives further Forgets, that duplicate tombstone inserts are ignored, and that a vault rebuilt by trusted restore is flagged as an anomaly.
+
 ## Reconciliation with PR #4
 
 - **Ownership:** Benchmark 0003 is PR #4's executed retrieval evaluation (`docs/benchmarks/0003-retrieval-evaluation.md`). PR #3's draft `docs/benchmarks/0003-second-brain-retrieval-evaluation.md` was moved to `docs/second-brain/SECOND-BRAIN-VALIDATION.md` and rewritten (Git records a delete and an add, because the content changed substantially), narrowed to the provenance graph, Obsidian projection, future structured-relationship and temporal tests, semantic experiments (inside PR #4's harness) and optional answer evaluation.
