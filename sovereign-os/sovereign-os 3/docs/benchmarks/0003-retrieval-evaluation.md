@@ -214,10 +214,14 @@ These are cheap and deterministic only: no model, no network, no embeddings or v
 **Experiment B — one-hop existing provenance links.** The links are only those storage already holds canonically: claim → cited record (`claim_sources`), record → citing claim, and a record's correction ↔ the record it corrects (`records.supersedes_id`). There is no graph database, no new schema and no inference. Two modes:
 
 - **Navigation and discovery** (measured for every retriever, see *Metrics*): local exploration of stored links from what the preview shows. It adds no relevance, and context and token are unchanged.
-- **Context admission** (`baseline_provenance`): **counterfactual, not authorised.**
-  - A document with no direct match inherits half the best direct score among its one-hop neighbours, and so becomes relevant within the unchanged Context Compiler policy.
-  - Inherited items still pass every authority, sensitivity, budget and disclosure rule.
-  - It would reverse ADR-0004 founder decision 3, which the founder has preserved.
+- **Context admission** (`baseline_provenance`): **an evaluation-only counterfactual, not an authorised feature.** A document with no direct match inherits half the best direct score among its one-hop neighbours. That one scoring rule changes two things:
+  - **Candidate admission.** Any positive inherited score makes the document a match in `Vault.context_candidates`, so it enters the candidate set and the fingerprinted retrieval state. The compiler then no longer marks it `not_relevant`.
+    - Records and corrections reached only by a link were not candidates at all before.
+    - Claims citing a candidate record were already surfaced as provenance links, but excluded as `not_relevant`.
+  - **Candidate ordering and cutoff.** The inherited score places the document in the per-kind top-50 order and in the compiler's ranking, so it competes with direct matches for the cutoff and the budget.
+  - **Unchanged.** The Context Compiler's authority, support, sensitivity, duplicate, budget and disclosure checks apply to admitted documents exactly as to any other candidate.
+  - **Labelling side effect.** The receipt reports admitted documents as `via: lexical`, with no matched terms.
+  - **Status.** Admitting documents this way changes ADR-0004's current relevance rule (founder decision 3, preserved), so it is not authorised for production.
 
 ## Results
 
@@ -349,7 +353,8 @@ Without changing a single compiler decision, a local view of stored links and of
 - **Lost:** none.
 - **Noise:** 173 / 170 (+7 / +7). Precision rises slightly, to 34.2% / 32.3%.
 - **Cloud plans:** 251 items, up from 239. That is 12 more private items offered for approval: 5 expected, 7 irrelevant.
-- **Policy handling:** inherited items pass every rule unchanged (0 violations, 0 mismatches), and ranking and temporal MRR are unchanged.
+- **Policy handling:** admitted items are still subject to every unchanged authority, sensitivity, budget and disclosure check (0 violations, 0 mismatches).
+- **Ranking:** R@1, MRR and temporal MRR equal the baseline's, but inherited items do enter the ranking (R@10 76.7% against 71.2%).
 - **Tokens:** 0 changed by an unrelated write, and 56/56 identical on an unchanged vault.
 - **Admission and navigation recover different items.** Admission gets q38 and q44, whose links start from excluded candidates. Navigation from the context gets q08 and q47, whose records are linked to included claims but lose ranking or budget under admission.
 
@@ -473,7 +478,11 @@ The module is skipped where SQLite lacks FTS5.
 
 - **Self-authored:** one author wrote the corpus, the queries, the ground truth and the alias map. Hard categories are deliberately over-represented, so counts show which mechanism fixes which failure, not how often each failure occurs.
 - **Small:** with 88 eligible items, one item is about 1.1 points. Differences of one or two items are not significant.
-- **Inheritance rule:** the provenance experiments use one rule (half the best neighbour's score). It decides ranking among admitted items, not which items are admitted.
+- **Inheritance rule:** the provenance experiments use one rule (half the best neighbour's score), and it controls both admission and ranking.
+  - **Admission:** every otherwise unmatched one-hop neighbour of a directly matching document gets a positive score, so it becomes a candidate and is no longer `not_relevant`.
+  - **Ordering:** the factor of ½ sets where it sits against direct matches, and so whether it survives the per-kind cutoff and the budget.
+  - **Not measured:** other factors or thresholds.
+  - **Unchanged:** the Context Compiler's authority, sensitivity, budget and disclosure checks.
 - **Platform:** `bm25()` and the exact-stem scores are rounded to 6 decimals. Noise depends on the `acceptable` lists.
 
 ## Out of scope
