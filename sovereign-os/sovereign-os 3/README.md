@@ -32,7 +32,7 @@ python -m pip install -e '.[dev]'
 python -m sovereign
 ```
 
-Open **http://127.0.0.1:8765** in your Mac's browser. The server creates a local SQLite database in `./data/sovereign.db` (excluded from Git). Press Ctrl+C in Terminal to stop it.
+Open **http://127.0.0.1:8765** in your Mac's browser. The server creates a local SQLite database in `./data/sovereign.db`. That path is meant to be excluded from Git, but the repository currently has no `.gitignore` and tracks an empty `data/sovereign.db` (see [`docs/SECURITY-GATE.md`](docs/SECURITY-GATE.md)): **never commit it after use**, and check `git status` before every commit. Press Ctrl+C in Terminal to stop it.
 
 Run checks:
 
@@ -59,7 +59,7 @@ No key is stored in the database; **never paste secrets into chat or commit `.en
 
 ## Git and public/private state
 
-`main` retains the original v0.1 founding proposal. The review branch retained v0.2. This feature branch proposes Constitution v0.3 **and** includes the first prototype; it has not been merged or ratified. Push only to a **private** GitHub repository after review. Vault data, secrets, images, recordings, and personal archives must never enter the source code repository.
+This folder is the canonical active project. `main` carries the prototype, MemoryClaim authority (PR #1) and the Context Compiler (PR #2); the Constitution here is the **v0.3 candidate, not ratified**. The original v0.1 founding drafts that used to sit one level up (`sovereign-os/*.md`) are retained only in Git history — added unchanged in commit `37553c0` (for example `git show 37553c0:sovereign-os/CONSTITUTION.md`) — and are not live instructions. Push only to a **private** GitHub repository after review. Vault data, secrets, images, recordings, and personal archives must never enter the source code repository.
 
 ## Next development tickets
 
@@ -70,3 +70,11 @@ No key is stored in the database; **never paste secrets into chat or commit `.en
 - `SOV-006`: iPhone local/offline capture and authenticated sync.
 
 The Pocket hardware and sophisticated world model remain important research tracks, not blockers to a useful, safe software baseline.
+
+## Governed second brain — planned Level 3–4 extension
+
+Sovereign's next knowledge capability is a **governed second brain**, combining structured project/wiki views (Levels 1–2), local hybrid semantic discovery (Level 3; embeddings deferred, pending the founder's approval of ADR-0005 §12.2 — the first user-visible slice is the provenance graph and an Obsidian snapshot export, SB-2) and source-backed provenance/domain graphs (Level 4). It must preserve the existing canonical vault, MemoryClaim authority, the Context Compiler and exact disclosure approvals. **Level 5 always-on agents and continuous ingestion are deferred** pending demonstrated value, security, and operating-cost budgets.
+
+An **Obsidian-compatible, one-way Markdown snapshot export** — made on request as a ZIP or a new folder, labeled with its snapshot time and not kept in sync — is an explicit future interface requirement ([export spec](docs/second-brain/OBSIDIAN-PROJECTION.md)). For an immediately viewable **synthetic** Obsidian graph, copy [`docs/second-brain/obsidian-demo-vault/`](docs/second-brain/obsidian-demo-vault/) out of the repository, open it as an Obsidian vault and start at `_Navigation/Start Here`. This is a demonstration, **not** a working exporter or a place to put personal memory.
+
+Read [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) (architectural direction approved 2026-10-21, D15 deferred; not implemented), [the five-level guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md) and [the second-brain validation specification](docs/second-brain/SECOND-BRAIN-VALIDATION.md). Retrieval evaluation is Benchmark 0003, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) and not yet merged. These describe a proposed workstream, not currently running retrieval, graph or sync features.
