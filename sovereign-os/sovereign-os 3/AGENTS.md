@@ -11,6 +11,8 @@ Sovereign is a personal-first AI operating environment. Optimize for correctness
 5. Relevant ADRs in `docs/adr/`.
 6. For memory/retrieval, also read `docs/adr/0005-governed-second-brain-architecture.md`, `docs/second-brain/LEVELS-AND-OBSIDIAN.md`, and the benchmark for the feature's phase.
 
+For engineering priorities, external-repository adoption, design-system proposals, or integration work, also consult [§docs/engineering/BUILD-AND-INTEGRATION-PLAN.md§](docs/engineering/BUILD-AND-INTEGRATION-PLAN.md). It is a reviewable execution plan, **not** constitutional ratification or permission to implement deferred capabilities.
+
 ## Engineering rules
 
 - Keep model/provider-specific code behind replaceable adapters.
