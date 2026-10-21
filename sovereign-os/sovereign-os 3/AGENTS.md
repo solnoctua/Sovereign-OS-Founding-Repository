@@ -9,6 +9,7 @@ Sovereign is a personal-first AI operating environment. Optimize for correctness
 3. `ROADMAP.md` — current milestones and priority order.
 4. `docs/SECURITY-GATE.md` — restrictions before real sensitive data use.
 5. Relevant ADRs in `docs/adr/`.
+6. For memory/retrieval, also read `docs/adr/0005-governed-second-brain-architecture.md`, `docs/second-brain/LEVELS-AND-OBSIDIAN.md`, and the benchmark for the feature's phase.
 
 ## Engineering rules
 
@@ -51,9 +52,22 @@ Durable Sovereign invariants. In changes touching memory authority, deletion, re
 
 - Flag any Forget/delete path that leaves or recreates dependent derived personal information that the operation promises to forget.
 - Tombstones must dominate stale/live copies during merge, import, restore, and synchronization.
-- Every export successfully produced by Sovereign must be internally coherent and restorable by the same supported software version.
+- Every backup export (the canonical export used for restore) successfully produced by Sovereign must be internally coherent and restorable by the same supported software version. Obsidian snapshot exports are one-way views, not backups, and are not restorable.
 
 ### Storage and history integrity
 
 - Flag raw SQL, upsert, REPLACE, cascade, or concurrency paths that can mutate immutable evidence/claims, erase decision history, alter source provenance, reactivate terminal states, or produce unreplayable histories.
 - Memory authority transitions must remain legal when bypassing the HTTP/API layer.
+
+## Second-brain architecture rules (approved direction, not implemented — ADR-0005)
+
+- Learn **all five second-brain levels** from `docs/second-brain/LEVELS-AND-OBSIDIAN.md` before planning retrieval or knowledge features: L1 routing/files, L2 wiki/backlinks, L3 semantic/hybrid, L4 typed graph, L5 always-on. They are mixable techniques, not a ladder, and are distinct from the M0–M5 milestones and the SB-0…SB-9 slices (ROADMAP §G).
+- Near-term **target L3–L4** (with L1/L2 views); L5 stays a costly, governed end-state, not a reason to add crons, cloud ingestion or agent swarms.
+- **Canonical:** source records, MemoryClaims with their decision history, tombstones (and human-declared organization once its ADR is approved). **Disposable:** deterministic derived structure and projections — the provenance graph, Obsidian Markdown, any future index. Model-proposed relations, entities or summaries are *not* disposable projections: if persisted they are `proposed` MemoryClaims with `origin = model`. Deterministic claim-source and supersession links are structural and need no claims about themselves. Never create a second authority lifecycle.
+- Projects, concepts, decisions and multi-record documents do not exist in the canonical schema. Do not invent them in an index, export or graph; they need their own schema ADR (ADR-0005 §3, D2).
+- **Benchmark 0003 is the retrieval evaluation** (`docs/benchmarks/0003-retrieval-evaluation.md` and `evaluation/retrieval/`, delivered by PR #4 — **not on `main` until PR #4 merges**; until then do not recreate them, and run retrieval experiments only on PR #4's branch or after it merges). Extend its harness for retrieval experiments; never build a second retrieval benchmark. Other second-brain tests belong to `docs/second-brain/SECOND-BRAIN-VALIDATION.md`.
+- Retrievers and graph traversal return candidate canonical IDs; the Context Compiler hydrates them in one snapshot and decides. A new retrieval method changes relevance, ranking and the truncation fingerprint, so it is a new `policy_version` and a disclosure change (Tier 2, founder approval) — never a drop-in (ADR-0005 §6). **Never weaken the truncation fingerprint** for performance or convenience; provenance or graph links never make an item relevant by themselves (ADR-0004 decision 3).
+- No cloud embedding, query rewriting, routing, reranking or extraction outside an exact approved disclosure plan. Never persist question text or query vectors. Inferred edges are never facts.
+- Forget must reach every derived store Sovereign manages. An Obsidian export is a user-held snapshot, not a managed store: a new export reflects its snapshot boundary and excludes what was forgotten before it, while exports already made are outside Sovereign's control — never claim to erase them, and say so wherever Forget or export results are shown. Do not add a projection registry, ownership hashes, a write lock spanning file writes or background reconciliation for exports. Never claim filesystem writes are atomic with SQLite or that exported files are securely deleted (OBSIDIAN-PROJECTION §11).
+- The user **must be able to browse the brain in Obsidian** through an optional, local, one-way snapshot export, made only on request as a ZIP or a new folder (`docs/second-brain/OBSIDIAN-PROJECTION.md`). Every stored value is untrusted for rendering: free text is escaped (never normalized) into inert fenced `text` blocks; only slots an item holds whose other end is inside the authorized scope become links; excluded items are never named, linked or counted in any file or log. Verify an export structurally (files, filenames, frontmatter, generated lines, links) before offering it — never by scanning free text for excluded IDs — and report success only when it is complete. Filenames fit 140 UTF-8 bytes. Graph lines are untyped links, statuses are as of the snapshot, and Animate is not history. Never write an export inside a Git working tree, into an existing folder or over an existing file, never let an export delete anything but its own staging and temporary files, and never import edits.
+- No sensitive personal-data testing until SECURITY-GATE is passed. Do not change canonical schemas or constitutional language as an incidental graph implementation.

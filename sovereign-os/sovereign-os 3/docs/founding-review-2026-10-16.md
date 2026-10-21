@@ -4,7 +4,7 @@
 
 **Status:** AMENDMENTS PROPOSED — Constitution NOT ratified
 
-**Baseline:** main branch founding draft v0.1
+**Baseline:** main branch founding draft v0.1 (the former `sovereign-os/*.md` files; removed from the working tree in PR #3 and preserved unchanged at commit `37553c0`)
 
 **Candidate:** review/founding-decisions-v0.2
 
