@@ -1,7 +1,7 @@
 # ADR-0005 — Governed Second Brain: Level 3–4 Retrieval, Knowledge Graphs and Obsidian Views
 
-- **Status:** PROPOSED — architecture direction for founder review; not ratified, not implemented. Revision 4 (2026-10-20) makes the Obsidian export a user-requested snapshot (founder direction) and aligns with Benchmark 0003 as of PR #4's `da52ce9`; revision 3 resolved the Codex architecture audit (F1–F6). See [*Revision notes*](#revision-notes).
-- **Date:** 2026-10-20 (revision 4; first proposed 2026-10-19)
+- **Status:** APPROVED AS ARCHITECTURAL DIRECTION (Tier 3) by the founder on 2026-10-21 — D1–D14 approved per the §15 recommendations and R1–R7 approved as planning positions (§12.2); **D15 explicitly deferred**; nothing is implemented, and every implementation slice still needs its own reviews and approvals. See [*15.1 Founder decision record*](#151-founder-decision-record-2026-10-21). Revision 4 (2026-10-20) makes the Obsidian export a user-requested snapshot (founder direction) and aligns with Benchmark 0003 as of PR #4's `da52ce9`; revision 3 resolved the Codex architecture audit (F1–F6). See [*Revision notes*](#revision-notes).
+- **Date:** 2026-10-20 (revision 4; first proposed 2026-10-19); direction approved 2026-10-21
 - **Decision owner:** Human project owner
 - **Review tier:** Tier 3 direction. Every implementation slice that changes schema, memory authority, deletion, retrieval relevance or disclosure is separately Tier 2 (see `AGENTS.md`, `docs/DEVELOPMENT.md`).
 - **Builds on:** [ADR-0003](0003-memory-claim-authority.md) (MemoryClaim authority) and [ADR-0004](0004-governed-retrieval-context-compiler.md) (Context Compiler) **as merged to `main`** (`4fbecbe`, including `cee2c66`, the policy-state truncation fingerprint, which this branch now contains). This ADR amends neither; §6, §7, §8.2–§8.3 and D15 name where a later slice would have to.
@@ -190,7 +190,7 @@ Deliberately small first; one numbering (also ROADMAP §G):
 
 | Slice | Delivers | Level | State / gate |
 | --- | --- | --- | --- |
-| **SB-0** | This ADR, guide, export spec, validation spec, demo vault (docs only; PR #3) | — | Founder decisions D1–D15 |
+| **SB-0** | This ADR, guide, export spec, validation spec, demo vault (docs only; PR #3) | — | D1–D14 approved 2026-10-21; D15 deferred (§15.1) |
 | **SB-1** | Benchmark 0003 retrieval evaluation: synthetic corpus, harness, governed-recall/noise/precision baseline, lexical alternatives, provenance admission (counterfactual) and navigation | L3 evaluation | **Executed in PR #4 (`da52ce9`), not merged**; its Codex P2 is resolved and CI passed; no production retrieval change authorized (R1) |
 | **SB-2** | Provenance graph computed on read (local navigation only) + a one-way **Obsidian snapshot export** CLI (a ZIP or a new folder) for sources, claims, revisions and histories, with inert serialization, scope closure, structural verification and byte-limited filenames; no registry, no reconciliation, no canonical schema change. **First user-visible slice** | L2 view + L4 provenance | Tier 2 (it renders personal data into a file the user takes away); validation spec §3–§4; **before production use:** the separate high-priority Tier 2 storage-integrity fix (SECURITY-GATE) |
 | **SB-3** | Human-declared projects/concepts and membership; export hubs | L1/L2 | Tier 2 schema ADR; D2 |
@@ -223,11 +223,11 @@ Benchmark 0003 is the canonical retrieval evaluation (subject to its own audit a
 - **Founder direction recorded in PR #4 (2026-10-20):** production retrieval stays the merged lexical retriever; no experimental retriever is approved; IDF, BM25, FTS5 and embeddings are deferred; ADR-0004 decision 3, the budgets, disclosure eligibility and the fingerprint are unchanged.
 - **Review dependency resolved:** PR #4's Codex P2 (unreproducible scale timings) was resolved by removing the timings; its CI passed. This ADR relies on no timing, and incidental container timings are not a capacity guarantee.
 
-### 12.2 Founder's retrieval positions — pending formal approval
+### 12.2 Founder's retrieval positions — approved planning positions
 
-These positions follow from Benchmark 0003 and agree with the founder direction recorded in PR #4 on 2026-10-20. They take effect when this ADR is approved; implementing any change is a separate reviewed PR — never PR #3.
+These positions follow from Benchmark 0003 and agree with the founder direction recorded in PR #4 on 2026-10-20. **The founder approved them on 2026-10-21 as planning and evaluation constraints, not as a production retrieval implementation** (§15.1); implementing any change is a separate reviewed PR — never PR #3.
 
-| ID | Position (intended, pending) | Where reflected |
+| ID | Position (approved planning position, 2026-10-21) | Where reflected |
 | --- | --- | --- |
 | **R1** | **No production retrieval change is authorized.** Porter normalization (+2 expected items, +47 irrelevant) and the exact-stem tie-break (+1 expected item, no added noise or cloud items) are evaluated candidates only; either would need its own Tier 2 PR, `policy_version` bump, regenerated Benchmark 0003, independent review and founder approval. | §6.1, SB-4 |
 | **R2** | Defer IDF/BM25. Do not weaken the fingerprint for performance or convenience; a policy-equivalent fingerprint is future research needing demonstrated equivalence of every protected decision (§6.3), an ADR-0004 amendment, independent adversarial review and founder approval. | §6.2–6.3 |
@@ -289,9 +289,34 @@ Proven: lexical BM25/FTS, dense + lexical hybrid retrieval with rank fusion, par
 | **D12** | Default Obsidian provenance mode | *Label* mode (one fixed partial sentence) for local browsing; *closed* mode (drop items with omitted links) recommended for removable, synced or shared exports |
 | **D13** | Raw canonical IDs in exported notes | None: the keyed handle only. Even canonical-UUID IDs can be enumerable (ordinary import derives claim IDs with a public UUIDv5 namespace), so a raw ID could reveal a gap where an excluded item sits |
 | **D14** | Projection registry | **Not needed for V0 (2026-10-20):** exports keep no persistent state; revisit only if an in-place refresh is ever proposed |
-| **D15** | Lineage sensitivity of claims: a private claim that supersedes a sensitive claim often restates it | Decide in the Context Compiler (an ADR-0004 amendment, Tier 2), because the same text is eligible for cloud plans today; the projection only warns until then |
+| **D15** | Lineage sensitivity of claims: a private claim that supersedes a sensitive claim often restates it | **Deferred by the founder (2026-10-21); not ratified** (§15.1). Proposed direction: decide in the Context Compiler (an ADR-0004 amendment, Tier 2), because the same text is eligible for cloud plans today; the projection only warns until then |
 
-R1–R7 (§12.2) are separate positions awaiting formal approval. D8, D9 and D14 record the founder's 2026-10-20 direction; like the rest of this ADR, they take effect when it is approved.
+D8, D9 and D14 record the founder's 2026-10-20 direction. The founder's decisions on this table and on R1–R7 (§12.2) are recorded in §15.1.
+
+### 15.1 Founder decision record (2026-10-21)
+
+**Approved — architectural direction (Tier 3).** On 2026-10-21 the founder approved **D1–D14** according to the recommendations above, in particular:
+
+- L3–L4 remain the strategic second-brain target; L5 is deferred.
+- Human-declared projects and concepts precede model-proposed organization.
+- Typed factual relationships use governed MemoryClaims.
+- Semantic-only relevance remains local-only initially.
+- Graph traversal does not expand Context Compiler model context.
+- Future indexes must be governed, rebuildable and compatible with Forget.
+- Obsidian is an optional one-shot snapshot export, initially through a manual CLI.
+- Previously downloaded exports are not automatically erased after Forget.
+- No persistent export registry, continuous synchronization or background reconciliation is required for V0.
+- Temporal semantics remain a future implementation requirement.
+- Embeddings remain deferred.
+- Export scope, lineage omissions, filenames and keyed handles follow D7 and D12–D14.
+
+**Approved — retrieval planning positions R1–R7 (§12.2).** No experimental retriever is authorized for production; Porter and the exact-stem tie-break remain evaluated candidates only; IDF/BM25/FTS5 and embeddings remain deferred; the current conservative fingerprint and context budgets are preserved; provenance is for local navigation, not automatic model-context admission; retrieval precision and cloud-disclosure minimization are priorities; Benchmark 0003's evaluation infrastructure is retained. These are planning constraints, not a production retrieval implementation.
+
+**Deferred — D15 (lineage sensitivity).** No new lineage-sensitivity or cloud-disclosure policy is ratified. Current ADR-0004 behavior is preserved unchanged. **Residual risk:** a private successor claim may restate a sensitive predecessor, and that text is eligible for cloud plans today ([SECURITY-GATE](../SECURITY-GATE.md)). Changing this requires a dedicated Tier 2 policy proposal, independent adversarial review and founder approval. The deferral is **not** a certification that current lineage sensitivity is safe for real private data.
+
+**Boundaries of this approval.** It approves this ADR's Tier 3 architectural direction only. It does not ratify the Constitution or ADR-0003/0004; approve a new schema, embedding system or retrieval policy; authorize broader cloud disclosure; certify the Security Gate (still NOT PASSED); approve the production Obsidian exporter; waive future Tier 2 reviews; or resolve the pre-existing SQLite hidden-rowid storage-integrity defect, which remains a separate high-priority Tier 2 repair required before production SB-2.
+
+**Audit evidence.** Codex's independent architecture audit of PR #3 (F1–F6, CONDITIONAL PASS at `b17b6a2`) and its follow-up findings N1–N4 are dispositioned in the [remediation record](../reviews/2026-10-20-codex-audit-remediation.md); Codex's final verification closed N2 and N4 — and with them every PR #3 specification finding — with a **PASS at the specification level** on the Codex-verified commit `591c011027cddcd9383941bbde60075ec54c3935`. The approved text is revision 4 as verified there; this record changes status and decision metadata only.
 
 ## 16. Open engineering questions (no founder decision needed yet)
 
@@ -305,6 +330,8 @@ R1–R7 (§12.2) are separate positions awaiting formal approval. D8, D9 and D14
 **No implementation, new permission, persistent schema, background ingestion or constitutional amendment is authorized by this document.**
 
 ## Revision notes
+
+**Founder approval** (2026-10-21; status and decision metadata only, no technical change): the Status line, §11 SB-0, §12.2 and §15 record the approval of D1–D14 and R1–R7 and the deferral of D15; §15.1 is the decision record.
 
 **Revision 4** (2026-10-20; [remediation record](../reviews/2026-10-20-codex-audit-remediation.md#founder-simplification-and-codex-n1n4)) applies the founder's simplification and aligns with PR #4 at `da52ce9`:
 

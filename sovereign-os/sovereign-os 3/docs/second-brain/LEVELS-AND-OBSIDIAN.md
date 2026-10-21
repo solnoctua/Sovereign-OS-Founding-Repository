@@ -1,6 +1,6 @@
 # Second-Brain Levels, Retrieval Strategy and Obsidian Graph
 
-**Status:** architecture guide for a planned capability; nothing here is implemented. Decisions and invariants live in [ADR-0005](../adr/0005-governed-second-brain-architecture.md) (PROPOSED); the Obsidian format contract lives in [OBSIDIAN-PROJECTION.md](OBSIDIAN-PROJECTION.md). Sovereign's active project root is the directory containing `AGENTS.md`, `src/sovereign` and this `docs/` tree.
+**Status:** architecture guide for a planned capability; nothing here is implemented. Decisions and invariants live in [ADR-0005](../adr/0005-governed-second-brain-architecture.md) (direction approved 2026-10-21); the Obsidian format contract lives in [OBSIDIAN-PROJECTION.md](OBSIDIAN-PROJECTION.md). Sovereign's active project root is the directory containing `AGENTS.md`, `src/sovereign` and this `docs/` tree.
 
 ## 1. Why the five levels matter
 

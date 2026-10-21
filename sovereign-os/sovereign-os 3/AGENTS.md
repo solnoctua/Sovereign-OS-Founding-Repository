@@ -59,7 +59,7 @@ Durable Sovereign invariants. In changes touching memory authority, deletion, re
 - Flag raw SQL, upsert, REPLACE, cascade, or concurrency paths that can mutate immutable evidence/claims, erase decision history, alter source provenance, reactivate terminal states, or produce unreplayable histories.
 - Memory authority transitions must remain legal when bypassing the HTTP/API layer.
 
-## Second-brain architecture rules (proposed workstream — ADR-0005)
+## Second-brain architecture rules (approved direction, not implemented — ADR-0005)
 
 - Learn **all five second-brain levels** from `docs/second-brain/LEVELS-AND-OBSIDIAN.md` before planning retrieval or knowledge features: L1 routing/files, L2 wiki/backlinks, L3 semantic/hybrid, L4 typed graph, L5 always-on. They are mixable techniques, not a ladder, and are distinct from the M0–M5 milestones and the SB-0…SB-9 slices (ROADMAP §G).
 - Near-term **target L3–L4** (with L1/L2 views); L5 stays a costly, governed end-state, not a reason to add crons, cloud ingestion or agent swarms.

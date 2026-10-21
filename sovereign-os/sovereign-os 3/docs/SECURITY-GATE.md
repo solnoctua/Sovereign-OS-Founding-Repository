@@ -21,6 +21,7 @@
 - Signed/integrity-checked backups (trusted restore currently trusts the file it is given) and authenticated user/device identity for claim decisions.
 - Security reviews, dependency scan, input-size/rate limits, error monitoring and more complete adversarial tests.
 - Backup of encrypted state plus test of restoration to a fresh Mac.
+- **Lineage sensitivity (ADR-0005 D15, deferred by the founder 2026-10-21):** a private claim that supersedes a sensitive claim may restate it, and under current ADR-0004 behavior (unchanged) its text is eligible for cloud plans. No lineage-sensitivity policy is ratified; changing this needs a dedicated Tier 2 policy proposal, independent adversarial review and founder approval. The deferral does not certify current lineage sensitivity as safe for real private data.
 
 Do not use real sensitive medical/financial/relationship data, third-party conversations, account secrets, or raw personal history until the security gate is passed.
 

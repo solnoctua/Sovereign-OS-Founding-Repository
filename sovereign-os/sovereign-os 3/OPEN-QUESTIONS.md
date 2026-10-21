@@ -49,9 +49,9 @@ The founding build is **not a secure personal vault**. Local server is loopback 
 
 ## D. Governed second-brain extension — scoped future decisions
 
-Architectural vocabulary, Level 3–4 target, and Obsidian requirement are documented in [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md), [the levels guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md), [the Obsidian export spec](docs/second-brain/OBSIDIAN-PROJECTION.md) and [the validation spec](docs/second-brain/SECOND-BRAIN-VALIDATION.md). They are proposed direction, not deployed functionality or a change to memory authority.
+Architectural vocabulary, Level 3–4 target, and Obsidian requirement are documented in [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md), [the levels guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md), [the Obsidian export spec](docs/second-brain/OBSIDIAN-PROJECTION.md) and [the validation spec](docs/second-brain/SECOND-BRAIN-VALIDATION.md). Their direction was approved by the founder on 2026-10-21 (ADR-0005 §15.1); they are not deployed functionality or a change to memory authority.
 
-**Retrieval positions from Benchmark 0003 (PR #4, evaluation only, not merged) — consistent with PR #4's founder direction of 2026-10-20, pending formal approval** ([ADR-0005 §12.2](docs/adr/0005-governed-second-brain-architecture.md#122-founders-retrieval-positions--pending-formal-approval)):
+**Retrieval positions from Benchmark 0003 (PR #4, evaluation only, not merged) — consistent with PR #4's founder direction of 2026-10-20, approved as planning positions on 2026-10-21 — not production changes** ([ADR-0005 §12.2](docs/adr/0005-governed-second-brain-architecture.md#122-founders-retrieval-positions--approved-planning-positions)):
 
 - **R1** No production retrieval change is authorized. Porter normalization (+2 expected items, +47 irrelevant) and the exact-stem tie-break (+1 expected item, no added noise) are evaluated candidates only; either would need its own Tier 2 PR, policy version bump, independent review and founder approval.
 - **R2** Defer IDF/BM25; never weaken the truncation fingerprint for performance or convenience; a policy-equivalent fingerprint would need demonstrated equivalence of every protected decision (ADR-0005 §6.3), an ADR-0004 amendment, independent adversarial review and founder approval.
@@ -61,7 +61,7 @@ Architectural vocabulary, Level 3–4 target, and Obsidian requirement are docum
 - **R6** Defer local embeddings until representative, legitimate usage shows meaningful improvement; no sensitive personal notes while the Security Gate is NOT PASSED.
 - **R7** Keep PR #4's evaluation framework; its own findings are resolved there (its Codex P2 on scale timings is resolved at `da52ce9`).
 
-**Second-brain decisions requested**, with recommendations in [ADR-0005 §15](docs/adr/0005-governed-second-brain-architecture.md#15-decisions-requested-from-the-founder):
+**Second-brain decisions**, with recommendations in [ADR-0005 §15](docs/adr/0005-governed-second-brain-architecture.md#15-decisions-requested-from-the-founder). *D1–D14 were approved per those recommendations on 2026-10-21; D15 is deferred and remains open ([decision record](docs/adr/0005-governed-second-brain-architecture.md#151-founder-decision-record-2026-10-21)).*
 
 - **D1** Approve the L3–L4 target, deferred L5, and the slice order (evaluation and provenance/Obsidian before retrieval changes)?
 - **D2** Where do project and concept nodes come from — human-declared organization, model suggestions, or both?
@@ -77,6 +77,6 @@ Architectural vocabulary, Level 3–4 target, and Obsidian requirement are docum
 - **D12** Obsidian provenance mode by default: label (one fixed partial sentence) or closed (omit items whose links lead outside scope)?
 - **D13** May exported notes carry raw canonical IDs, and only when they are canonical UUIDs?
 - **D14** *Not needed for V0 (2026-10-20):* exports keep no persistent registry.
-- **D15** Should a claim that supersedes a sensitive claim inherit its sensitivity? (A Context Compiler question: an ADR-0004 amendment, Tier 2.)
+- **D15** *Deferred (2026-10-21), open:* should a claim that supersedes a sensitive claim inherit its sensitivity? (A Context Compiler question: an ADR-0004 amendment, Tier 2; current behavior unchanged and not certified safe for real private data.)
 
 Level 5 remains deferred: which measured daily-use gains, monthly budget, permission model and interruption controls would justify scheduled sync or agents is a later question. No default always-on ingestion.

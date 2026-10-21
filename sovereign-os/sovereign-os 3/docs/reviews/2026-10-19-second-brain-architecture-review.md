@@ -1,6 +1,6 @@
 # Independent review — governed second brain (PR #3), 2026-10-19
 
-**Status:** review record, not authority. Decisions live in [ADR-0005](../adr/0005-governed-second-brain-architecture.md) (still PROPOSED); this file records what was found and why the documentation changed.
+**Status:** review record, not authority. Decisions live in [ADR-0005](../adr/0005-governed-second-brain-architecture.md) (PROPOSED at the time of this review; direction approved 2026-10-21); this file records what was found and why the documentation changed.
 
 **Note (2026-10-20):** "Benchmark 0003" below means PR #3's draft specification, since renamed [`SECOND-BRAIN-VALIDATION.md`](../second-brain/SECOND-BRAIN-VALIDATION.md). Benchmark 0003 now denotes PR #4's executed retrieval evaluation. Follow-up: [Codex audit remediation](2026-10-20-codex-audit-remediation.md).
 
