@@ -18,7 +18,7 @@ Two fictional projects — **Lantern**, a garden-sensor prototype, and **Harbor*
 
 **Snapshot taken 2026-10-20 12:00 UTC.** Statuses in every note are as of this moment. This export is not kept in sync with Sovereign: to see newer memory, export again into a new folder.
 
-**Forgetting and this export.** If something is forgotten in Sovereign after this snapshot, it stays in this export and in every copy of it (downloads, backups, sync). Sovereign cannot erase those copies. Delete exports you no longer need, and export again.
+**Forgetting and this export.** If something is forgotten in Sovereign after this snapshot, it stays in this export and in every copy of it (downloads, backups, sync). Sovereign cannot erase those copies. Delete exports you no longer need, and export again. If the computer crashed or lost power while an export was being written, treat that export as possibly damaged: delete it and export again.
 
 **Scope (by filter class only):** private items; all statuses; review scope on, so unreviewed model proposals are included (a default export omits them).
 
