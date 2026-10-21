@@ -4,31 +4,45 @@
 
 **Scope:** evaluation only. This is the second-brain workstream's **SB-1**, the synthetic evaluation slice. It changes no production code: memory authority, retrieval, the Context Compiler, disclosure and storage are exactly as merged. Every ADR-0003 and ADR-0004 invariant holds.
 
-## Status and founder direction (2026-10-20)
+## Status and founder decisions
 
-**Production retrieval stays exactly as merged.** The founder has decided:
+**Production retrieval stays exactly as merged; this benchmark authorises no production change.**
 
-1. **Production retriever.** Keep the merged Context Compiler V0 lexical retriever unchanged. **No experimental retriever in this benchmark is approved for production.**
-2. **Porter normalisation** is a measured candidate, not an approved implementation.
-3. **Deferred:** IDF, BM25, FTS5 and embeddings. No derived index is adopted.
-4. **ADR-0004 founder decision 3 is preserved.** Records or claims reached only through provenance or graph links do not become relevant model context. The provenance experiments below are counterfactual.
-5. **Budget:** 12 items and 12,000 characters, unchanged.
-6. **Disclosure:** no new cloud-disclosure eligibility or permission.
-7. **Fingerprint.** The context fingerprint is not weakened for ranking convenience.
-   - It binds the complete policy-relevant retrieval state, including matching candidates below the cutoff.
-   - A future *policy-equivalent* fingerprint would need its own ADR-0004 amendment, formal proof obligations, adversarial tests and founder approval. Nothing here implements or assumes one.
-8. **Security Gate: NOT PASSED.** Synthetic data only. No real or sensitive personal data enters these experiments.
+- **2026-10-20:** the founder's direction for this benchmark was recorded here.
+- **2026-10-21:** the founder approved [ADR-0005](../adr/0005-governed-second-brain-architecture.md) (merged with PR #3 in `c6ef14b`) as architectural direction:
+  - D1–D14 approved;
+  - its retrieval positions R1–R7 approved as **planning positions, not production changes**;
+  - D15 deferred (ADR-0005 §15.1).
 
-**Relationship to PR #3** ([solnoctua/Sovereign-OS-Founding-Repository#3](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/3), proposed, not merged):
+For this benchmark the positions mean:
 
-- PR #3 proposes ADR-0005 (governed second brain).
-- It retired its own draft retrieval benchmark in favour of `docs/second-brain/SECOND-BRAIN-VALIDATION.md`, which specifies the future graph, Obsidian, temporal and relational acceptance tests.
-- **This document is the only executed Benchmark 0003.** It does not re-specify those tests.
-- ADR-0005's decisions D1–D15 and intended retrieval positions R1–R7 belong to PR #3 and are not ratified here.
+1. **R1 — no production retrieval change.** The merged Context Compiler V0 lexical retriever stays unchanged. Porter normalisation and the exact-stem tie-break are evaluated candidates only.
+2. **R2 — weighting deferred, fingerprint not weakened.**
+   - IDF, BM25 and FTS5 are deferred, and no derived index is adopted.
+   - The fingerprint keeps binding the complete policy-relevant retrieval state, including matching candidates below the cutoff.
+   - A *policy-equivalent* fingerprint would need its own ADR-0004 amendment, formal proof obligations, adversarial tests and founder approval. Nothing here implements or assumes one.
+3. **R3 — navigation, not admission.** Provenance links serve local navigation. ADR-0004 decision 3 is preserved: records or claims reached only through provenance or graph links do not become relevant model context. The provenance admission experiments below are counterfactual.
+4. **R4 — precision first**, especially for cloud plans. Every recall gain here is reported with its noise, precision and cloud-plan cost.
+5. **R5 — budget unchanged:** 12 items and 12,000 characters.
+6. **R6 — embeddings deferred.**
+7. **R7 — this evaluation infrastructure is kept**, with tests that keep its committed results current.
+
+Also unchanged:
+
+- **Disclosure:** no new cloud-disclosure eligibility or permission.
+- **D15 (lineage sensitivity) stays deferred** and is not evaluated here.
+- **Security Gate: NOT PASSED.** Synthetic data only; no real or sensitive personal data enters these experiments.
+
+**Relationship to ADR-0005 and the validation spec:**
+
+- This document is the **single canonical executed retrieval evaluation** (SB-1; ADR-0005 §11–§12).
+- [`SECOND-BRAIN-VALIDATION.md`](../second-brain/SECOND-BRAIN-VALIDATION.md) separately specifies the future provenance-graph, Obsidian snapshot-export, temporal and relational acceptance tests. This document does not re-specify them.
+- Future semantic experiments (SB-5) run inside this harness, never as a second benchmark.
 
 ## Starting point and run record
 
 - **Base:** `main` at `4fbecbefd0c0bd0f3b159111fb48902b21cf4171`, the merge of Context Compiler V0 with policy `sovereign.context.v0`.
+- **Integrated with:** `main` at `c6ef14bef7d85eafc69fb2d5287365551037d259` (the PR #3 merge). The merge changed no evaluation input, harness, test, result or production file.
 - **Builder:** Claude Code in a cloud session. No human interventions during the run, and no paid API cost (no provider is ever called).
 - **Environment:** SQLite 3.45.1, with identical results under Python 3.12 and 3.13.
 - **Ground truth:** unchanged since it was written, before the first experiment ran, including through this revision.
@@ -140,7 +154,7 @@ The experiments' indexes are in-memory SQLite databases. They are built from a r
 **Token stability.**
 
 - *Unrelated write:* how many of the 56 local context tokens one unrelated write invalidates (a record matching no question).
-- *Unchanged vault:* how many stay identical on a repeat compile *and* on an independently rebuilt, identical vault with freshly built retrievers. ADR-0005 §6.4 (PR #3) requires 100% here.
+- *Unchanged vault:* how many stay identical on a repeat compile *and* on an independently rebuilt, identical vault with freshly built retrievers. ADR-0005 §6.4 requires 100% here.
 
 **Local navigation (discovery, not admission).** Items one stored link away (claim ↔ cited record, record ↔ its correction):
 
@@ -373,7 +387,7 @@ Each candidate below would need its own Tier 2 PR, a `policy_version` bump, rege
   - It recovers the one below-cutoff old-evidence miss without widening relevance.
   - It adds no noise, no cloud items, no derived state and no token churn.
   - It still changes ranking, so it is a policy change.
-- **Navigation of stored links** (ADR-0005's SB-2, proposed in PR #3): measured here as discovery only.
+- **Navigation of stored links** (ADR-0005's SB-2, local navigation only): measured here as discovery only.
   - It needs no compiler change at all.
   - It belongs with the provenance-graph slice, not in context admission.
 - **Stem admission** (`porter_count`, `exact_stem`) and **provenance admission**: measured, not recommended.
@@ -383,39 +397,39 @@ Each candidate below would need its own Tier 2 PR, a `policy_version` bump, rege
 
 ## Dependencies and sequencing
 
-- **Workstream order** (ADR-0005 §11, proposed in PR #3):
+- **Workstream order** (ADR-0005 §11, approved direction):
   1. SB-1: this benchmark.
-  2. SB-2: the computed, read-only provenance graph and a safe one-way Obsidian projection.
+  2. SB-2: the computed, read-only provenance graph (local navigation only) and a one-way Obsidian snapshot export (a ZIP or a new folder, via a manual CLI).
   3. SB-3: human-declared projects, concepts and membership.
-  4. SB-4: further lexical or FTS evaluation, if justified.
+  4. SB-4: a lexical change, none authorised (R1); any proposal is its own Tier 2 PR.
   5. SB-5: local semantic retrieval, if evidence justifies it.
   6. SB-6 and SB-7: temporal semantics and structured typed MemoryClaims.
   7. SB-8: possible graph-assisted model context, after evaluation and a new ADR-0004 policy decision.
 
   Level 5 stays deferred.
-- **Storage-integrity dependency.** PR #3's review found a pre-existing storage-contract defect on `main`.
+- **Storage-integrity dependency.** PR #3's review found a pre-existing storage-contract defect on `main`, now documented in [SECURITY-GATE](../SECURITY-GATE.md).
   - Raw SQLite `INSERT OR REPLACE`, `REPLACE` and `UPDATE OR REPLACE` naming an existing rowid can bypass the tombstone and immutability triggers on connections with `recursive_triggers` off, which is SQLite's default.
   - That threatens permanent Forget identity and immutable history.
-  - It needs a separate, independently audited Tier 2 storage fix and **blocks production SB-2**.
+  - It needs its own high-priority, independently audited Tier 2 repair, required before production SB-2 (ADR-0005 §15.1). It is not fixed here.
   - It does not affect this benchmark's results: the harness writes only through `Vault.restore_trusted`, which issues plain `INSERT`s, and no evaluation code issues `REPLACE`.
 - **Integration order:**
-  1. PR #3 completes its independent audit.
-  2. The founder approves its decisions.
-  3. PR #3 merges.
-  4. This PR integrates the updated `main`, reconciles overlapping documentation (ROADMAP and status references) and regenerates its results.
-  5. This PR reruns all tests and CI.
+  1. *Done:* PR #3 passed its independent audit (Codex PASS at the specification level on `591c011`).
+  2. *Done:* the founder approved ADR-0005's direction (2026-10-21).
+  3. *Done:* PR #3 merged (`c6ef14b`).
+  4. *Done:* this PR merged that `main`. The merge had no conflicts, and the regenerated results are byte-identical.
+  5. This PR reruns all tests and CI on the integrated commit.
   6. This PR receives a fresh independent audit.
   7. The founder decides on merge.
 
 ## Remaining founder decisions
 
-These are not settled by the 2026-10-20 direction:
+These remain open (ADR-0005 §12.2 lists the same four):
 
-1. Whether any candidate above, most plausibly the exact-stem tie-break, should ever be prepared as a production proposal. Several sub-questions would follow:
+1. Whether any candidate above, most plausibly the exact-stem tie-break, should ever be prepared as a production proposal (R1: its own Tier 2 PR). Several sub-questions would follow:
    - the stemmer implementation (FTS5 tokenizer, vendored stemmer or new dependency);
    - its availability where SQLite lacks FTS5;
    - its `policy_version`.
-2. A relevance floor, threshold or cloud-specific policy to address precision (27–34%). Each needs its own evaluation and a versioned policy approval.
+2. A relevance floor, threshold or cloud-specific policy to address precision (27–34%; R4). Each needs its own evaluation, a versioned policy and separate Tier 2 review.
 3. Evaluation follow-ups:
    - **No-evidence queries.** Every query has at least one expected item, so what is offered for disclosure when nothing is relevant is not measured. Adding them changes the fixture, so it belongs in a follow-up.
    - **A private, founder-run local evaluation on real notes**, never committed and only after the Security Gate. It needs the harness to read a corpus from a path.
@@ -451,7 +465,9 @@ The module is skipped where SQLite lacks FTS5.
 - **Answer quality:** generated-answer correctness, abstention, and the temporal interpretation of answers ("then" vs "now", correction vs change). No model is called.
 - **Questions with no relevant evidence.**
 - **Narrower settings:** pinned questions, other languages, and real usage frequencies.
-- **Latency and scale behaviour.**
+- **Latency and scale behaviour.** Hardware-dependent, deliberately not measured.
+- **Lineage sensitivity** (ADR-0005 D15, deferred): whether a private successor claim restates a sensitive predecessor.
+- **Real or sensitive data:** only after the Security Gate passes.
 
 ## Threats to validity
 
