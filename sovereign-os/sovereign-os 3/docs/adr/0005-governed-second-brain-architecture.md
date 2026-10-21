@@ -128,7 +128,7 @@ ADR-0003's rule — *the preview is the plan* — extends to every representatio
 | Future vectors (deferred, R6) | Vault DB, keyed by ID + retriever identity | Same transaction. Vectors are treated as content (published embedding-inversion work recovers much of the input text) | As above | Re-embed; not exported |
 | Copies Sovereign does not control | Obsidian exports already made (downloaded ZIPs, extracted folders, their copies), Obsidian caches and file-recovery snapshots, trash folders, OS backups and search indexes, sync services, plugins | Cannot be guaranteed | — | Disclosed in the Forget preview and result |
 
-- The Forget preview and result state that Obsidian exports made earlier are outside Sovereign's control and must be deleted by the user to remove the item from them; Sovereign keeps no list of exports and claims no deletion of them. Exports are never transactional with SQLite; an export is consistent at its snapshot boundary only (§9).
+- The Forget preview and result state that Obsidian exports made earlier, and hidden leftovers of interrupted exports, are outside Sovereign's control and must be deleted by the user to remove the item from them; Sovereign keeps no list of exports and claims no deletion of them. Exports are never transactional with SQLite; an export is consistent at its snapshot boundary only (§9).
 - If an index is ever adopted, its tables live **inside** the vault database (D6) so candidate generation and hydration share one snapshot and Forget is atomic; they are excluded from export and rebuilt after restore.
 
 ## 8. Graphs
