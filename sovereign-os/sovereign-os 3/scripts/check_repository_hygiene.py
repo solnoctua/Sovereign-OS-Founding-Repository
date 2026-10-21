@@ -18,10 +18,8 @@ def forbidden(path: str) -> bool:
         return True
     if name.endswith((".pyc", ".pyo", ".pem", ".key", ".p12", ".pfx")):
         return True
-    if name.endswith((".db", ".sqlite", ".sqlite3")):
-        return True
-    if any(name.endswith(ext + suffix) for ext in (".db", ".sqlite", ".sqlite3")
-           for suffix in ("-wal", "-shm", "-journal")):
+    if any(name.endswith(ext) or ext + "-" in name
+           for ext in (".db", ".sqlite", ".sqlite3")):
         return True
     if any(part in {"private-exports", "private-backups", "vault-backups"} for part in p.parts):
         return True
