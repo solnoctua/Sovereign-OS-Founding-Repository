@@ -220,7 +220,7 @@ These are cheap and deterministic only: no model, no network, no embeddings or v
     - Claims citing a candidate record were already surfaced as provenance links, but excluded as `not_relevant`.
   - **Candidate ordering and cutoff.** The inherited score places the document in the per-kind top-50 order and in the compiler's ranking, so it competes with direct matches for the cutoff and the budget.
   - **Unchanged.** The Context Compiler's authority, support, sensitivity, duplicate, budget and disclosure checks apply to admitted documents exactly as to any other candidate.
-  - **Labelling side effect.** The receipt reports admitted documents as `via: lexical`, with no matched terms.
+  - **Labelling side effect.** In the compiled preview (`ContextBundle.describe()`, which `/api/context/compile` returns), admitted documents appear with `relevance.via: lexical` and an empty `matched_terms` list. The content-free `ContextReceipt` records only ids, types, roles and exclusion reasons, so it shows no admission path at all.
   - **Status.** Admitting documents this way changes ADR-0004's current relevance rule (founder decision 3, preserved), so it is not authorised for production.
 
 ## Results
