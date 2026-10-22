@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from . import context, providers, store
+from . import context, provenance, providers, store
 from .claims import STATUSES, TransitionError
 from .store import ForgetImpactChanged, Vault
 
@@ -175,6 +175,20 @@ def create_app(db_path: str | None = None) -> FastAPI:
             raise HTTPException(status_code=409, detail=f"Rejected by vault integrity rules: {e}")
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
+
+    # SB-2a (ADR-0005 §8.1): provenance computed on read for local navigation. Read-only; never feeds the
+    # Context Compiler. Items are addressed by kind and id, since a record and a claim may share an id. A
+    # forgotten, unknown or ineligible item is the same 404, so the endpoint reveals no tombstone.
+    @app.get("/api/provenance/{kind}/{item_id:path}")
+    def provenance_of(kind: Literal[provenance.KINDS], item_id: str,
+                      hops: int = Query(default=1, ge=1, le=provenance.MAX_HOPS)):
+        try:
+            graph = provenance.neighborhood(vault, kind, item_id, hops)
+        except provenance.ProvenanceTooLarge as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        if graph is None:
+            raise HTTPException(status_code=404, detail="Item not found")
+        return graph
 
     @app.get("/api/claims")
     def list_claims(status: Literal[STATUSES] | None = None, cursor: str | None = None,

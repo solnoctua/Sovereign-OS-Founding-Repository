@@ -2,6 +2,17 @@
 .claims-panel{margin-top:22px}.claims-panel .micro{margin:0 0 14px}.claim.not-authoritative .record-main{color:#9aa8a1;font-style:italic}.claim.authoritative{border-color:#3f6150}.tag.claim-proposed,.tag.claim-stale{background:#36321f;color:#dccf99}.tag.claim-rejected,.tag.claim-orphaned{background:#3a2525;color:#e6a9a2}.tag.claim-approved{background:#26342d;color:#a8cfb8}.claims-panel input{color:#dbe2df;background:#0d1213;border:1px solid #303b39;border-radius:9px;outline:0}.claim-sources{margin-top:8px;font-size:10px;line-height:1.5;color:#82938a;overflow-wrap:anywhere}.claim .record-main{margin-top:8px}
 .plan{border:1px solid #2e3b35;border-radius:10px;background:#0f1715;padding:14px 16px;margin:14px 0}.plan .source-label{font-size:10px;color:#9dc3ab;margin-top:12px;letter-spacing:.08em}.plan .context-item.excluded{color:#8f9c96}.plan .blocked{color:#e6a9a2;font-size:11px}.plan p{font-size:11px;margin:8px 0 0}.payload{margin-top:12px;font-size:10px;color:#9fb1a8}.payload pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;background:#0b1110;border:1px solid #26332e;border-radius:8px;padding:10px}#preview{margin-bottom:4px}#approval p{margin:0}
 
+/* SB-2a provenance panel */
+.prov-dialog{max-width:760px;width:calc(100% - 32px);max-height:85vh;overflow:auto}
+.prov-body .source-label{margin-top:14px}
+.prov-item{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(255,255,255,.08)}
+.prov-item .prov-text{flex:1;white-space:pre-wrap;overflow-wrap:anywhere}
+.prov-item small{display:block;opacity:.75;margin-bottom:2px}
+.prov-item .record-actions{flex-shrink:0}
+.prov-focus{padding:10px 0}
+.prov-depth{display:flex;align-items:center;gap:10px;margin:8px 0}
+.prov-depth select{width:auto;display:inline-block;margin:0}
+
 /* Revalidation of claims made before schema 5 (ADR-0006, D-A) */
 .reval-dialog{max-width:720px;width:calc(100% - 32px);max-height:85vh;overflow:auto}
 .reval-source{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);margin:0}
