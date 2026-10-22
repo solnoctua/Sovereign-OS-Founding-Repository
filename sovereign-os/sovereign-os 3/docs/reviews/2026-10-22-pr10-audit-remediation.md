@@ -97,7 +97,7 @@ At the founder's request, a reviewer with no part in writing the scan reviewed i
 | F1 | Text that is not valid UTF-8, which an ordinary connection can write, crashed export and migration with a traceback quoting the row | Fixed in `5e722b2`: `unreadable_rows`, raised without its cause |
 | F2 | A mistyped value in a CHECK-only column crashed the payload build before `integrity_check` could report it | Fixed: SQLite's checks run before any row is decoded |
 | N1 | `integrity_check` (capped at 100 by SQLite) and `not_restorable` (first failure) are lower bounds | Documented in the docstring and ADR-0006 |
-| N2 | Trusted restore is quadratic when many legacy records cite one another | Pre-existing on `main`; tracked as a separate issue |
+| N2 | Trusted restore is quadratic when many legacy records name the same predecessor | Pre-existing on `main`; tracked as [Issue #16](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/16) |
 | N3 | No guidance for a schema-4 vault refused for `embedded_nul` | Interim guidance in ADR-0006 decision 7 |
 | N4 | Export peaks at about 3.3–3.9 × the backup size in memory | Pre-existing behaviour (`36c9bbc`); noted only |
 | N5 | A schema-5 vault relabelled as schema 4 failed with a confusing error | Fixed: refused with a clear message |
@@ -112,9 +112,9 @@ Nothing in export, scan or migration is quadratic.
 
 **Tracked separately** (not part of this PR):
 
-- the unbounded `GET /api/claims` history response (Issue #14);
-- the app-wide effect of non-UTF-8 text, which is pre-existing on `main`: `GET /api/memories` answers 500 and the row cannot be forgotten through the UI;
-- N2.
+- the unbounded `GET /api/claims` history response ([Issue #14](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/14));
+- the app-wide effect of non-UTF-8 text, which is pre-existing on `main`: `GET /api/memories` answers 500, the row cannot be forgotten through the app, and the exception text quotes the row ([Issue #15](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/15));
+- N2, the quadratic restore ([Issue #16](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/16)).
 
 ### Results on `5e722b2`
 
