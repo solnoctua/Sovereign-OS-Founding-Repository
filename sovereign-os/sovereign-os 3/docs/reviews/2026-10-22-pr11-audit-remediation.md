@@ -89,6 +89,7 @@ The founder decided D-A, D-B and D-C for PR #10, which implements them. PR #10 w
 | --- | --- |
 | `d88208f` | `a267b6a` (D-A, D-C) |
 | `9f885d1` | `48436c9` (independent scan review fixes) |
+| `3486ab3` | `8ea54b5` (issue links in the PR #10 record; documentation only) |
 
 The only conflicts were in `d88208f`, in `Vault._claim` and the UI:
 
@@ -103,6 +104,8 @@ Provenance follows D-A:
 - **Test.** `test_a_claim_made_before_schema_5_shows_as_unconfirmed_until_revalidated` (in `tests/test_provenance.py`) starts from a genuine schema-4 fixture. It checks the claim's node before and after a governed revalidation.
 
 ### Results on `9f885d1`
+
+The code is the same at `3486ab3`, whose merge changed only the PR #10 record.
 
 | Check | Result |
 | --- | --- |
