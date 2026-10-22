@@ -53,8 +53,12 @@ def check_transition(current: str, target: str, support: str | None = None) -> N
 
 
 def support_of(source_states: list[str]) -> str:
-    """Derive evidence support from each source's state: active | superseded | missing | unverified."""
-    if any(s in ("missing", "unverified") for s in source_states):
+    """Derive evidence support from each source's state: active | superseded | missing | unverified.
+
+    A claim with no evidence links at all is `orphaned`: authority always needs present, verified evidence,
+    so a claim whose links were lost or never existed can never derive as supported (Issue #6).
+    """
+    if not source_states or any(s in ("missing", "unverified") for s in source_states):
         return "orphaned"
     if any(s == "superseded" for s in source_states):
         return "stale"

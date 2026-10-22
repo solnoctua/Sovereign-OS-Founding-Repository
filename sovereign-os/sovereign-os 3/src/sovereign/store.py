@@ -27,7 +27,14 @@ from uuid import UUID, uuid4, uuid5
 from . import claims as rules
 
 # PRAGMA user_version. 0 = records-only vaults (ADR-0002). 1, 2, 3 = unreleased drafts (c847f9d, 708e9de, 36c9bbc).
-SCHEMA_VERSION = 4
+# 4 = ADR-0003 schema. 5 = the same tables, triggers and rules with the canonical tables below rebuilt
+# WITHOUT ROWID (ADR-0006, Issue #6).
+SCHEMA_VERSION = 5
+# A hidden rowid let INSERT OR REPLACE / REPLACE naming an existing rowid, and UPDATE OR REPLACE ... SET rowid,
+# delete a row without firing its DELETE trigger whenever recursive_triggers is off (SQLite's default). Without a
+# rowid the only uniqueness constraint left is each table's primary key, which the BEFORE triggers guard.
+# claim_events keeps INTEGER PRIMARY KEY AUTOINCREMENT: its rowid *is* `seq`, guarded by claim_events_no_replace.
+ROWID_FREE_TABLES = ("records", "tombstones", "claims", "claim_sources", "claim_tombstones")
 EXPORT_SCHEMAS = ("sovereign.v0.records.1", "sovereign.v0.records.2")
 # One explicit size policy shared by export, import and restore: anything export produces is restorable.
 MAX_BACKUP_BYTES = 128 * 1024 * 1024
@@ -77,10 +84,12 @@ _RECORD_FORGOTTEN = "EXISTS (SELECT 1 FROM tombstones WHERE id = {})"
 
 # Version 3: additive only. Existing `records`/`tombstones` rows are untouched.
 # These triggers are the storage contract (ADR-0003). They hold for any connection issuing
-# INSERT/UPDATE/DELETE, including OR REPLACE / upsert forms (every insert path is checked by a
-# BEFORE INSERT trigger, which runs before SQLite's REPLACE deletes), with or without
-# PRAGMA foreign_keys/recursive_triggers. They do not hold against schema changes
-# (DROP TRIGGER) or direct file edits by a process that already controls the vault file.
+# INSERT/UPDATE/DELETE, including OR REPLACE / upsert forms, with or without
+# PRAGMA foreign_keys/recursive_triggers: every insert path is checked by a BEFORE INSERT trigger,
+# which runs before SQLite's REPLACE deletes, and from schema 5 the canonical tables have no hidden
+# rowid, so no statement can collide with a row except through its guarded primary key (ADR-0006;
+# before schema 5 a rowid collision deleted rows unguarded, Issue #6). They do not hold against
+# schema changes (DROP TRIGGER) or direct file edits by a process that already controls the vault file.
 CLAIMS_SCHEMA = f"""
     CREATE TABLE claims (
         id TEXT PRIMARY KEY CHECK(typeof(id) = 'text' AND length(id) BETWEEN 1 AND {MAX_ID}),
@@ -349,6 +358,9 @@ class Vault:
     def _migrate(self) -> None:
         db = sqlite3.connect(self.path, isolation_level=None, timeout=10)
         try:
+            # Table rebuilds must not cascade or be checked half-way (SQLite's documented ALTER TABLE procedure).
+            # Foreign keys are never enforced by this connection; operation connections enable them.
+            db.execute("PRAGMA foreign_keys=OFF")
             db.execute("BEGIN IMMEDIATE")  # serialise concurrent first opens
             version = db.execute("PRAGMA user_version").fetchone()[0]
             if version > SCHEMA_VERSION:
@@ -356,12 +368,15 @@ class Vault:
             if version == SCHEMA_VERSION:
                 db.execute("COMMIT")
                 return
-            if version != 0 or db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='claims'").fetchone():
+            has_claims = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='claims'").fetchone()
+            if version == 0 and not has_claims:
+                for statement in _statements(BASE_SCHEMA + LEGACY_SCHEMA + CLAIMS_SCHEMA):   # 0 -> 4
+                    db.execute(statement)
+            elif version != 4:
                 # Only unreleased benchmark drafts created these; refuse rather than guess.
                 raise RuntimeError("Vault was created by a pre-release claims build; export records and restore into a new vault.")
+            _rebuild_without_rowid(db)                                                          # 4 -> 5
             # One transaction: either the vault is fully at the new version or unchanged.
-            for statement in _statements(BASE_SCHEMA + LEGACY_SCHEMA + CLAIMS_SCHEMA):
-                db.execute(statement)
             db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             db.execute("COMMIT")
         except Exception:
@@ -968,6 +983,53 @@ class Vault:
         return {"imported": imported, "records_skipped": skipped_records, "claims_restored": restored,
                 "approved_claims_restored": approved, "claims_skipped_existing": existing,
                 "claims_skipped_conflict": conflicts, "claims_forgotten": forgotten}
+
+
+def _rebuild_without_rowid(db: sqlite3.Connection) -> None:
+    """Schema 4 -> 5 (ADR-0006): rebuild ROWID_FREE_TABLES WITHOUT ROWID, preserving every row and rule.
+
+    Runs inside the caller's BEGIN IMMEDIATE transaction, so any failure leaves the vault exactly at version 4.
+    Each table keeps its exact stored definition (columns, types, defaults, CHECKs, primary key, references),
+    with only `WITHOUT ROWID` appended. Trigger bodies reference several tables, so every trigger is dropped
+    before the rebuild and recreated from its stored text afterwards; indexes of rebuilt tables are recreated too.
+    The result is verified (row counts, trigger and index definitions, foreign-key findings, integrity) before
+    the caller commits. A row whose primary key is NULL (possible only in a malformed pre-claims vault) cannot
+    live in a WITHOUT ROWID table: the migration refuses rather than guess.
+    """
+    def objects(kind: str) -> dict[str, str]:
+        rows = db.execute("SELECT name, sql FROM sqlite_master WHERE type=? AND sql IS NOT NULL", (kind,))
+        return {name: sql for name, sql in rows}
+
+    def fk_findings() -> list[tuple]:
+        return sorted((row[0], row[2]) for row in db.execute("PRAGMA foreign_key_check"))
+
+    triggers, indexes, fk_before = objects("trigger"), objects("index"), fk_findings()
+    counts = {t: db.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in ROWID_FREE_TABLES}
+    for name in triggers:
+        db.execute(f'DROP TRIGGER "{name}"')
+    for table in ROWID_FREE_TABLES:
+        create = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone()[0]
+        head = f"CREATE TABLE {table} "
+        if not create.startswith(head) or not create.rstrip().endswith(")"):
+            raise RuntimeError(f"Unexpected definition of table {table}; refusing to migrate.")
+        info = db.execute(f"PRAGMA table_info({table})").fetchall()
+        columns = ", ".join(f'"{row[1]}"' for row in info)
+        for key in (row[1] for row in info if row[5]):
+            if db.execute(f'SELECT 1 FROM {table} WHERE "{key}" IS NULL LIMIT 1').fetchone():
+                raise RuntimeError(f"Table {table} holds a row with a NULL primary key ({key}); refusing to migrate. "
+                                   "Restore an export of this vault into a new vault instead.")
+        db.execute(f"CREATE TABLE {table}__v5 " + create[len(head):].rstrip() + " WITHOUT ROWID")
+        db.execute(f"INSERT INTO {table}__v5 ({columns}) SELECT {columns} FROM {table}")
+        db.execute(f"DROP TABLE {table}")
+        db.execute(f"ALTER TABLE {table}__v5 RENAME TO {table}")
+    for sql in indexes.values():
+        db.execute(sql.replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ", 1))
+    for sql in triggers.values():
+        db.execute(sql)
+    after = {t: db.execute(f"SELECT count(*) FROM {t}").fetchone()[0] for t in ROWID_FREE_TABLES}
+    if (after != counts or objects("trigger") != triggers or objects("index") != indexes
+            or fk_findings() != fk_before or db.execute("PRAGMA integrity_check").fetchone()[0] != "ok"):
+        raise RuntimeError("Schema 5 migration could not be verified; the vault was left unchanged.")
 
 
 def _statements(script: str) -> list[str]:
