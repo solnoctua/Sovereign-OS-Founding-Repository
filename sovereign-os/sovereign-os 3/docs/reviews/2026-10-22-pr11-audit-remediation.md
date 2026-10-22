@@ -70,7 +70,7 @@ Every pinned failure is behavioural except `test_f7_the_byte_budget_truncates_co
   - A SQLite progress handler caps each read at 5,000 ticks of 1,000 VM instructions. A read that would go past the cap fails closed with `ProvenanceTooLarge` (HTTP 409) and returns nothing partial. This cap exists because rows that fail eligibility, such as thousands of unverifiable links, are skipped inside the query and so cost work without counting toward the `LIMIT`.
 - **Snapshot.** The read stays in one transaction. A Forget issued during a read waits for it, and the read returns the pre-Forget graph exactly.
 
-## Results on this revision
+## Results of the remediation round
 
 The suites ran on the stacked tree: PR #10 at `f0b6539` plus this change.
 
@@ -81,6 +81,36 @@ The suites ran on the stacked tree: PR #10 at `f0b6539` plus this change.
 | `python -m evaluation.retrieval --check` | exit 0 |
 | Benchmark 0003 bundles: 56 questions × `local`, `kimi`, `openai` = 168 | byte-identical on `main`, `35c7af6` and this revision (canonical sha256 prefix `17bd68094cb87888`) |
 
+## Founder decisions carried into this PR (2026-10-22)
+
+The founder decided D-A, D-B and D-C for PR #10, which implements them. PR #10 was merged into this branch again with merge commits only, no force push:
+
+| Merge | PR #10 head |
+| --- | --- |
+| `d88208f` | `a267b6a` (D-A, D-C) |
+| `9f885d1` | `48436c9` (independent scan review fixes) |
+
+The only conflicts were in `d88208f`, in `Vault._claim` and the UI:
+
+- `_claim` now combines the evidence-set integrity with this PR's `history_limit`;
+- the UI keeps both the revalidation dialog and the provenance panel.
+
+Provenance follows D-A:
+
+- **Claim nodes** carry `integrity` beside `support` and `authoritative`.
+- **The focus panel** explains why a claim is not authoritative: `unconfirmed` (approved before schema 5, awaiting revalidation in the claims list) or `mismatch` (links differ from the committed set).
+- **Eligibility is unchanged.** An unconfirmed claim is still a recognised status, so it stays a node. It is shown as not authoritative, never hidden.
+- **Test.** `test_a_claim_made_before_schema_5_shows_as_unconfirmed_until_revalidated` (in `tests/test_provenance.py`) starts from a genuine schema-4 fixture. It checks the claim's node before and after a governed revalidation.
+
+### Results on `9f885d1`
+
+| Check | Result |
+| --- | --- |
+| `pytest -q` (full) | 739 passed |
+| `pytest -q tests/adversarial` | 616 passed. PR #10's two strict xfails are now passing regressions |
+| `python -m evaluation.retrieval --check` | exit 0 |
+| Benchmark 0003 bundles (168) | byte-identical to `main` (`17bd68094cb87888`) |
+
 ## Observed outside this PR (not changed)
 
-`GET /api/claims` and `Vault.list_claims` hydrate every listed claim's full decision history. A page of up to 200 claims therefore grows without bound as decisions accumulate. This was already on `main` before PR #11 and is not part of SB-2a. It is recorded for the founder and the reviewer, not fixed here.
+`GET /api/claims` and `Vault.list_claims` hydrate every listed claim's full decision history, so a page of up to 200 claims grows without bound as decisions accumulate. This behaviour was already on `main` before PR #11 and is not part of SB-2a. It is tracked separately as [Issue #14](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/14), not fixed here.
