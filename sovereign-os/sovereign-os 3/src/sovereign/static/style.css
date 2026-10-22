@@ -8,3 +8,4 @@
 .reval-source input{margin-top:3px;flex-shrink:0}
 .reval-source small{display:block;opacity:.75;margin-bottom:2px}
 .reval-dialog .blocked{color:#e6a9a2}
+.reval-dialog .source-label{font-size:10px;color:#9dc3ab;margin-top:14px;letter-spacing:.08em}
