@@ -474,13 +474,14 @@ class Vault:
             elif version != 4:
                 # Only unreleased benchmark drafts created these; refuse rather than guess.
                 raise RuntimeError("Vault was created by a pre-release claims build; export records and restore into a new vault.")
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='claim_evidence_sets'").fetchone():
+                raise RuntimeError("Vault reports an older schema but already holds schema 5 tables (was its user_version "
+                                   "changed?); refusing rather than guessing.")
             for statement in _statements(EVIDENCE_SETS_TABLE):   # empty: no claim made before schema 5 is committed
                 db.execute(statement)
             # Never carry forward, as a successful migration, a state no backup could restore exactly
             # (ADR-0006, F-2): refuse before any destructive DDL; the rollback leaves the vault at its version.
-            findings = self._validity_findings(db, self._export_payload(db))
-            if findings:
-                raise VaultStateInvalid(findings, "Migration to schema 5")
+            self._checked_payload(db, "Migration to schema 5")
             _rebuild_without_rowid(db)                                                          # 4 -> 5
             for statement in _statements(SCHEMA5_ADDITIONS):
                 db.execute(statement)
@@ -953,11 +954,53 @@ class Vault:
         or silently drop, so an export that succeeds is always a complete, restorable backup (ADR-0003, ADR-0006).
         """
         with self.connection() as db:
-            payload = self._export_payload(db)
-            findings = self._validity_findings(db, payload)
+            return self._checked_payload(db, "Export")
+
+    def _checked_payload(self, db: sqlite3.Connection, action: str) -> dict:
+        """This snapshot's export payload, or VaultStateInvalid if no backup could restore it exactly (ADR-0006).
+
+        SQLite's own checks run first, so a CHECK violation or a mistyped value is found before any row is
+        decoded. Text that is not valid UTF-8, and any other failure while building the payload, is a finding
+        too. Every refusal names classes and counts only and is raised without its cause, so no row content
+        reaches a message, a traceback or a log (D-B).
+        """
+        findings = self._structural_findings(db)
+        if not findings:
+            try:
+                payload = self._export_payload(db)
+            except (sqlite3.Error, TypeError, ValueError, KeyError):
+                findings = {"unreadable_rows": self._undecodable_text(db) or 1}
+            else:
+                findings = self._validity_findings(db, payload)
         if findings:
-            raise VaultStateInvalid(findings, "Export")
+            raise VaultStateInvalid(findings, action) from None
         return payload
+
+    @staticmethod
+    def _structural_findings(db: sqlite3.Connection) -> dict[str, int]:
+        """SQLite structure and every NOT NULL and CHECK constraint (`integrity_check`, which also catches rows an
+        ordinary connection wrote with `PRAGMA ignore_check_constraints`), and rows orphaned from their claim."""
+        findings = {"integrity_check": sum(1 for row in db.execute("PRAGMA integrity_check") if row[0] != "ok"),
+                    "orphaned_rows": len(db.execute("PRAGMA foreign_key_check").fetchall())}
+        return {kind: count for kind, count in findings.items() if count}
+
+    @staticmethod
+    def _undecodable_text(db: sqlite3.Connection) -> int:
+        """Text values that are not valid UTF-8, counted as bytes so that none is ever decoded into a message."""
+        tables = [r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")]
+        columns = {t: [r[1] for r in db.execute(f'PRAGMA table_info("{t}")')] for t in tables}
+        previous, db.text_factory, bad = db.text_factory, bytes, 0
+        try:
+            for table, names in columns.items():
+                for name in names:
+                    for (value,) in db.execute(f'SELECT "{name}" FROM "{table}" WHERE typeof("{name}") = \'text\''):
+                        try:
+                            value.decode("utf-8")
+                        except UnicodeDecodeError:
+                            bad += 1
+        finally:
+            db.text_factory = previous
+        return bad
 
     def _export_payload(self, db: sqlite3.Connection) -> dict:
         keys = ("id", "text", "origin", "status", "created_at", "supersedes_id", "source_ids", "source_hashes", "history",
@@ -974,10 +1017,7 @@ class Vault:
     def _validity_findings(self, db: sqlite3.Connection, payload: dict) -> dict[str, int]:
         """Canonical states no backup could restore exactly, by class and count; empty for a valid vault.
 
-        Checked in the caller's snapshot (ADR-0006, F-2 to F-4):
-        - `integrity_check`: SQLite structure and every NOT NULL and CHECK constraint, which also catches rows
-          an ordinary connection wrote with `PRAGMA ignore_check_constraints`;
-        - rows orphaned from their claim (`foreign_key_check`), which an export would silently drop;
+        Checked in the caller's snapshot (ADR-0006, F-2 to F-4), after `_structural_findings` found nothing:
         - forgotten identities still present or still cited, which a restore would drop;
         - claims with a decision history but no evidence link, which a restore rejects;
         - embedded NUL in current canonical text (D-C): schema 5 storage refuses it, so a schema 4 vault holding it
@@ -987,6 +1027,8 @@ class Vault:
           SQLite's `length()` stops counting at an embedded NUL (in a legacy record) is caught here.
 
         Findings are classes and counts only: no ids or content, so the refusal message discloses nothing more.
+        `not_restorable` counts 1 for the first failure `_parse` meets; it is a lower bound, as is
+        `integrity_check`, which SQLite stops reporting after 100 problems.
         """
         findings: dict[str, int] = {}
 
@@ -997,8 +1039,6 @@ class Vault:
         def count(sql: str) -> int:
             return db.execute(sql).fetchone()[0]
 
-        note("integrity_check", sum(1 for row in db.execute("PRAGMA integrity_check") if row[0] != "ok"))
-        note("orphaned_rows", len(db.execute("PRAGMA foreign_key_check").fetchall()))
         note("forgotten_record_present", count("SELECT count(*) FROM records WHERE id IN (SELECT id FROM tombstones)"))
         note("forgotten_claim_present", count("SELECT count(*) FROM claims WHERE id IN (SELECT id FROM claim_tombstones)"))
         note("link_to_forgotten_record",
