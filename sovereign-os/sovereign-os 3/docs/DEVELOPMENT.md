@@ -76,9 +76,17 @@ A coding agent with shell and repository write access can edit `store.py`, `cont
 
 Agents never receive the personal vault path; development knowledge lives in Git and, once Builder 1 exists, in a separate development vault file.
 
-### Decisions requested from the founder (F-10)
+### Founder decisions (2026-10-22, F-10)
 
-No setting has been changed. Each option below is exact. The recommended default is listed first.
+- **D-E: approved (E1).** Required CI jobs must execute on draft PRs and on exact reviewed commits; a skipped job is not evidence that tests ran.
+  - **Implemented in this PR:** both jobs in `.github/workflows/sovereign-ci.yml` lost their `if:` condition.
+  - **When it takes effect:** a `pull_request` run uses the workflow file of the PR's merge commit. Until this PR is on `main`, other PRs' draft heads still report `skipped`; a `workflow_dispatch` run on a branch executes both jobs on its exact head.
+  - **What the checks test:** `pull_request` CI tests the merge commit. Because the ruleset requires branches to be up to date with `main`, at merge time that merge commit has the same tree as the reviewed head.
+- **D-F: approved in principle.** Separate the coding agents' GitHub identity and credentials from the founder's account, and enforce human and Code Owner review through effective rulesets.
+  - **Prepared, not applied:** the founder's ordered steps, an exact ruleset body (`docs/engineering/main-ruleset.proposed.json`) and verification commands are in `docs/engineering/GITHUB-GOVERNANCE-SETUP.md`.
+  - **Who acts:** no agent has changed an account, a permission or a setting. Until the founder applies those steps, the review gaps listed above remain.
+
+The options as presented before the decisions:
 
 **D-E. Required checks that never ran.**
 

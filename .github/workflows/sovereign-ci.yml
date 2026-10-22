@@ -12,10 +12,12 @@ concurrency:
   group: sovereign-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# Founder decision D-E (2026-10-22): both required jobs run on every pull request event, drafts included, and on
+# manual dispatch for an exact branch head. Neither job has an `if:` condition, because GitHub counts a skipped
+# required check as passing; a skipped job must never stand in for an executed test run.
 jobs:
   full-test-suite:
     name: full-test-suite
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
 
     defaults:
@@ -56,7 +58,6 @@ jobs:
 
   memory-adversarial:
     name: memory-adversarial
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
 
     defaults:
