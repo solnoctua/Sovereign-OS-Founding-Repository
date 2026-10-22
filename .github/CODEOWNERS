@@ -1,0 +1,28 @@
+# Sovereign: paths whose changes require founder review before merge.
+# This file is advisory: the main ruleset does not require code-owner review (verified 2026-10-22).
+# Enabling it needs a reviewer identity other than the PR author, because GitHub does not let an
+# author approve their own PR (docs/DEVELOPMENT.md, "Containment", decision D-F).
+# It does not contain anything by itself.
+
+# Enforcement Kernel K1 / K2 and the HTTP boundary
+/sovereign-os/sovereign-os\ 3/src/sovereign/store.py        @solnoctua
+/sovereign-os/sovereign-os\ 3/src/sovereign/claims.py       @solnoctua
+/sovereign-os/sovereign-os\ 3/src/sovereign/context.py      @solnoctua
+/sovereign-os/sovereign-os\ 3/src/sovereign/app.py          @solnoctua
+/sovereign-os/sovereign-os\ 3/src/sovereign/providers.py    @solnoctua
+
+# Governance and security documents
+/sovereign-os/sovereign-os\ 3/CONSTITUTION.md               @solnoctua
+/sovereign-os/sovereign-os\ 3/ARCHITECTURE.md               @solnoctua
+/sovereign-os/sovereign-os\ 3/AGENTS.md                     @solnoctua
+/sovereign-os/sovereign-os\ 3/docs/adr/                     @solnoctua
+/sovereign-os/sovereign-os\ 3/docs/SECURITY-GATE.md         @solnoctua
+/sovereign-os/sovereign-os\ 3/docs/FOUNDER-DECISIONS.md     @solnoctua
+/sovereign-os/sovereign-os\ 3/docs/architecture/            @solnoctua
+/sovereign-os/sovereign-os\ 3/tests/adversarial/            @solnoctua
+/sovereign-os/sovereign-os\ 3/tests/test_policy_invariants.py @solnoctua
+
+# Repository automation
+/.github/                                                   @solnoctua
+/AGENTS.md                                                  @solnoctua
+/CLAUDE.md                                                  @solnoctua
