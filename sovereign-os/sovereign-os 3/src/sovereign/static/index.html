@@ -70,6 +70,10 @@
       </div>
     </main>
   </div>
+  <dialog id="prov-dialog" class="prov-dialog" aria-labelledby="prov-title"><div class="panel-header"><div><span class="eyebrow">PROVENANCE</span><h2 id="prov-title">What Sovereign believes, why, and what changed</h2></div><button type="button" class="secondary" id="prov-close">Close</button></div>
+    <p class="micro">Computed now from links Sovereign stores: evidence a claim cites, corrections, and supersessions. It is a view for you only; it never changes what a model may see.</p>
+    <label class="field-inline prov-depth" for="prov-hops">Links shown <select id="prov-hops"><option value="1">1 step away</option><option value="2">2 steps away</option></select></label>
+    <div id="prov-body" class="prov-body" aria-live="polite"></div></dialog>
   <dialog id="edit-dialog"><form method="dialog" id="edit-form"><h2>Correct source record</h2><p>This creates a new active revision; the prior version remains local history until deletion.</p><textarea id="edit-text" rows="5" required maxlength="10000"></textarea><div class="dialog-footer"><button type="button" class="secondary" id="cancel-edit">Cancel</button><button type="submit" class="primary">Save correction</button></div></form></dialog>
 </body>
 </html>
