@@ -44,7 +44,7 @@ This section was written before the Issue #6 repair; PR #10 updated its first tw
 
 - **Issue #6 (hidden-rowid replacement):** reproduced on 2026-10-22 against `eeed753`; repaired by schema 5 (ADR-0006, PR #10), including ADR-0003's storage-contract sentence on coverage "with or without `recursive_triggers`", which is now true.
 - **Zero-source authority:** `claims.support_of([])` is `orphaned` since PR #10, and authority also requires a committed evidence set. The founder-accepted invariant holds: *a MemoryClaim with missing, invalid, corrupted or insufficiently verified required evidence is never authoritative.*
-- **D15 (lineage sensitivity):** still deferred; a Tier 2 policy proposal evaluating transitive lineage, forgotten predecessors, legacy restore, fingerprint invalidation and a deliberate human declassification path is scheduled after the storage repair (ROADMAP §H). Current behaviour is unchanged and not certified safe for real private data.
+- **D15 (lineage sensitivity):** still deferred; the Tier 2 policy proposal is [ADR-0007](adr/0007-lineage-sensitivity.md) (PROPOSED, not ratified, not implemented; PR #13). Current behaviour is unchanged and not certified safe for real private data.
 - **Enforcement claims:** `ARCHITECTURE.md` §14 now states, per mechanism, what K1 and K2 resist and do not resist. SQLite triggers are an integrity mechanism against connections, not a security boundary against processes; the single egress call site is a correctness property of one process, not isolation.
 
 ### Usage thresholds (labels, not permissions)
