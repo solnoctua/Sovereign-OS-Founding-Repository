@@ -1,0 +1,167 @@
+# Sovereign operational systems registry.
+#
+# Machine-readable record of components that actually exist or are approved for
+# implementation, validated by tests/test_systems_registry.py. Aspirational
+# integrations live in docs/research/INTEGRATION-RESEARCH-CATALOG.md, not here.
+# Registry metadata records boundaries; it does not enforce them.
+#
+# status: implemented | approved | evaluating | deferred | rejected
+# trust_class: authority-core | trusted-service | restricted | external
+# personal_data: none | metadata | content
+# canonical_write: true only for authority-core components that write the vault.
+
+schema_version = 1
+updated = 2026-10-22
+
+[[system]]
+id = "canonical-store"
+role = "K1: canonical personal state, lifecycle transitions, tombstones, Forget, export/restore, migration"
+status = "implemented"
+trust_class = "authority-core"
+canonical_write = true
+personal_data = "content"
+credentials = "none"
+egress = "none"
+persistent_state = "vault SQLite file (SOVEREIGN_DB_PATH; default ./data/sovereign.db)"
+upstream = "native: src/sovereign/store.py on stdlib sqlite3"
+version_or_commit = "schema user_version 4 (5 proposed in WP-2, unmerged)"
+license = "project"
+boundary = "Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Hidden-rowid REPLACE bypass open (Issue #6)."
+exit_test = "export -> restore into a fresh vault round-trips (tests/test_memory_claims.py, tests/adversarial)"
+documentation = "docs/adr/0003-memory-claim-authority.md; ARCHITECTURE.md #14"
+
+[[system]]
+id = "memory-claim-governance"
+role = "K1: MemoryClaim lifecycle rules compiled into storage triggers; support and authority derived on read"
+status = "implemented"
+trust_class = "authority-core"
+canonical_write = true
+personal_data = "content"
+credentials = "none"
+egress = "none"
+persistent_state = "same vault file (claims, claim_sources, claim_events, claim_tombstones)"
+upstream = "native: src/sovereign/claims.py"
+version_or_commit = "ADR-0003 as merged (4fbecbe lineage)"
+license = "project"
+boundary = "Same as canonical-store. Known gap: support_of([]) returns supported (fix in WP-2, unmerged)."
+exit_test = "drop the four claim tables and triggers per ADR-0003 reversal; ADR-0002 rows unchanged"
+documentation = "docs/adr/0003-memory-claim-authority.md"
+
+[[system]]
+id = "context-compiler"
+role = "K2: deterministic retrieval, authority and sensitivity policy, exact-plan token, prompt rendering"
+status = "implemented"
+trust_class = "authority-core"
+canonical_write = false
+personal_data = "content"
+credentials = "none"
+egress = "none (rendering only; egress is the provider adapter)"
+persistent_state = "none (bundles, receipts and tokens are never persisted)"
+upstream = "native: src/sovereign/context.py"
+version_or_commit = "policy_version sovereign.context.v0"
+license = "project"
+boundary = "Token recomputed at execution; resists stale or forged tokens and relevant-universe changes. Does not resist in-process code opening sockets or unauthenticated local clients. D15 lineage sensitivity deferred."
+exit_test = "remove context.py and the compile endpoint; ADR-0003 /api/ask behaviour returns (ADR-0004 reversal)"
+documentation = "docs/adr/0004-governed-retrieval-context-compiler.md"
+
+[[system]]
+id = "model-provider-adapter"
+role = "Model transport for Kimi/Moonshot and OpenAI chat completions; receives rendered messages only"
+status = "implemented"
+trust_class = "restricted"
+canonical_write = false
+personal_data = "content (approved bundle messages only)"
+credentials = "one provider API key and model id from environment variables"
+egress = "https://api.moonshot.ai/v1, https://api.openai.com/v1 (per request, after approval)"
+persistent_state = "none"
+upstream = "openai Python SDK >=1.90,<3 via src/sovereign/providers.py"
+version_or_commit = "pyproject.toml pin"
+license = "Apache-2.0 (openai SDK)"
+boundary = "No vault access; the only network call site for personal content (checked by tests/test_policy_invariants.py in WP-1). Runs in the kernel process: a correctness property, not isolation."
+exit_test = "swap provider; vault and policy unchanged (tests use a recording mock provider)"
+documentation = "docs/adr/0004-governed-retrieval-context-compiler.md; README.md"
+
+[[system]]
+id = "browser-ui"
+role = "Local browser interface: capture, library, claims, preview and ask"
+status = "implemented"
+trust_class = "trusted-service"
+canonical_write = false
+personal_data = "content (display)"
+credentials = "none"
+egress = "none (same-origin requests to the loopback server)"
+persistent_state = "none"
+upstream = "native: src/sovereign/static/*"
+version_or_commit = "main"
+license = "project"
+boundary = "Unauthenticated; any local client can issue the same requests. Loopback and Origin checks are not authentication."
+exit_test = "API remains usable without the UI"
+documentation = "README.md; ARCHITECTURE.md #12"
+
+[[system]]
+id = "retrieval-evaluation"
+role = "Benchmark 0003 harness: synthetic corpus, queries, retriever experiments (evaluation only, never imported by src/)"
+status = "implemented"
+trust_class = "trusted-service"
+canonical_write = false
+personal_data = "none (synthetic)"
+credentials = "none"
+egress = "none"
+persistent_state = "evaluation/retrieval/results.json, report.md (committed artifacts)"
+upstream = "native: evaluation/retrieval/"
+version_or_commit = "eeed753 (PR #4 merged 2026-10-22)"
+license = "project"
+boundary = "No production effect; results must match code (tests/test_retrieval_evaluation.py)"
+exit_test = "delete evaluation/; application unchanged"
+documentation = "docs/benchmarks/0003-retrieval-evaluation.md"
+
+[[system]]
+id = "sb2a-provenance-navigation"
+role = "Derived, computed-on-read provenance neighborhood (SUPPORTED_BY, CORRECTS, SUPERSEDES) for local navigation"
+status = "approved"
+trust_class = "trusted-service"
+canonical_write = false
+personal_data = "content (display)"
+credentials = "none"
+egress = "none"
+persistent_state = "none (computed on read)"
+upstream = "native (WP-3 draft PR)"
+version_or_commit = "unmerged"
+license = "project"
+boundary = "Never feeds the Context Compiler; tokens identical with and without it (validation spec #3)"
+exit_test = "remove the module and endpoint; compiler tokens unchanged"
+documentation = "docs/adr/0005-governed-second-brain-architecture.md #8.1; docs/second-brain/SECOND-BRAIN-VALIDATION.md #3"
+
+[[system]]
+id = "builder-0-workflow"
+role = "Development discipline: loop, review tiers, reviewer-owned findings, CODEOWNERS, policy tests"
+status = "approved"
+trust_class = "external"
+canonical_write = false
+personal_data = "none (must never receive the personal vault path)"
+credentials = "repository and shell access of the coding agents (outside Sovereign)"
+egress = "whatever the external coding agents use (outside Sovereign)"
+persistent_state = "Git; reviewer findings artifacts; optional development vault (separate file)"
+upstream = "docs/DEVELOPMENT.md (WP-1 draft PR); methods adapted from Ponytail (MIT), Compound Engineering (MIT), Cloudflare security-audit-skill (MIT) as text"
+version_or_commit = "unmerged"
+license = "project; attributions in docs/engineering/MINIMIZE.md and FINDINGS-FORMAT.md"
+boundary = "Contained by GitHub branch protection and founder review, not by Sovereign code"
+exit_test = "delete the documents; code unchanged"
+documentation = "docs/DEVELOPMENT.md; docs/engineering/BUILD-AND-INTEGRATION-PLAN.md #5.2, #7"
+
+[[system]]
+id = "k3-action-gate"
+role = "K3: capability grants, credential isolation, receipts for external actions"
+status = "deferred"
+trust_class = "authority-core"
+canonical_write = true
+personal_data = "metadata"
+credentials = "all external credentials (planned broker process)"
+egress = "per grant"
+persistent_state = "grants and receipts in the vault (planned)"
+upstream = "not built"
+version_or_commit = "none"
+license = "project"
+boundary = "Not implemented; represented so that nothing is falsely marked enforced"
+exit_test = "n/a"
+documentation = "ARCHITECTURE.md #14.2"

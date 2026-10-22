@@ -227,7 +227,7 @@ See [`OPEN-QUESTIONS.md`](OPEN-QUESTIONS.md). No architecture preference becomes
 
 ---
 
-## 9. Founding implementation — vertical slice, October 18, 2026
+## 12. Founding implementation — vertical slice, October 18, 2026
 
 This section describes a **replaceable prototype**, not a locked architecture or a claim of ratified governance. For details see [ADR-0002](docs/adr/0002-first-vertical-slice.md) and [Security Gate](docs/SECURITY-GATE.md).
 
@@ -255,14 +255,71 @@ The service exposes `/api/memories` (create/list/search), `/api/memories/{id}/co
 
 The next milestone is a trusted **memory authority/permissions layer** and real-data security gate, followed by a human-value workflow. The implementation layer may be discarded without changing the Constitution.
 
-## 12. Governed second-brain extension — proposed
+## 13. Governed second-brain extension — approved direction (ADR-0005), not implemented
 
 [ADR-0005](docs/adr/0005-governed-second-brain-architecture.md) defines a future **Level 3–4 knowledge architecture** without replacing the six core domains or changing their authority boundaries. The levels are complementary: **L1** structured files/routing, **L2** linked wiki/backlinks, **L3** semantic/hybrid retrieval, **L4** source-backed typed knowledge/provenance graph, **L5** always-on/scheduled intelligence (deferred). For exact definitions, decision rules, risks and Obsidian constraints see [the detailed guide](docs/second-brain/LEVELS-AND-OBSIDIAN.md).
 
 Canonical records, MemoryClaims with their decision history, correction/Forget and governance remain the durable state. Deterministic wiki/index pages, full-text and vector indexes, the provenance graph and Obsidian notes are **derived, regenerable projections** (an Obsidian export is regenerated from current state; an earlier snapshot is not rebuilt). Model-proposed relationships or summaries are not projections: if kept, they are `proposed` MemoryClaims, and a typed relationship is a MemoryClaim with a structured form rather than a new lifecycle (ADR-0005 §3). Derived in-vault structure (the provenance graph, any future index) may yield only candidate IDs for hydration by the single Context Compiler and cannot grant authority or disclosure; rendered projections such as Obsidian notes are output-only and never feed retrieval or the compiler.
 
-Adopting semantic or graph retrieval is a **Context Compiler policy change**, not a plug-in: the V0 relevance gate is lexical, ADR-0004 keeps provenance-only claims out of context, and the exact-plan token binds the complete relevant candidate universe, which must not be weakened for convenience. Each such change needs a new `policy_version`, adversarial tests and founder approval (ADR-0005 §6). The retrieval evaluation is Benchmark 0003, executed in PR #4 (evaluation only, not yet merged). By founder direction, production retrieval stays the merged lexical retriever: no experimental retriever is approved, Porter normalization and the exact-stem tie-break are evaluated candidates only, and weighted ranking and embeddings are deferred (ADR-0005 §12).
+Adopting semantic or graph retrieval is a **Context Compiler policy change**, not a plug-in: the V0 relevance gate is lexical, ADR-0004 keeps provenance-only claims out of context, and the exact-plan token binds the complete relevant candidate universe, which must not be weakened for convenience. Each such change needs a new `policy_version`, adversarial tests and founder approval (ADR-0005 §6). The retrieval evaluation is Benchmark 0003, executed in PR #4 and merged to `main` on 2026-10-22 as evaluation infrastructure only. By founder direction, production retrieval stays the merged lexical retriever: no experimental retriever is approved, Porter normalization and the exact-stem tie-break are evaluated candidates only, and weighted ranking and embeddings are deferred (ADR-0005 §12).
 
 A first **read-only provenance graph**, computed on read, shows source-to-claim, revision and supersession links for local navigation; it never makes linked items relevant for model context. The user must be able to inspect it in **Obsidian** through an optional, one-way **snapshot export**: on request, Sovereign reads one authorized snapshot and produces a ZIP or a new folder of Markdown notes with `[[wikilinks]]`, renders all record and claim text inert, links only items inside the authorized scope, and verifies the result before offering it. An export is labeled with its snapshot time and is not kept in sync: forgetting something in Sovereign does not erase exports already made, and Sovereign says so. Its Graph view has untyped lines, so predicates, evidence and time stay in the notes. Project and concept hubs need **human-declared organization**, which the canonical schema does not yet have; a later **typed domain graph** needs time-aware structured claims.
 
 Do not turn this proposed direction into background agents, new persistent schemas, uploads, cloud embeddings or model-driven memory changes without separate review. The main kernel's action/cognitive/security roadmap remains intact; test requirements for the graph and the export are in the [second-brain validation spec](docs/second-brain/SECOND-BRAIN-VALIDATION.md).
+
+## 14. Governance Architecture and Enforcement Kernel (consolidated 2026-10-22)
+
+This section records the separation the founder ratified on 2026-10-22 after two independent architecture reviews. It distinguishes **what must remain true** (governance) from **what the running system can demonstrably enforce today** (the Enforcement Kernel), and states for each mechanism the attacker capability it actually resists. Nothing here amends ADR-0003, ADR-0004 or ADR-0005; it describes their implemented mechanisms and names the gaps.
+
+### 14.1 Sovereign Governance Architecture (requirements, not controls)
+
+Human authority; epistemic integrity; personal-state governance; correction and Forget; identity and authentication; privacy and disclosure; explicit permissions; external-action accountability; recovery and portability; model independence; constitutional amendment procedure; safeguards for increasingly capable intelligence. These are governance requirements drawn from the Constitution candidate (Arts. I–X) and are **not automatically implemented controls**. A requirement with no mechanism below is a known gap, listed in `docs/SECURITY-GATE.md`.
+
+### 14.2 Sovereign Enforcement Kernel: K1, K2, K3
+
+```text
+Human authority and approved governance (Constitution candidate, ADRs, founder decisions)
+                    |
+                    v
+          Sovereign Enforcement:  K1 canonical store  ·  K2 governed context and disclosure  ·  K3 action gate (future)
+                    |
+          Governed typed contracts (export format, ContextBundle, provider messages, future channel/action envelopes)
+                    |
+   Intelligence (local/cloud models) · workflows · channels · interfaces · integrations   ← replaceable, no authority
+                    |
+          Host OS and hardware (file ACLs, FileVault, Keychain, process isolation)        ← the only real isolation
+```
+
+| Mechanism | Status | Owns | Enforced by | Resists today (verified) | Does **not** resist (stated honestly) |
+| --- | --- | --- | --- | --- | --- |
+| **K1 Canonical store and state authority** | Implemented (ADR-0003); integrity repair in progress (Issue #6) | Evidence records, MemoryClaims, legal transitions, derived support, supersession, tombstones, Forget, export/restore integrity, schema migration integrity | SQLite schema, CHECK constraints, triggers, `claims.py` rules, `store.py` transactions | Any SQLite connection issuing ordinary DML, including primary-key `REPLACE`; out-of-order lifecycle; resurrection through import; concurrent conflicting decisions | **Hidden-rowid `REPLACE`/`UPDATE OR REPLACE` on default pragmas (Issue #6, open)**; any process that can rewrite the vault file or schema (`DROP TRIGGER`, direct edits); a claim stripped of all evidence links deriving as supported (`support_of([])`, open) |
+| **K2 Governed context and disclosure** | Implemented (ADR-0004) | Context compilation, retrieval eligibility, evidence/authority roles, sensitivity policy, exact-plan fingerprint, human disclosure approval, rendering, provider egress | `context.py` policy, `app.py` token verification at execution, `providers.py` with no vault access | A client sending a stale, forged or cross-question token; any change to the relevant candidate universe between preview and execution; model output influencing state (inert) | Any code in the same Python process opening a socket (the single egress call site is a correctness property, not isolation); any local client calling the unauthenticated API (export, restore, approve); lineage sensitivity (D15, deferred) |
+| **K3 Action and capability gate** | **Not implemented; represented only** | Principal identity, scoped grants, resource/operation limits, revocation, credential isolation, side-effect authorization, idempotency, receipts, verified outcomes | Nothing yet. Planned: a separate broker process holding all external credentials and issuing per-run scoped tokens | Nothing (no external actions exist; model output is inert and drafting is not action) | Everything; no capability broker is built, and none should be until a real authorized external action is designed (ROADMAP §H) |
+| **Host OS** | Available, not yet configured by Sovereign | Process and file isolation, disk encryption, key custody | macOS/Linux user accounts, file ACLs, FileVault, Keychain, sandboxing | Other users' processes once ACLs are set; disk theft with FileVault | Malware running as the owner's user; a compromised browser; anything with the vault file |
+
+**Enforcement rules that follow from the table**
+
+1. Only K1 code (`store.py`) writes canonical state; every other component reads through its API or receives rendered context.
+2. Only K2's provider adapter performs network egress for personal content, and it receives rendered messages only. Any second network-capable component (local model runtime, channel runtime, workflow engine, automation tool) runs **out of process**, without the vault file, and reaches Sovereign through a narrow contract.
+3. A future plugin cannot bypass authority if, and only if, it runs outside the kernel process and without the vault file. Isolation is provided by the host OS, not by Python.
+4. "Local" is a location, not a security level. Loopback is not authentication; a loopback model endpoint is not proof of offline operation until the runtime's complete network behaviour is verified.
+5. Claims of enforcement must state attacker and trust assumptions. The Security Gate remains **NOT PASSED**.
+
+### 14.3 State classes and ownership
+
+| Class | Lives in | Owner | Forget reach | Examples |
+| --- | --- | --- | --- | --- |
+| Canonical personal state | vault database (K1) | human via K1 | full | records, claims, events, tombstones; future grants and receipts |
+| Project authority | Git, accepted ADRs, approved documents, issues, founder decisions | human | n/a | this file, `docs/adr/`, `docs/FOUNDER-DECISIONS.md` |
+| Derived, rebuildable | inside the vault database or memory | Sovereign code | same transaction | provenance graph (SB-2a), any future index |
+| Temporary | memory or scratch | request | never persisted | ContextBundle, tokens, future workflow checkpoints |
+| Runtime cache (untrusted) | the runtime's own directory | the runtime | not reachable; disclosed | future channel/agent/automation state |
+| Exported | user-held files | user | disclosed as unreachable | Obsidian snapshot (SB-2b), backups |
+| External service state | provider | provider | receipts only | model-provider retention, mail, calendar |
+| Secrets | OS keychain or environment, never Git | owner | n/a | provider API keys |
+
+Development knowledge (Builder) is a **separate vault instance** of the same K1 code on a different file: project authority stays in Git; the development vault holds governed working knowledge that references Git and never contains personal data (`docs/engineering/BUILD-AND-INTEGRATION-PLAN.md` §6).
+
+## 15. Long-term research directions (not implementation requirements)
+
+Deeper OS and device-native integration; encrypted multi-device state and sync with tested revocation; secure offline and online agents behind K3; richer personal knowledge representations (temporal claims, typed relations as MemoryClaims, human-declared organization); governed workflow engines; proof-carrying action plans; stronger sandboxing of runtimes; continuously verified improvement of Sovereign by Sovereign (Builder 2 and beyond); and Sovereign-native model research (founder decision D5: a formal track, no training infrastructure now). A future model may be trained to understand that evidence ≠ belief, belief ≠ permission, relevance ≠ disclosure, ability ≠ authority, plan ≠ execution, attempt ≠ verified success and persistence ≠ truth; those learned behaviours never replace external enforcement, and native origin confers no authority (see `docs/CONSTITUTIONAL-AMENDMENT-CANDIDATES.md`, NOT RATIFIED).
