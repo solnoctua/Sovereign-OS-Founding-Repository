@@ -167,17 +167,18 @@ documentation = "docs/adr/0005-governed-second-brain-architecture.md #8.1; docs/
 [[system]]
 id = "builder-0-workflow"
 role = "Development discipline: loop, review tiers, reviewer-owned findings, CODEOWNERS, policy tests"
-status = "approved"
+status = "implemented"
 trust_class = "external"
 canonical_write = false
 personal_data = "none (must never receive the personal vault path)"
 credentials = "repository and shell access of the coding agents (outside Sovereign)"
 egress = "whatever the external coding agents use (outside Sovereign)"
 persistent_state = "Git; reviewer findings artifacts; optional development vault (separate file)"
-upstream = "docs/DEVELOPMENT.md (WP-1 draft PR); methods adapted from Ponytail (MIT), Compound Engineering (MIT), Cloudflare security-audit-skill (MIT) as text"
-version_or_commit = "unmerged"
+upstream = "docs/DEVELOPMENT.md (WP-1, PR #9); methods adapted from Ponytail (MIT), Compound Engineering (MIT), Cloudflare security-audit-skill (MIT) as text"
+code = ["tests/test_policy_invariants.py", "docs/engineering/FINDINGS-FORMAT.md"]
+version_or_commit = "PR #9"
 license = "project; attributions in docs/engineering/MINIMIZE.md and FINDINGS-FORMAT.md"
-boundary = "Contained by the GitHub ruleset on main (pull request, required CI, no force-push or deletion) and founder review, not by Sovereign code. Approving reviews and code-owner review are not enforced (DEVELOPMENT.md)."
+boundary = "Contained by the GitHub ruleset on main (pull request, required CI, no force-push or deletion) and founder review, not by Sovereign code. Approving reviews and code-owner review are not enforced until the founder applies D-F (GITHUB-GOVERNANCE-SETUP.md); required jobs run on drafts (D-E)."
 exit_test = "delete the documents; code unchanged"
 documentation = "docs/DEVELOPMENT.md; docs/engineering/BUILD-AND-INTEGRATION-PLAN.md #5.2, #7"
 
