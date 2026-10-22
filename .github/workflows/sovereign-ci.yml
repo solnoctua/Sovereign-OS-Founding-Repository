@@ -35,6 +35,10 @@ jobs:
           cache: pip
           cache-dependency-path: "sovereign-os/sovereign-os 3/pyproject.toml"
 
+      - name: Reject tracked runtime data and credentials
+        working-directory: .
+        run: python "sovereign-os/sovereign-os 3/scripts/check_repository_hygiene.py"
+
       - name: Install Sovereign
         run: |
           python -m pip install --upgrade pip
