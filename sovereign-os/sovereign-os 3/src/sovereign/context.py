@@ -26,8 +26,11 @@ POLICY_VERSION = "sovereign.context.v0"
 
 # Exclusion reasons in precedence order: an excluded candidate's `reason` is the first that applies.
 # Forgotten data has no reason code because it is never a candidate: Forget removes it, and a pinned
-# id that was forgotten makes the request invalid (PinnedSourceForgotten).
-REASONS = ("superseded", "rejected", "contested", "not_authoritative", "stale", "orphaned",
+# id that was forgotten makes the request invalid (PinnedSourceForgotten). `invalid_state` is fail-closed
+# positive validation (ADR-0006, F-3): a source record is usable only in a state the storage CHECK set
+# allows, so a record written in any other state by a connection that disabled CHECKs never enters context.
+# It changes no decision, token or bundle for any state a CHECK-respecting writer can produce.
+REASONS = ("invalid_state", "superseded", "rejected", "contested", "not_authoritative", "stale", "orphaned",
            "sensitive_cloud", "not_relevant", "duplicate", "budget_exceeded")
 _STATUS_REASON = {"rejected": "rejected", "superseded": "superseded", "contested": "contested",
                   "proposed": "not_authoritative"}
@@ -224,9 +227,10 @@ class ContextBundle:
 # --- Policy -------------------------------------------------------------------------------------
 
 def inherited_sensitivity(sources: list[dict]) -> str:
-    """A claim is as sensitive as its most sensitive current evidence. Missing or unverified
-    evidence (or none) counts as sensitive: what cannot be checked is never treated as private."""
-    if not sources or any(s["state"] in ("missing", "unverified") or s["sensitivity"] != "private" for s in sources):
+    """A claim is as sensitive as its most sensitive current evidence. Positive validation: it is `private`
+    only if it has evidence and every source is present, hash-verified (`active` or `superseded`) and
+    `private`; missing, unverified or unknown-state evidence (or none) counts as sensitive."""
+    if not sources or any(s["state"] not in rules.VERIFIED_STATES or s["sensitivity"] != "private" for s in sources):
         return "sensitive"
     return "private"
 
@@ -259,6 +263,8 @@ def _reasons(c: RetrievalCandidate, boundary: str, policy: ContextPolicy) -> tup
     if c.type == "source":
         if c.status == "superseded":
             reasons.add("superseded")
+        elif c.status != "active":
+            reasons.add("invalid_state")       # positive validation: only active evidence may be used
     else:
         if c.status in _STATUS_REASON:
             reasons.add(_STATUS_REASON[c.status])

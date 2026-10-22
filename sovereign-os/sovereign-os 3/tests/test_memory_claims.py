@@ -314,7 +314,7 @@ def test_existing_vault_migrates_without_touching_evidence(tmp_path):
                                       db.execute("SELECT * FROM tombstones").fetchall()); db.close()
     vault=Vault(path)
     db=sqlite3.connect(path)
-    assert db.execute("PRAGMA user_version").fetchone()[0]==SCHEMA_VERSION==4
+    assert db.execute("PRAGMA user_version").fetchone()[0]==SCHEMA_VERSION==5
     assert (db.execute(f"SELECT {columns} FROM records ORDER BY id").fetchall(),db.execute("SELECT * FROM tombstones").fetchall())==before
     assert db.execute("SELECT DISTINCT legacy FROM records").fetchall()==[(1,)]   # pre-claims rows are flagged legacy
     db.close()
