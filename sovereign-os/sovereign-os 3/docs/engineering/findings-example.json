@@ -1,0 +1,26 @@
+{
+  "reviewer": "example reviewer (independent session)",
+  "date": "2026-10-22",
+  "subject": "example: WP-2 storage-integrity repair",
+  "base_commit": "eeed753311382047fb2042515a5d2d0f68e94b04",
+  "head_commit": "<pr head>",
+  "scope": "store.py schema 5 migration, claims.support_of, adversarial rowid tests",
+  "verdict": "INCOMPLETE",
+  "findings": [
+    {
+      "id": "F-1",
+      "severity": "P1",
+      "title": "Example: migration must drop all triggers before table rebuild",
+      "summary": "Cross-table trigger bodies reference the table being renamed; without dropping triggers first, RENAME fails and the transaction rolls back.",
+      "evidence": ["store.py:_migrate", "sqlite3.OperationalError: error in trigger tombstones_forget: no such table: main.records (reviewer prototype, 2026-10-22)"],
+      "reproduction": "Create a v4 vault, run the rebuild without dropping triggers: OperationalError.",
+      "confidence": "confirmed",
+      "status": "fixed",
+      "builder_response": [
+        {"date": "2026-10-22", "kind": "reproduced", "note": "Reproduced on a disposable vault.", "commit": "<sha>"},
+        {"date": "2026-10-22", "kind": "fixed", "note": "Migration drops every trigger first and recreates all of them; test asserts trigger count equality.", "commit": "<sha>"}
+      ],
+      "independent_disposition": "pending"
+    }
+  ]
+}
