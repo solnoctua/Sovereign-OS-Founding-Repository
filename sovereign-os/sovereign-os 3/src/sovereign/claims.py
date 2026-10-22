@@ -52,13 +52,19 @@ def check_transition(current: str, target: str, support: str | None = None) -> N
         raise TransitionError(f"Cannot approve a claim whose evidence is {support}.")
 
 
+# The only evidence states that are present and hash-verified: current evidence, or evidence since corrected.
+VERIFIED_STATES = frozenset({"active", "superseded"})
+
+
 def support_of(source_states: list[str]) -> str:
     """Derive evidence support from each source's state: active | superseded | missing | unverified.
 
-    A claim with no evidence links at all is `orphaned`: authority always needs present, verified evidence,
-    so a claim whose links were lost or never existed can never derive as supported (Issue #6).
+    Positive validation (ADR-0006, F-3): a claim is `supported` only if it has at least one evidence link and
+    every link is `active`, and `stale` only if every link is `active` or `superseded`. Anything else, including
+    a missing or unverified link, no links at all (Issue #6), and any state outside the storage CHECK set
+    (writable by a connection that disables CHECK constraints), is `orphaned`.
     """
-    if not source_states or any(s in ("missing", "unverified") for s in source_states):
+    if not source_states or any(s not in VERIFIED_STATES for s in source_states):
         return "orphaned"
     if any(s == "superseded" for s in source_states):
         return "stale"

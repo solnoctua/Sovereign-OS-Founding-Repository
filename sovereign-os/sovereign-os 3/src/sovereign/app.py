@@ -204,7 +204,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.get("/api/export")
     def export():
         from fastapi.responses import Response
-        body = json.dumps(vault.export(), indent=2)
+        try:
+            body = json.dumps(vault.export(), indent=2)
+        except store.VaultStateInvalid as exc:
+            # Never hand out a backup that a restore would reject or silently shorten (ADR-0006).
+            raise HTTPException(status_code=409, detail=str(exc))
         if len(body.encode("utf-8")) > store.MAX_BACKUP_BYTES:
             # Never hand out a backup that import/restore would refuse.
             raise HTTPException(status_code=413, detail="Vault exceeds the V0 single-file backup limit; nothing was exported.")

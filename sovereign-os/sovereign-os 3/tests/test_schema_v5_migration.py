@@ -6,6 +6,7 @@ LEGACY_SCHEMA, CLAIMS_SCHEMA) is unchanged in version 5. Synthetic data only.
 """
 from __future__ import annotations
 
+from pathlib import Path
 import sqlite3
 import threading
 import types
@@ -132,19 +133,77 @@ def test_v4_vault_migrates_to_v5_preserving_every_row_rule_and_export(tmp_path, 
     assert schema(path, "table") == tables_v5
 
 
-def test_failed_migration_leaves_the_v4_vault_exactly_unchanged(tmp_path, as_version_4, monkeypatch):
-    path = str(tmp_path / "v4.db")
-    populated_v4(path, as_version_4, monkeypatch)
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "v4"
+
+
+def load_v4(name, tmp_path):
+    """A genuine schema-4 vault produced by the released eeed753 code (tests/fixtures/v4)."""
+    path = tmp_path / f"{name}.db"
+    db = sqlite3.connect(path)
+    db.execute("PRAGMA ignore_check_constraints=ON")
+    db.executescript((FIXTURES / f"{name}.sql").read_text("utf-8"))
+    db.close()
+    return str(path)
+
+
+class _Failing(sqlite3.Connection):
+    """Records every statement and raises at the `occurrence`-th statement matching `fail_on`."""
+    fail_on: str = ""
+    occurrence: int = 1
+    log: list = []
+
+    def execute(self, sql, *args):
+        cls = type(self)
+        cls.log.append(sql)
+        if cls.fail_on and sql.startswith(cls.fail_on) and sum(s.startswith(cls.fail_on) for s in cls.log) == cls.occurrence:
+            raise sqlite3.OperationalError(f"injected failure at: {sql[:60]}")
+        return super().execute(sql, *args)
+
+
+def _inject(monkeypatch, fail_on, occurrence=1):
+    _Failing.fail_on, _Failing.occurrence, _Failing.log = fail_on, occurrence, []
+    shim = types.SimpleNamespace(**{k: getattr(sqlite3, k) for k in dir(sqlite3) if not k.startswith("__")})
+    shim.connect = lambda *a, **k: sqlite3.connect(*a, factory=_Failing, **k)
+    monkeypatch.setattr(store, "sqlite3", shim)
+
+
+@pytest.mark.parametrize("fail_on,occurrence", [
+    ("ALTER TABLE claim_tombstones__v5 RENAME", 1),   # after every trigger and all five original tables were dropped
+    ("CREATE TRIGGER records_well_formed", 1),         # after the rebuild, while the trigger set is being recreated
+    ("PRAGMA integrity_check", 2),                     # the post-rebuild verification (the first is the pre-rebuild scan)
+])
+def test_failed_migration_after_destructive_ddl_leaves_the_v4_vault_exactly_unchanged(tmp_path, monkeypatch, fail_on, occurrence):
+    """F-8: the failure must come after destructive DDL, which the test proves from the statement log."""
+    path = load_v4("v4_clean", tmp_path)
     before = dump(path)
-    # Fail after every trigger has been dropped and all five tables rebuilt: the worst point.
-    monkeypatch.setattr(store, "ROWID_FREE_TABLES", store.ROWID_FREE_TABLES + ("no_such_table",))
-    with pytest.raises(sqlite3.OperationalError):
+    _inject(monkeypatch, fail_on, occurrence)
+    with pytest.raises(sqlite3.OperationalError, match="injected failure"):
         Vault(path)
+    log = _Failing.log
+    failed_at = max(i for i, sql in enumerate(log) if sql.startswith(fail_on))
+    executed = log[:failed_at]
+    assert any(s.startswith("DROP TRIGGER") for s in executed), "no trigger was dropped before the failure"
+    assert {f"DROP TABLE {t}" for t in store.ROWID_FREE_TABLES} <= set(executed), "tables were not dropped before the failure"
+    monkeypatch.undo()
     assert dump(path) == before
     assert scalar(path, "PRAGMA user_version") == 4
-    monkeypatch.undo()
-    Vault(path)
+    Vault(path)                                   # a later, uninterrupted open succeeds
     assert scalar(path, "PRAGMA user_version") == 5
+
+
+def test_genuine_v4_vault_migrates_preserving_every_row_rule_and_export(tmp_path):
+    """Equivalence on a vault written by the released v4 code itself, not an emulation."""
+    path = load_v4("v4_clean", tmp_path)
+    rows_v4, triggers_v4, indexes_v4, tables_v4 = rows(path), schema(path, "trigger"), schema(path, "index"), schema(path, "table")
+    v = Vault(path)
+    assert scalar(path, "PRAGMA user_version") == 5
+    assert rows(path) == rows_v4 and schema(path, "trigger") == triggers_v4 and schema(path, "index") == indexes_v4
+    for table in store.ROWID_FREE_TABLES:
+        renamed = schema(path, "table")[table].replace(f'CREATE TABLE "{table}" ', f"CREATE TABLE {table} ", 1)
+        assert renamed == tables_v4[table] + " WITHOUT ROWID"
+    restored = Vault(str(tmp_path / "restored.db"))
+    restored.restore_trusted(v.export())
+    assert strip(restored.export()) == strip(v.export())
 
 
 def test_unverifiable_migration_is_refused_and_rolled_back(tmp_path, as_version_4, monkeypatch):
@@ -154,9 +213,13 @@ def test_unverifiable_migration_is_refused_and_rolled_back(tmp_path, as_version_
     before = dump(path)
 
     class Lying(sqlite3.Connection):
+        seen = 0
+
         def execute(self, sql, *args):
             if sql == "PRAGMA integrity_check":
-                return super().execute("SELECT 'corrupt'")
+                type(self).seen += 1
+                if type(self).seen == 2:   # the post-rebuild verification; the first call is the pre-rebuild scan
+                    return super().execute("SELECT 'corrupt'")
             return super().execute(sql, *args)
 
     shim = types.SimpleNamespace(**{k: getattr(sqlite3, k) for k in dir(sqlite3) if not k.startswith("__")})
@@ -181,7 +244,8 @@ def test_null_primary_key_in_a_malformed_legacy_vault_is_refused(tmp_path):
     """)
     db.close()
     before = dump(path)
-    with pytest.raises(RuntimeError, match="NULL primary key"):
+    # Refused first by the pre-rebuild validity scan (ADR-0006, F-2); the rebuild's own NULL-key refusal is defence in depth.
+    with pytest.raises(store.VaultStateInvalid, match="not_restorable"):
         Vault(path)
     assert dump(path) == before
     assert scalar(path, "PRAGMA user_version") == 0
@@ -259,8 +323,8 @@ def test_reversal_route_v5_export_restores_into_v4_software_and_back(tmp_path, a
     assert strip(back.export()) == strip(export_v5)
 
 
-def test_pre_existing_damage_is_preserved_not_hidden_or_refused(tmp_path, as_version_4, monkeypatch):
-    """A v4 vault already damaged through Issue #6 migrates faithfully; derivation keeps it non-authoritative."""
+def test_pre_existing_damage_is_refused_not_carried_forward(tmp_path, as_version_4, monkeypatch):
+    """A v4 vault damaged through Issue #6 so that no backup could restore it is refused (F-2), unchanged."""
     path = str(tmp_path / "v4.db")
     as_version_4()
     v = Vault(path)
@@ -273,8 +337,7 @@ def test_pre_existing_damage_is_preserved_not_hidden_or_refused(tmp_path, as_ver
     db.execute("INSERT INTO claims(id,text,origin,status,created_at) VALUES('atk','x','human','proposed',?)", (T,))
     db.execute("INSERT OR REPLACE INTO claim_sources(rowid,claim_id,record_id) VALUES(?,'atk',?)", (rowid, a["id"]))
     db.close()
-    damaged = rows(path)
-    v = Vault(path)
-    assert rows(path) == damaged
-    claim = next(x for x in v.list_claims() if x["id"] == c["id"])
-    assert claim["source_ids"] == [] and claim["support"] == "orphaned" and claim["authoritative"] is False
+    before = dump(path)
+    with pytest.raises(store.VaultStateInvalid, match="claim_with_history_without_evidence"):
+        Vault(path)
+    assert dump(path) == before and scalar(path, "PRAGMA user_version") == 4

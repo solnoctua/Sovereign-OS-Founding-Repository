@@ -1,6 +1,7 @@
 # ADR-0006 — Rowid-free canonical tables (schema version 5)
 
 - **Status:** **PROPOSED** (Tier 2). Requires an independent reviewer findings artifact (`docs/engineering/FINDINGS-FORMAT.md`) and founder approval before merge. Not applied to any real vault; no production data migration is authorized.
+- **Revised:** 2026-10-22 after the independent Codex audit of head `04ba75c` (verdict CHANGES REQUIRED). The audit report is reviewer-owned and is not reproduced here; see *Audit remediation* for what changed and what remains open. Three decisions (D-A, D-B, D-C) are requested from the founder before the policy-dependent parts are implemented.
 - **Date:** 2026-10-22
 - **Decision owner:** Human project owner
 - **Amends:** [ADR-0003](0003-memory-claim-authority.md) storage contract and migration sections (the contract's guarantees are unchanged; their coverage becomes true).
@@ -43,7 +44,8 @@ The primary key was already guarded: a BEFORE INSERT trigger runs before REPLACE
    5. Verify that row counts, trigger and index definitions and foreign-key findings are unchanged, and that `integrity_check` returns `ok`. If verification fails, refuse.
 
    Version 0 goes to 4 (unchanged code) and then 5 in the same transaction. Version 4 goes to 5.
-3. **Zero-source rule:** `support_of([])` returns `orphaned`. Authority (`approved` and `supported`) is therefore impossible without present, verified evidence. Approval of an orphaned claim is refused by the existing domain check, and the Context Compiler already treats evidence-less claims as `sensitive` and excludes them as `orphaned`.
+3. **Positive evidence validation** (revised after audit finding F-3): `support_of` is `supported` only when a claim has at least one link and every link is `active`, `stale` only when every link is `active` or `superseded`, and `orphaned` otherwise, including no links, missing or unverified links, and any state outside the storage CHECK set. `inherited_sensitivity` is `private` only for present, verified, `private` evidence. A source record in any state other than `active` or `superseded` is excluded from every context as `invalid_state`. These rules change no outcome for any state a CHECK-respecting writer can produce: all 168 Benchmark 0003 bundles (56 questions × `local`, `kimi`, `openai`) are byte-identical to `main`, tokens included, so `policy_version` is unchanged.
+4. **Validity scan, refusal instead of carrying damage forward** (interim, audit findings F-2 and F-4): before any destructive DDL, and before an export is handed out, `Vault._validity_findings` checks the snapshot. It runs `integrity_check` (structure and every NOT NULL and CHECK constraint), `foreign_key_check` (orphaned rows), forgotten identities still present or cited, and claims with history but no evidence, and it runs the trusted-restore validator (`_parse`) with Python's character counts. Any finding raises `VaultStateInvalid` naming finding classes and counts, never contents: the migration rolls back and leaves the vault at its version, and `/api/export` answers 409. A migration or backup is therefore never reported as successful for a state that a restore would reject or shorten. Whether such vaults should instead be quarantined is decision D-B.
 
 ## Alternatives considered
 
@@ -60,10 +62,13 @@ The primary key was already guarded: a BEFORE INSERT trigger runs before REPLACE
 
 | Failure | Handling | Test |
 | --- | --- | --- |
-| Error at any point in the rebuild (here after all triggers are dropped and all five tables rebuilt) | Transaction rolls back; `iterdump()` identical; user_version 4; the next open succeeds | `test_failed_migration_leaves_the_v4_vault_exactly_unchanged` |
+| Error after destructive DDL: at the last table's rename (every trigger and all five tables already dropped), while recreating triggers, or at the post-rebuild verification | Transaction rolls back; `iterdump()` identical; user_version 4; the next open succeeds. The statement log proves the failure came after `DROP TRIGGER` and `DROP TABLE` for all five tables (audit F-8: the earlier test failed before the first `DROP`) | `test_failed_migration_after_destructive_ddl_leaves_the_v4_vault_exactly_unchanged` ×3, on a genuine v4 vault |
 | Post-rebuild verification fails | `RuntimeError`, rollback, vault unchanged | `test_unverifiable_migration_is_refused_and_rolled_back` |
-| NULL primary key in a malformed pre-claims vault | Refused with an explicit message; vault unchanged | `test_null_primary_key_in_a_malformed_legacy_vault_is_refused` |
-| Vault already damaged by the Issue #6 attack | Migrated faithfully, not hidden or refused; derivation keeps the damaged claim `orphaned` and non-authoritative | `test_pre_existing_damage_is_preserved_not_hidden_or_refused` |
+| Vault holds a state no backup could restore exactly (claim with history but no evidence, orphaned link or history rows, CHECK violations, lengths hidden behind an embedded NUL) | `VaultStateInvalid` before any DDL; vault unchanged at version 4 | `test_f2_vault_holding_states_no_backup_could_restore_is_not_migrated` ×4 genuine v4 fixtures |
+| Live vault later holds such a state (only possible for a connection that disables CHECKs or changes the schema) | `export()` raises `VaultStateInvalid`; `/api/export` returns 409; nothing is handed out | `test_f2_export_refuses_a_live_state_that_restore_would_reject`, `test_f4_length_hidden_behind_an_embedded_nul_is_never_exported` |
+| NULL primary key in a malformed pre-claims vault | Refused by the validity scan (`not_restorable`); the rebuild's own NULL-key refusal remains as defence in depth; vault unchanged | `test_null_primary_key_in_a_malformed_legacy_vault_is_refused` |
+| Vault already damaged by the Issue #6 attack so that a restore would fail | **Refused** (revised after audit F-2; earlier revisions migrated it and produced an unrestorable backup) | `test_pre_existing_damage_is_refused_not_carried_forward` |
+| Vault damaged so that an approved claim kept only part of its evidence | **Migrates, and the claim stays authoritative.** This is open audit finding F-1, decision D-A | `test_f1_…_is_not_authoritative` (strict xfail until D-A is implemented) |
 | Concurrent first opens | `BEGIN IMMEDIATE` serializes; migration runs once | `test_concurrent_first_opens_of_a_v4_vault_migrate_once` |
 | Newer vault opened by older software | v4 software refuses schema 5 ("newer than this software supports"); v5 refuses 6 | existing test plus `test_newer_vault_is_refused_after_v5` |
 | Large vault | One rebuild copies every row once and runs `integrity_check` once; cost is O(n), measured only on synthetic vaults | not measured on real data |
@@ -84,6 +89,52 @@ The primary key was already guarded: a BEFORE INSERT trigger runs before REPLACE
 5. Run `pytest -q`, `pytest -q tests/adversarial` and `python -m evaluation.retrieval --check` (Benchmark 0003 results must be unchanged), then `python -m compileall -q src tests evaluation`.
 6. Write the findings file. The builder may only append responses.
 
+## Audit remediation (2026-10-22)
+
+Builder record, not the reviewer's: the finding IDs are the audit's, and the descriptions are the builder's reproduction of the founder's summary. Each was reproduced on `04ba75c` before any change, with genuine schema-4 fixtures generated by the released `eeed753` code (`tests/fixtures/v4`). Tests are in `tests/adversarial/test_pr10_audit_regressions.py` and `tests/test_schema_v5_migration.py`. **No finding is closed by this record**; closure needs a fresh independent review of the new head.
+
+| Finding | Reproduced on `04ba75c` | Change in this revision | State |
+| --- | --- | --- | --- |
+| F-1 partial evidence-set loss across the v4 migration | An approved claim that lost one of two links stays `supported`, authoritative, and offered to a cloud plan | None to authority; a policy-independent test proves migration neither invents links nor erases history | **Open: decision D-A** |
+| F-2 damaged state versus backup and restore | Zero-link vault migrates, then its backup fails to restore; a replaced-claim vault migrates with 3 FK violations and its orphaned rows are silently dropped by a restore | Validity scan; migration and export refuse such states, leaving the vault unchanged | Interim fail-closed; quarantine alternative is **decision D-B** |
+| F-3 negative validation of evidence states | A live v5 record in state `pending` enters a cloud plan; under v4, a claim on `archived` evidence was authoritative | Positive validation in `support_of`, `inherited_sensitivity` and source-record admission (`invalid_state`) | Fixed pending review |
+| F-4 SQLite versus Python length semantics | `length()` counts 1 where Python counts 10,052; the migrated backup does not restore; live v5 storage accepts a 2,502-character claim | Validity scan uses Python counts, so such vaults are refused at migration and export | Interim fail-closed; storage rule is **decision D-C** |
+| F-8 rollback test failed before destructive DDL | The injected failure fired at the first `count(*)`; no `DROP` had run | Three injections after destructive DDL, each proven by the statement log | Fixed pending review |
+
+## Decisions requested from the founder
+
+**D-A. Claims approved before schema 5 whose evidence-set completeness cannot be established (F-1).** Schema 4 never recorded how many evidence links a claim had, so a link removed by the Issue #6 attack before migration leaves no trace. Schema 5 prevents new losses but cannot detect old ones.
+
+| Option | What happens | Satisfies "no authority from one remaining link" | Cost |
+| --- | --- | --- | --- |
+| **A1 (recommended)** Re-confirmation | Migration records every claim that existed before schema 5 in a new canonical table. Such a claim derives a new support state `unconfirmed` and is not authoritative until the owner re-confirms it with a recorded human decision. History is kept, nothing is invented, and nothing is grandfathered | Yes | One review per historical approved claim. Today every vault is synthetic, so the cost is zero now. Needs a schema element and an ADR-0003 amendment |
+| A2 Explicit owner attestation | The owner runs the migration with a flag stating no other process wrote to the vault, recorded as a governance event; claims keep their authority | Only by trusting an unverifiable statement | Low effort; not silent, but still grandfathering |
+| A3 Re-import route | Refuse in-place migration of vaults holding approved or contested claims; the owner exports with v4 software and does an untrusted import, so claims arrive as proposals | Yes | Loses the recorded decision history (the import keeps only a note), which conflicts with "do not erase historical approval" |
+| A4 Heuristic detection | Flag claims whose v4 link rowids show the replacement pattern; others keep authority | No: undetected losses are silently grandfathered | Rejected |
+
+**D-B. Representation of states no backup could restore (F-2).**
+
+| Option | What happens | Cost |
+| --- | --- | --- |
+| **B1 (recommended, implemented as the interim)** Refuse | Migration and export refuse with finding classes and counts; the vault is unchanged and stays usable under the software that wrote it | A damaged vault cannot be migrated or backed up until it is repaired by hand |
+| B2 Quarantine | Migration moves invalid rows, losslessly and raw, into quarantine tables that never count for authority, context or graph; exports carry a `quarantine` section that restore reproduces; the owner then forgets or repairs | Schema and export-format change (new backup contract), plus a repair UI |
+
+**D-C. Storage semantics for lengths and embedded NUL (F-4).** SQLite's `length()` stops at an embedded NUL, and no pure-SQL expression counts the remaining characters (verified on 3.45.1: `replace`, `substr` and blob casts all stop too); only `instr(x, char(0))` sees it.
+
+| Option | What happens | Cost |
+| --- | --- | --- |
+| **C1 (recommended)** Forbid embedded NUL in new canonical text | Storage adds `instr(x, char(0)) = 0` to non-legacy text checks and Python validators reject NUL, so both layers count the same characters; legacy rows keep NUL and are checked in Python by the scan | A validity-contract change. It is cheapest before schema 5 is released, and needs a schema 6 afterwards |
+| C2 Byte-based limits everywhere | Limits in UTF-8 bytes (`octet_length` and `len(s.encode())`) | Changes every limit's meaning; CJK text loses two-thirds of its budget |
+| C3 Keep the interim | Storage keeps `length()`; the validity scan refuses mismatches at migration and export | A raw connection can still store an over-long NUL value; it is caught only when exporting or migrating |
+
 ## Consequences
 
-The Security Gate remains **NOT PASSED**. This closes one integrity defect against ordinary connections. It does not defend against a process that can change the schema or rewrite the file, and it does not add authentication, encryption or backups.
+The Security Gate remains **NOT PASSED**. Tests establish only the following, on synthetic vaults and SQLite 3.45.1:
+
+- hidden-rowid replacement no longer changes canonical state;
+- migration from genuine v4 vaults is row-, trigger-, index- and export-equivalent, or is refused with the vault unchanged;
+- rollback after destructive DDL leaves the vault unchanged;
+- every export that succeeds restores losslessly for the tested fixtures;
+- unknown evidence states fail closed.
+
+They do **not** establish the completeness of evidence sets for claims approved before schema 5 (F-1), behaviour on large or real vaults, or other SQLite versions. This closes one integrity defect against ordinary connections. It does not defend against a process that can change the schema or rewrite the file, and it does not add authentication, encryption or backups.

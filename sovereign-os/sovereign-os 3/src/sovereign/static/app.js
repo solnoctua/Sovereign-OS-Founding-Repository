@@ -114,7 +114,7 @@ function invalidatePlan(){
  state.plan=null;state.planKey=null;$("plan").hidden=true;$("approval").hidden=true;
  const ask=$("ask");ask.disabled=true;ask.firstChild.textContent="Preview the context first ";
 }
-const REASON_LABEL={superseded:"superseded",rejected:"rejected",contested:"contested",not_authoritative:"not approved memory",stale:"evidence corrected",orphaned:"evidence missing or unverified",sensitive_cloud:"sensitive — stays on this device",not_relevant:"not relevant to the question",duplicate:"duplicate content",budget_exceeded:"context budget exceeded"};
+const REASON_LABEL={invalid_state:"record in an unrecognized state — never used",superseded:"superseded",rejected:"rejected",contested:"contested",not_authoritative:"not approved memory",stale:"evidence corrected",orphaned:"evidence missing or unverified",sensitive_cloud:"sensitive — stays on this device",not_relevant:"not relevant to the question",duplicate:"duplicate content",budget_exceeded:"context budget exceeded"};
 function itemNode(x,label){
  const node=el("div","context-item"+(x.role?"":" excluded"));
  const meta=[x.label?`${label} [${x.label}]`:label,x.type==="claim"?`claim ${x.id.slice(0,8)} · ${x.status} · evidence ${x.source_ids.map(i=>i.slice(0,8)).join(", ")}`:`source ${x.id.slice(0,8)} · ${displayDate(x.created_at)}`,x.sensitivity.toUpperCase()];

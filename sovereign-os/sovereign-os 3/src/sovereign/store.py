@@ -265,6 +265,21 @@ class ForgetImpactChanged(Exception):
     """The effect of a Forget changed between its preview and its execution."""
 
 
+class VaultStateInvalid(RuntimeError):
+    """The vault holds canonical states that no backup could restore exactly (ADR-0006).
+
+    Raised before a migration commits or an export is handed out, so Sovereign never reports a migration
+    or a backup as successful for such a vault. `findings` maps a finding class to a count and never
+    carries row contents. Nothing is changed when it is raised.
+    """
+
+    def __init__(self, findings: dict[str, int], action: str):
+        self.findings = dict(findings)
+        summary = ", ".join(f"{kind} ({count})" for kind, count in sorted(self.findings.items()))
+        super().__init__(f"{action} refused: the vault holds states no backup could restore exactly: {summary}. "
+                         "Nothing was changed. See ADR-0006, recovery of invalid vault states.")
+
+
 def evidence_hash(record: Mapping) -> str:
     """Fingerprint of a record's identity: id, content, provenance, sensitivity, time and lineage."""
     canonical = json.dumps([record[k] for k in EVIDENCE_FIELDS], ensure_ascii=False, separators=(",", ":"))
@@ -357,6 +372,7 @@ class Vault:
 
     def _migrate(self) -> None:
         db = sqlite3.connect(self.path, isolation_level=None, timeout=10)
+        db.row_factory = sqlite3.Row
         try:
             # Table rebuilds must not cascade or be checked half-way (SQLite's documented ALTER TABLE procedure).
             # Foreign keys are never enforced by this connection; operation connections enable them.
@@ -375,6 +391,11 @@ class Vault:
             elif version != 4:
                 # Only unreleased benchmark drafts created these; refuse rather than guess.
                 raise RuntimeError("Vault was created by a pre-release claims build; export records and restore into a new vault.")
+            # Never carry forward, as a successful migration, a state no backup could restore exactly
+            # (ADR-0006, F-2): refuse before any destructive DDL, leaving the vault at its version.
+            findings = self._validity_findings(db, self._export_payload(db))
+            if findings:
+                raise VaultStateInvalid(findings, "Migration to schema 5")
             _rebuild_without_rowid(db)                                                          # 4 -> 5
             # One transaction: either the vault is fully at the new version or unchanged.
             db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
@@ -764,17 +785,64 @@ class Vault:
     # --- Portability ----------------------------------------------------------
 
     def export(self) -> dict:
-        """A single-snapshot export (one read transaction), restorable by this software version."""
-        keys = ("id", "text", "origin", "status", "created_at", "supersedes_id", "source_ids", "source_hashes", "history")
+        """A single-snapshot export (one read transaction), restorable by this software version.
+
+        Refused with VaultStateInvalid when the snapshot holds a state that a trusted restore would reject
+        or silently drop, so an export that succeeds is always a complete, restorable backup (ADR-0003, ADR-0006).
+        """
         with self.connection() as db:
-            rows = db.execute("SELECT * FROM records ORDER BY created_at,id").fetchall()
-            tombs = db.execute("SELECT * FROM tombstones ORDER BY deleted_at,id").fetchall()
-            claim_rows = db.execute("SELECT * FROM claims ORDER BY created_at,id").fetchall()
-            claims = [{k: c[k] for k in keys} for c in (self._claim(db, r) for r in claim_rows)]
-            claim_tombs = db.execute("SELECT * FROM claim_tombstones ORDER BY deleted_at,id").fetchall()
-            return {"schema": "sovereign.v0.records.2", "exported_at": stamp(),
-                    "records": [dict(r) for r in rows], "tombstones": [dict(t) for t in tombs],
-                    "claims": claims, "claim_tombstones": [dict(t) for t in claim_tombs]}
+            payload = self._export_payload(db)
+            findings = self._validity_findings(db, payload)
+        if findings:
+            raise VaultStateInvalid(findings, "Export")
+        return payload
+
+    def _export_payload(self, db: sqlite3.Connection) -> dict:
+        keys = ("id", "text", "origin", "status", "created_at", "supersedes_id", "source_ids", "source_hashes", "history")
+        rows = db.execute("SELECT * FROM records ORDER BY created_at,id").fetchall()
+        tombs = db.execute("SELECT * FROM tombstones ORDER BY deleted_at,id").fetchall()
+        claim_rows = db.execute("SELECT * FROM claims ORDER BY created_at,id").fetchall()
+        claims = [{k: c[k] for k in keys} for c in (self._claim(db, r) for r in claim_rows)]
+        claim_tombs = db.execute("SELECT * FROM claim_tombstones ORDER BY deleted_at,id").fetchall()
+        return {"schema": "sovereign.v0.records.2", "exported_at": stamp(),
+                "records": [dict(r) for r in rows], "tombstones": [dict(t) for t in tombs],
+                "claims": claims, "claim_tombstones": [dict(t) for t in claim_tombs]}
+
+    def _validity_findings(self, db: sqlite3.Connection, payload: dict) -> dict[str, int]:
+        """Canonical states no backup could restore exactly, by class and count; empty for a valid vault.
+
+        Checked in the caller's snapshot (ADR-0006, F-2 to F-4):
+        - `integrity_check`: SQLite structure and every NOT NULL and CHECK constraint, which also catches rows
+          an ordinary connection wrote with `PRAGMA ignore_check_constraints`;
+        - rows orphaned from their claim (`foreign_key_check`), which an export would silently drop;
+        - forgotten identities still present or still cited, which a restore would drop;
+        - claims with a decision history but no evidence link, which a restore rejects;
+        - everything a trusted restore validates (`_parse`), with Python's character counts, so a length that
+          SQLite's `length()` stops counting at an embedded NUL is caught here.
+        """
+        findings: dict[str, int] = {}
+
+        def note(kind: str, count: int) -> None:
+            if count:
+                findings[kind] = findings.get(kind, 0) + count
+
+        def count(sql: str) -> int:
+            return db.execute(sql).fetchone()[0]
+
+        note("integrity_check", sum(1 for row in db.execute("PRAGMA integrity_check") if row[0] != "ok"))
+        note("orphaned_rows", len(db.execute("PRAGMA foreign_key_check").fetchall()))
+        note("forgotten_record_present", count("SELECT count(*) FROM records WHERE id IN (SELECT id FROM tombstones)"))
+        note("forgotten_claim_present", count("SELECT count(*) FROM claims WHERE id IN (SELECT id FROM claim_tombstones)"))
+        note("link_to_forgotten_record",
+             count("SELECT count(*) FROM claim_sources WHERE record_id IN (SELECT id FROM tombstones)"))
+        note("claim_with_history_without_evidence", count(
+            """SELECT count(*) FROM claims c WHERE EXISTS (SELECT 1 FROM claim_events e WHERE e.claim_id = c.id)
+               AND NOT EXISTS (SELECT 1 FROM claim_sources s WHERE s.claim_id = c.id)"""))
+        try:
+            self._parse(payload, trusted=True)
+        except (ValueError, KeyError, TypeError):
+            note("not_restorable", 1)
+        return findings
 
     @staticmethod
     def _parse(payload: dict, trusted: bool) -> tuple[list, list, list, list]:
