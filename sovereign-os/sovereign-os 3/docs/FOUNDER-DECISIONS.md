@@ -28,7 +28,7 @@
 | Local generative inference as a `device` boundary provider after the runtime's network behaviour is verified | Research first, then an ADR-0004 amendment | Stage A+ usefulness | `ROADMAP.md` §H |
 | Authenticated capture-only API for non-sensitive data after WP-2 and D15 | Approve the threat-model step | Capture lane | `ROADMAP.md` §H |
 | Close PR #7 in favour of the reconciled master plan in WP-0 | Approve after reviewing WP-0 | Documentation coherence | PR #7 |
-| GitHub settings: branch protection on `main`, required CI, CODEOWNERS review, no force-push | Apply in GitHub (cannot be set by a file) | Builder 0 containment | WP-1 checklist |
+| GitHub review requirements. The `main` ruleset already enforces pull requests, required CI, resolved threads, no force-push and no deletion. Approving review and code-owner review are not enforced, and draft-PR checks report `skipped`, which counts as passing | Decide the review requirement and the CI gate (exact options in `docs/DEVELOPMENT.md`) | Builder 0 containment | WP-1 |
 | Repository visibility: public today; founding guidance said private first | Founder decision; no personal data is in history (scanned 2026-10-22) | — | PR #7 note |
 | Constitutional amendment candidates A–F | See `docs/CONSTITUTIONAL-AMENDMENT-CANDIDATES.md`; decide at the ratification act | Ratification | that file |
 

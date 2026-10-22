@@ -9,9 +9,33 @@
 # trust_class: authority-core | trusted-service | restricted | external
 # personal_data: none | metadata | content
 # canonical_write: true only for authority-core components that write the vault.
+# code (optional): files an implemented entry consists of. An entry whose code exists must be `implemented`;
+#   an `implemented` entry's code must exist.
+#
+# [code_facts] records facts about the code in this same tree, and tests/test_systems_registry.py checks each one
+# against it: the schema version, every constant whose value an ADR or this registry states, and the known
+# integrity gaps (each probed). A PR that changes one of these facts updates it here in the same PR. CI checks
+# out a pull request's merge commit, so a PR that leaves this registry stale fails on the merged result.
 
 schema_version = 1
 updated = 2026-10-22
+
+[code_facts]
+schema_user_version = 4                       # store.SCHEMA_VERSION
+known_gaps = ["issue-6-hidden-rowid", "zero-source-authority"]
+
+[code_facts.limits]                           # "module.NAME" or "module.OBJECT.field" under src/sovereign
+"store.MAX_BACKUP_BYTES" = 134217728          # 128 MiB, one limit for export, import and restore (ADR-0003)
+"store.MAX_ID" = 200
+"store.MAX_CONTENT" = 10000                   # characters per record (ADR-0003, ADR-0005)
+"store.MAX_PAGE" = 200
+"claims.MAX_TEXT" = 2000
+"claims.MAX_NOTE" = 500
+"claims.MAX_SOURCES" = 8
+"context.POLICY.version" = "sovereign.context.v0"   # ADR-0004
+"context.POLICY.max_items" = 12
+"context.POLICY.max_chars" = 12000
+"context.POLICY.retrieval_limit" = 50
 
 [[system]]
 id = "canonical-store"
@@ -24,9 +48,10 @@ credentials = "none"
 egress = "none"
 persistent_state = "vault SQLite file (SOVEREIGN_DB_PATH; default ./data/sovereign.db)"
 upstream = "native: src/sovereign/store.py on stdlib sqlite3"
-version_or_commit = "schema user_version 4 (5 proposed in WP-2, unmerged)"
+code = ["src/sovereign/store.py"]
+version_or_commit = "schema user_version: code_facts.schema_user_version"
 license = "project"
-boundary = "Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Hidden-rowid REPLACE bypass open (Issue #6)."
+boundary = "Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Open gaps: code_facts.known_gaps (issue-6-hidden-rowid: hidden-rowid REPLACE bypasses the triggers)."
 exit_test = "export -> restore into a fresh vault round-trips (tests/test_memory_claims.py, tests/adversarial)"
 documentation = "docs/adr/0003-memory-claim-authority.md; ARCHITECTURE.md #14"
 
@@ -41,9 +66,10 @@ credentials = "none"
 egress = "none"
 persistent_state = "same vault file (claims, claim_sources, claim_events, claim_tombstones)"
 upstream = "native: src/sovereign/claims.py"
+code = ["src/sovereign/claims.py"]
 version_or_commit = "ADR-0003 as merged (4fbecbe lineage)"
 license = "project"
-boundary = "Same as canonical-store. Known gap: support_of([]) returns supported (fix in WP-2, unmerged)."
+boundary = "Same as canonical-store. Open gaps: code_facts.known_gaps (zero-source-authority: support_of([]) returns supported)."
 exit_test = "drop the four claim tables and triggers per ADR-0003 reversal; ADR-0002 rows unchanged"
 documentation = "docs/adr/0003-memory-claim-authority.md"
 
@@ -58,6 +84,7 @@ credentials = "none"
 egress = "none (rendering only; egress is the provider adapter)"
 persistent_state = "none (bundles, receipts and tokens are never persisted)"
 upstream = "native: src/sovereign/context.py"
+code = ["src/sovereign/context.py"]
 version_or_commit = "policy_version sovereign.context.v0"
 license = "project"
 boundary = "Token recomputed at execution; resists stale or forged tokens and relevant-universe changes. Does not resist in-process code opening sockets or unauthenticated local clients. D15 lineage sensitivity deferred."
@@ -75,6 +102,7 @@ credentials = "one provider API key and model id from environment variables"
 egress = "https://api.moonshot.ai/v1, https://api.openai.com/v1 (per request, after approval)"
 persistent_state = "none"
 upstream = "openai Python SDK >=1.90,<3 via src/sovereign/providers.py"
+code = ["src/sovereign/providers.py"]
 version_or_commit = "pyproject.toml pin"
 license = "Apache-2.0 (openai SDK)"
 boundary = "No vault access; the only network call site for personal content (checked by tests/test_policy_invariants.py in WP-1). Runs in the kernel process: a correctness property, not isolation."
@@ -92,6 +120,7 @@ credentials = "none"
 egress = "none (same-origin requests to the loopback server)"
 persistent_state = "none"
 upstream = "native: src/sovereign/static/*"
+code = ["src/sovereign/static/index.html", "src/sovereign/static/app.js"]
 version_or_commit = "main"
 license = "project"
 boundary = "Unauthenticated; any local client can issue the same requests. Loopback and Origin checks are not authentication."
@@ -109,6 +138,7 @@ credentials = "none"
 egress = "none"
 persistent_state = "evaluation/retrieval/results.json, report.md (committed artifacts)"
 upstream = "native: evaluation/retrieval/"
+code = ["evaluation/retrieval/harness.py"]
 version_or_commit = "eeed753 (PR #4 merged 2026-10-22)"
 license = "project"
 boundary = "No production effect; results must match code (tests/test_retrieval_evaluation.py)"
@@ -126,7 +156,8 @@ credentials = "none"
 egress = "none"
 persistent_state = "none (computed on read)"
 upstream = "native (WP-3 draft PR)"
-version_or_commit = "unmerged"
+code = ["src/sovereign/provenance.py"]
+version_or_commit = "not in this tree"
 license = "project"
 boundary = "Never feeds the Context Compiler; tokens identical with and without it (validation spec #3)"
 exit_test = "remove the module and endpoint; compiler tokens unchanged"
@@ -145,7 +176,7 @@ persistent_state = "Git; reviewer findings artifacts; optional development vault
 upstream = "docs/DEVELOPMENT.md (WP-1 draft PR); methods adapted from Ponytail (MIT), Compound Engineering (MIT), Cloudflare security-audit-skill (MIT) as text"
 version_or_commit = "unmerged"
 license = "project; attributions in docs/engineering/MINIMIZE.md and FINDINGS-FORMAT.md"
-boundary = "Contained by GitHub branch protection and founder review, not by Sovereign code"
+boundary = "Contained by the GitHub ruleset on main (pull request, required CI, no force-push or deletion) and founder review, not by Sovereign code. Approving reviews and code-owner review are not enforced (DEVELOPMENT.md)."
 exit_test = "delete the documents; code unchanged"
 documentation = "docs/DEVELOPMENT.md; docs/engineering/BUILD-AND-INTEGRATION-PLAN.md #5.2, #7"
 

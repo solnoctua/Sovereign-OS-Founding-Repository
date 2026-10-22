@@ -124,9 +124,9 @@ This section replaces the provisional §H proposed in PR #7 and is the only sequ
 | --- | --- | --- | --- | --- |
 | 0 | **Repository truth and consolidation** (this section, ARCHITECTURE §14, registry, research catalog, decision register) | — | Founder review of the WP-0 draft PR | Draft PR |
 | 0 | **Repository hygiene** (PR #5) | — | Founder merge | Open PR, merges cleanly on `main` |
-| 0 | **Builder 0 practice** (WP-1: loop, reviewer-owned findings, CODEOWNERS, policy tests) | — | Founder review; GitHub branch-protection settings applied by the founder | Draft PR |
-| 1 | **Storage-integrity repair** (WP-2, Issue #6, zero-source authority) | WP-0 docs | Independent reviewer artifact + founder approval of the migration approach (schema 5) | Draft PR, reproduce-first |
-| 1 | **SB-2a provenance navigation** in the existing UI | None technically (no schema change); Issue #6 fix before any real data | Validation spec §3 tests; independent audit | Draft PR |
+| 0 | **Builder 0 practice** (WP-1: loop, reviewer-owned findings, CODEOWNERS, policy tests) | — | Founder review; founder decisions on review requirements and the draft-check gap (`docs/DEVELOPMENT.md`) | Draft PR |
+| 1 | **Storage-integrity repair** (WP-2, Issue #6, zero-source authority) | WP-0 docs | Founder decisions D-A, D-B, D-C (ADR-0006); fresh independent review of the exact head; founder approval of the migration approach (schema 5) | Draft PR; Codex audit CHANGES REQUIRED, remediation in review |
+| 1 | **SB-2a provenance navigation** in the existing UI | WP-2 (stacked on it: bounded, id-ordered neighbour queries rely on the schema 5 index order) | Validation spec §3 tests; fresh independent review of the exact head | Draft PR; Codex audit CHANGES REQUIRED, remediation in review |
 | 2 | **First-use trial** on a deliberately non-sensitive project dataset (WP-4) | SB-2a helpful but not required | Measured outcomes recorded | Planned |
 | 2 | **D15 lineage sensitivity** (Tier 2 proposal) | WP-2 | Founder approval of the policy; `policy_version` bump; Benchmark 0003 regenerated | Proposal |
 | 3 | **Builder 1 specification** (Git-first development-context compiler, WP-5) | SB-2a demonstrated useful; first-use trial | Founder approval of the spec | Planned |
