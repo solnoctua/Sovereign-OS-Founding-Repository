@@ -18,6 +18,12 @@
 | 2026-10-22 | Usage thresholds 1–6 are labels, not permissions; the Security Gate stays NOT PASSED; authentication alone passes nothing | `docs/SECURITY-GATE.md` |
 | 2026-10-22 | Independent reviewer findings remain reviewer-owned and separately attributable; the builder never rewrites them | WP-1 `FINDINGS-FORMAT.md` |
 | 2026-10-22 | Builder 2 is not built now; no autonomous merges; no agent receives the personal vault | `BUILD-AND-INTEGRATION-PLAN.md` §5.6, §7 |
+| 2026-10-22 | **D-A** (A1, refined): claims made before schema 5, whose original evidence-set completeness cannot be proven, stay historically preserved but non-authoritative pending explicit human revalidation; revalidation shows the surviving evidence and lets the owner confirm or reconstruct through a governed process (no blind confirmation); future claims carry a write-once commitment to their complete evidence set; a separate integrity state, not new ordinary statuses; ADR-0003 amendments proposed explicitly | PR #10 (ADR-0006, implemented, unmerged) |
+| 2026-10-22 | **D-B** (B1): refuse invalid migrations and exports rather than pretend they succeeded; preserve the original state; report the reason without disclosing unnecessary content; document an eventual explicit offline recovery pathway; no quarantine subsystem now | PR #10 (ADR-0006) |
+| 2026-10-22 | **D-C** (C1): reject embedded NUL in new canonical text and identifiers at the application and storage boundaries; preserve legacy data; refuse an incompatible migration rather than delete or alter | PR #10 (ADR-0006) |
+| 2026-10-22 | **D-E**: required CI jobs execute on draft PRs and exact reviewed commits; a skipped job is not evidence of test execution | PR #9 (workflow) |
+| 2026-10-22 | **D-F** (in principle): separate the coding agents' GitHub identity and credentials from the founder's account; enforce human and Code Owner review through effective rulesets; prepare the settings for the founder, change no account permission without authorization | PR #9 (`docs/engineering/GITHUB-GOVERNANCE-SETUP.md`, prepared, not applied) |
+| 2026-10-22 | Target merge sequence **#5 → #9 → #8 → #10 → #11 → #12 → #13**, each subject to its own approval and integration gates; #10 needs D-A/B/C resolved and a fresh independent PASS; #11 stays stacked on #10 until #10 merges, then is retargeted to `main`, its diff and ancestry verified, required CI run and an independent PASS obtained; registry and Security Gate reconciled against the final integration state; #13 remains a proposal; no merge without the founder's explicit authorization of that merge | `ROADMAP.md` §H; `docs/reviews/2026-10-22-f9-f10-reconciliation.md` |
 
 ## Proposed (require founder approval before merge)
 
@@ -28,7 +34,6 @@
 | Local generative inference as a `device` boundary provider after the runtime's network behaviour is verified | Research first, then an ADR-0004 amendment | Stage A+ usefulness | `ROADMAP.md` §H |
 | Authenticated capture-only API for non-sensitive data after WP-2 and D15 | Approve the threat-model step | Capture lane | `ROADMAP.md` §H |
 | Close PR #7 in favour of the reconciled master plan in WP-0 | Approve after reviewing WP-0 | Documentation coherence | PR #7 |
-| GitHub review requirements. The `main` ruleset already enforces pull requests, required CI, resolved threads, no force-push and no deletion. Approving review and code-owner review are not enforced, and draft-PR checks report `skipped`, which counts as passing | Decide the review requirement and the CI gate (exact options in `docs/DEVELOPMENT.md`) | Builder 0 containment | WP-1 |
 | Repository visibility: public today; founding guidance said private first | Founder decision; no personal data is in history (scanned 2026-10-22) | — | PR #7 note |
 | Constitutional amendment candidates A–F | See `docs/CONSTITUTIONAL-AMENDMENT-CANDIDATES.md`; decide at the ratification act | Ratification | that file |
 

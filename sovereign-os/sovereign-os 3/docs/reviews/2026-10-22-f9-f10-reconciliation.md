@@ -64,16 +64,19 @@ Prose cannot be checked this way. The rule is that the PR that changes a fact up
 
 **What PR #10 must update when it is brought up to date with `main` after this PR merges:**
 
-- registry `schema_user_version` and `known_gaps`, and the two `boundary` texts;
+- registry `schema_user_version` (5) and `known_gaps` (none), the two `boundary` texts, and the new code fact `"store.EXPORT_SCHEMA" = "sovereign.v0.records.3"` (backup format 3, D-A);
+- `tests/test_policy_invariants.py` (from #9): `EXPECTED_TRIGGER_COUNT` 36 → 44, citing ADR-0006 (three `claim_evidence_sets_*` triggers and five `*_no_nul` triggers; `claim_tombstones_forget` is replaced, not added);
 - SECURITY-GATE status-update bullets and its own "until that PR merges" sentence;
 - ARCHITECTURE §14 K1 row;
 - BUILD plan GAP line;
 - ROADMAP WP-2 status;
-- FOUNDER-DECISIONS rows, recording the founder's decisions D-A, D-B and D-C;
+- FOUNDER-DECISIONS: the WP-2 "(unmerged)" pointers and the "Issue #6 repair approach" proposal row, once the founder approves ADR-0006 (D-A, D-B and D-C themselves are recorded in this PR);
 - SECOND-BRAIN-VALIDATION item 35;
 - ADR-0006 status, set only by the founder's decision.
 
 **What PR #11 must update:** the registry's SB-2a entry and its six limits, and the ROADMAP and BUILD plan SB-2a status.
+
+**Founder's target sequence (2026-10-22):** #5 → #9 → #8 → #10 → #11 → #12 → #13. Each merge needs the founder's explicit authorization. Before #8 merges, #5 and #9 are on `main`. #5 untracks `data/sovereign.db` and the `__pycache__` files and adds a hygiene check; no later PR changes those files. #9 brings the D-E workflow and `EXPECTED_TRIGGER_COUNT = 36`. #8's checks then cover #10 and #11 as each is brought up to date. The rehearsal of this sequence and its results are in the PR #10 remediation record.
 
 ## F-10: effective GitHub rules on `main` (REST API, 2026-10-22)
 
