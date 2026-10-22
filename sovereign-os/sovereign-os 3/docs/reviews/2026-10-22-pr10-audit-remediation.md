@@ -14,7 +14,7 @@
 
 | Run | `test_pr10_audit_regressions.py` |
 | --- | --- |
-| Pinned `04ba75c` (code unchanged, new tests) | **12 failed, 9 passed** |
+| Pinned `04ba75c` (code unchanged, new tests; pinned `src` first on `PYTHONPATH`) | **12 failed, 9 passed, 2 xfailed** |
 | This revision | **21 passed, 2 xfailed (strict)** |
 
 The 12 failures on `04ba75c` are listed below. The 9 tests that passed there are positive controls: the clean-vault round trip, the "no invention, no erasure" check, and the already-correct `support_of` cases.
