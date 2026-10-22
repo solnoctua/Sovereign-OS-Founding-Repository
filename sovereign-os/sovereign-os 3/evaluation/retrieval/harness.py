@@ -22,7 +22,7 @@ import tempfile
 
 from sovereign import context
 from sovereign.context import POLICY, build_bundle, compile_context, inherited_sensitivity
-from sovereign.store import Vault, evidence_hash
+from sovereign.store import Vault, evidence_hash, evidence_set_digest
 
 from .retrievers import Aliases, Document, Retriever, build, documents, neighbours
 
@@ -86,7 +86,8 @@ def expand_records(corpus: dict) -> list[dict]:
 
 
 def restore_payload(corpus: dict) -> dict:
-    """The corpus as a Sovereign backup (export schema 2), so it enters storage through trusted restore."""
+    """The corpus as a Sovereign backup (export schema 3), so it enters storage through trusted restore. Each
+    claim carries the evidence-set commitment it would have been given at creation (ADR-0006, D-A)."""
     expanded = expand_records(corpus)
     corrected = {r["corrects"] for r in expanded if r.get("corrects")}
     records = [{"id": r["id"], "content": r["text"], "source": "manual", "sensitivity": r.get("sensitivity", "private"),
@@ -97,13 +98,13 @@ def restore_payload(corpus: dict) -> dict:
     for c in corpus["claims"]:
         history = [{"from_status": None if i == 0 else c["path"][i - 1], "to_status": status, "note": None,
                     "actor": "human", "at": _stamp(c["at"], i)} for i, status in enumerate(c["path"])]
+        hashes = {rid: None if c.get("unverified_link") else evidence_hash(by_id[rid]) for rid in c["sources"]}
         claims.append({"id": c["id"], "text": c["text"], "origin": "human", "status": c["path"][-1],
                        "created_at": _stamp(c["at"]), "supersedes_id": c.get("supersedes"),
-                       "source_ids": c["sources"],
-                       "source_hashes": {rid: None if c.get("unverified_link") else evidence_hash(by_id[rid])
-                                         for rid in c["sources"]},
-                       "history": history})
-    return {"schema": "sovereign.v0.records.2", "records": records, "tombstones": [], "claims": claims,
+                       "source_ids": c["sources"], "source_hashes": hashes, "history": history,
+                       "evidence_set": {"link_count": len(hashes), "digest": evidence_set_digest(c["id"], hashes),
+                                        "basis": "creation", "note": None, "at": _stamp(c["at"])}})
+    return {"schema": "sovereign.v0.records.3", "records": records, "tombstones": [], "claims": claims,
             "claim_tombstones": []}
 
 
@@ -155,7 +156,7 @@ def _policy_reasons(item_id: str, records: dict, claims: dict, boundary: str) ->
         c = claims[item_id]
         candidate = context.RetrievalCandidate(c["id"], "claim", c["text"], c["created_at"], c["status"], c["support"],
                                                inherited_sensitivity(c["sources"]), tuple(c["source_ids"]), c["origin"],
-                                               False, 1, (), "lexical")
+                                               False, 1, (), "lexical", c["integrity"])
     else:
         r = records[item_id]
         candidate = context.RetrievalCandidate(r["id"], "source", r["content"], r["created_at"], r["status"], None,
