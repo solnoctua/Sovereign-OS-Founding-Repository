@@ -13,7 +13,7 @@
 | 2026-10-22 | PR #4 (Benchmark 0003) merged as evaluation infrastructure only; no production retrieval change | `eeed753` |
 | 2026-10-22 | **D1** application-level kernel first; **D2** SB-2 first then Builder, lightweight Builder practices now; **D3** minimal Sovereign-owned channel contract before any OpenClaw/Hermes benchmark, neither installed by default; **D4** one monorepo, incremental hygiene, major cleanup after the Builder workflow is proven; **D5** Sovereign-native model research track, no training infrastructure | `ROADMAP.md` §H |
 | 2026-10-22 | Separation of the Governance Architecture from the Enforcement Kernel; K1/K2/K3 with honest attacker statements; K3 represented, not implemented | `ARCHITECTURE.md` §14 |
-| 2026-10-22 | Invariant accepted: a MemoryClaim with missing, invalid, corrupted or insufficiently verified required evidence is never authoritative | WP-2 (unmerged) |
+| 2026-10-22 | Invariant accepted: a MemoryClaim with missing, invalid, corrupted or insufficiently verified required evidence is never authoritative | PR #10 (schema 5) |
 | 2026-10-22 | SB-2 delivered as SB-2a (provenance navigation in the UI) then SB-2b (snapshot exporter after SB-2a shows value); a sequencing decision within ADR-0005's scope | `ROADMAP.md` §H |
 | 2026-10-22 | Usage thresholds 1–6 are labels, not permissions; the Security Gate stays NOT PASSED; authentication alone passes nothing | `docs/SECURITY-GATE.md` |
 | 2026-10-22 | Independent reviewer findings remain reviewer-owned and separately attributable; the builder never rewrites them | WP-1 `FINDINGS-FORMAT.md` |
