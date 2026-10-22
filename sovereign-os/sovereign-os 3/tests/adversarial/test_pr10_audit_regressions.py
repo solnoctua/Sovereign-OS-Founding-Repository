@@ -3,9 +3,9 @@
 The audit report is reviewer-owned and is not reproduced or paraphrased here. These tests encode the
 builder's own reproduction of each finding as summarized in the founder's remediation directive of
 2026-10-22, using genuine schema-4 fixtures produced by the released eeed753 code (tests/fixtures/v4).
-Tests that depend on a founder policy decision are xfail(strict=True): they state the required outcome
-and must be un-marked when the chosen policy is implemented (ADR-0006, "Decisions requested").
-Synthetic data only.
+The two tests that depended on a founder policy decision (F-1, F-4) were strict expected failures until the
+founder decided D-A (A1) and D-C (C1) on 2026-10-22; they now pass against those implementations. The decisions'
+own regressions are in test_evidence_set_commitments.py and test_embedded_nul.py. Synthetic data only.
 """
 from __future__ import annotations
 
@@ -76,13 +76,18 @@ def raw(vault: Vault):
 
 # --- F-1: partial evidence-set loss across the v4 migration ------------------------------------
 
-@pytest.mark.xfail(strict=True, reason="F-1: the recovery policy for historically unverifiable approvals awaits a "
-                                        "founder decision (ADR-0006, Decisions requested, D-A)")
 def test_f1_claim_that_lost_part_of_its_evidence_before_migration_is_not_authoritative(tmp_path):
+    """Founder decision D-A (A1): every claim made before schema 5 is preserved but not authoritative until a human
+    revalidates it, because schema 4 never recorded how many links a claim had."""
     vault = Vault(load_v4("v4_partial_link_loss", tmp_path))
     claim = by_text(vault, "Approved claim resting on evidence one AND evidence two")
     assert claim["status"] == "approved" and len(claim["source_ids"]) == 1   # history is preserved, nothing invented
-    assert claim["authoritative"] is False
+    assert claim["support"] == "supported"          # the surviving link alone looks intact ...
+    assert claim["integrity"] == "unconfirmed" and claim["authoritative"] is False   # ... but completeness is unproven
+    for provider in PROVIDERS:
+        bundle = context.compile_context(vault, "approved claim resting evidence", provider, [])
+        assert claim["id"] not in [i.candidate.id for i in bundle.included]
+        assert {e.candidate.id: e.reason for e in bundle.excluded}[claim["id"]] == "revalidation_required"
 
 
 def test_f1_migration_does_not_invent_or_erase(tmp_path):
@@ -179,15 +184,15 @@ def test_f3_claim_on_evidence_in_an_unknown_state_is_sensitive_unsupported_and_u
 # --- F-4: SQLite and Python length semantics -----------------------------------------------------
 
 def test_f4_length_hidden_behind_an_embedded_nul_is_never_exported(tmp_path):
+    """Schema 5 refuses an embedded NUL in current text (D-C), so only a legacy record can still hide length from
+    SQLite; the validity scan measures it in Python and refuses the export."""
     vault = Vault(str(tmp_path / "live.db"))
-    r = vault.add("Ordinary evidence")
-    db = sqlite3.connect(vault.path, isolation_level=None)
-    db.execute("INSERT INTO claims(id,text,origin,status,created_at) VALUES('c-nul',?,'human','proposed',?)",
-               ("C\x00" + "y" * 2500, T))
-    db.execute("INSERT INTO claim_sources(claim_id,record_id,evidence_sha256) VALUES('c-nul',?,?)", (r["id"], store.evidence_hash(r)))
-    db.execute("INSERT INTO claim_events(claim_id,from_status,to_status,actor,at) VALUES('c-nul',NULL,'proposed','human',?)", (T,))
+    vault.add("Ordinary evidence")
+    db = raw(vault)
+    db.execute("INSERT INTO records(id,content,source,sensitivity,status,created_at,legacy) "
+               "VALUES('legacy-nul','N' || char(0) || ?, 'manual','private','active',?,1)", ("x" * 10050, T))
     db.close()
-    with pytest.raises(store.VaultStateInvalid):
+    with pytest.raises(store.VaultStateInvalid, match="not_restorable"):
         vault.export()
 
 
@@ -202,11 +207,19 @@ def test_f4_every_text_value_in_a_migrated_clean_vault_measures_the_same_in_sqli
     db.close()
 
 
-@pytest.mark.xfail(strict=True, reason="F-4 storage semantics await a founder decision (ADR-0006, Decisions requested, D-C)")
-def test_f4_storage_itself_refuses_text_whose_true_length_exceeds_its_bound(tmp_path):
+@pytest.mark.parametrize("table,sql,values", [
+    ("claims", "INSERT INTO claims(id,text,origin,status,created_at) VALUES('c-nul',?,'human','proposed',?)",
+     ("C\x00" + "y" * 2500, T)),
+    ("claims", "INSERT INTO claims(id,text,origin,status,created_at) VALUES('c-nul',?,'human','proposed',?)", ("C\x00y", T)),
+    ("records", "INSERT INTO records(id,content,source,sensitivity,status,created_at) VALUES('r-nul',?,'manual','private','active',?)",
+     ("R\x00" + "x" * 10050, T)),
+])
+def test_f4_storage_itself_refuses_text_whose_true_length_exceeds_its_bound(tmp_path, table, sql, values):
+    """Founder decision D-C (C1): storage refuses an embedded NUL in current canonical text, by trigger, so a
+    connection that switches CHECK constraints off cannot store a length SQLite does not count."""
     vault = Vault(str(tmp_path / "live.db"))
-    db = sqlite3.connect(vault.path, isolation_level=None)
-    with pytest.raises(sqlite3.IntegrityError):
-        db.execute("INSERT INTO claims(id,text,origin,status,created_at) VALUES('c-nul',?,'human','proposed',?)",
-                   ("C\x00" + "y" * 2500, T))
+    db = raw(vault)                                   # ignore_check_constraints=ON
+    with pytest.raises(sqlite3.IntegrityError, match="embedded NUL"):
+        db.execute(sql, values)
+    assert db.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
     db.close()

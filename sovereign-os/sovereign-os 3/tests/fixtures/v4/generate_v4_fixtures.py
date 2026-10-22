@@ -2,7 +2,11 @@
 
 Usage:
     git worktree add --detach /tmp/v4 eeed753311382047fb2042515a5d2d0f68e94b04
-    python -I generate_v4_fixtures.py "/tmp/v4/sovereign-os/sovereign-os 3" <output dir>
+    python -I generate_v4_fixtures.py "/tmp/v4/sovereign-os/sovereign-os 3" <output dir> [fixture names]
+    python -I generate_v4_fixtures.py "/tmp/v4/sovereign-os/sovereign-os 3" <output dir> --export v4_clean
+    python -I generate_v4_fixtures.py "/tmp/v4/sovereign-os/sovereign-os 3" <output dir> --restore <format-2 backup.json> <name>
+With fixture names, only those are (re)generated. `--export` writes `<name>.export.json`, the v4 code's own export of
+an existing fixture. `--restore` writes `<name>.sql`, a v4 vault made by the v4 code's trusted restore of a backup.
 The v4 project dir is a checkout of eeed753's `sovereign-os/sovereign-os 3` (schema 4, the released ADR-0003 code).
 Fixture ids and times are random per run; tests locate items by text, never by id. Each fixture is produced by
 that code's own Vault API (and, where a fixture records damage, by the Issue #6 attack itself on an ordinary
@@ -14,7 +18,7 @@ import sqlite3
 import sys
 import tempfile
 
-V4, OUT = sys.argv[1], sys.argv[2]
+V4, OUT, ARGS = sys.argv[1], sys.argv[2], sys.argv[3:]
 sys.path.insert(0, os.path.join(V4, "src"))
 from sovereign import store as v4store   # noqa: E402  (the genuine v4 module)
 from sovereign.store import Vault        # noqa: E402
@@ -69,7 +73,7 @@ def dump(path):
     return "\n".join(out) + "\n"
 
 
-def v0_base(path):
+def v0_base(path, extra=""):
     db = sqlite3.connect(path)
     db.executescript(f"""
         CREATE TABLE records (id TEXT PRIMARY KEY, content TEXT NOT NULL, source TEXT NOT NULL DEFAULT 'manual',
@@ -79,14 +83,15 @@ def v0_base(path):
         CREATE INDEX ix_records_status ON records(status,created_at);
         INSERT INTO records VALUES ('legacy/1','Legacy synthetic note','manual','private','active','{T}',NULL);
         INSERT INTO tombstones VALUES ('legacy-gone','{T}');
+        {extra}
     """)
     db.close()
 
 
-def fixture(name, build):
+def fixture(name, build, extra=""):
     d = tempfile.mkdtemp()
     path = os.path.join(d, "vault.db")
-    v0_base(path)
+    v0_base(path, extra)
     v = Vault(path)                       # genuine v4 migration 0 -> 4
     notes = build(v, path) or ""
     db = sqlite3.connect(path)
@@ -194,7 +199,58 @@ def nul_lengths(v, path):
     return "record content 10052 chars and claim text 2502 chars, each with an embedded NUL"
 
 
+def nul_short(v, path):
+    """D-C: current (non-legacy) text holding an embedded NUL but within every length bound, which v4 accepts."""
+    r = v.add("Ordinary evidence for a short NUL claim")
+    db = attacker(path)
+    db.execute("INSERT INTO claims(id,text,origin,status,created_at) VALUES('c-short-nul',?,'human','proposed',?)", ("Short\x00claim", T))
+    db.execute("INSERT INTO claim_sources(claim_id,record_id,evidence_sha256) VALUES('c-short-nul',?,?)", (r["id"], v4store.evidence_hash(r)))
+    db.execute("INSERT INTO claim_events(claim_id,from_status,to_status,actor,at) VALUES('c-short-nul',NULL,'proposed','human',?)", (T,))
+    db.close()
+    return "claim text 'Short<NUL>claim' (11 characters)"
+
+
+def legacy_nul(v, path):
+    """D-C: an ADR-0002 legacy record whose content holds an embedded NUL, migrated by v4 with legacy = 1."""
+    return "legacy record 'legacy/nul'"
+
+
+def load(path, name):
+    db = sqlite3.connect(path)
+    db.execute("PRAGMA ignore_check_constraints=ON")
+    with open(os.path.join(OUT, f"{name}.sql"), encoding="utf-8") as fh:
+        db.executescript(fh.read())
+    db.close()
+
+
 os.makedirs(OUT, exist_ok=True)
-for name, build in [("v4_clean", clean), ("v4_partial_link_loss", partial_link_loss), ("v4_zero_link_loss", zero_link_loss),
-                    ("v4_claim_row_replaced", claim_row_replaced), ("v4_check_bypass", check_bypass), ("v4_nul_lengths", nul_lengths)]:
-    fixture(name, build)
+if ARGS[:1] == ["--export"]:            # the v4 code's own export of an existing fixture (it opens v4 without migrating)
+    import json
+    for name in ARGS[1:]:
+        path = os.path.join(tempfile.mkdtemp(), "vault.db")
+        load(path, name)
+        export = Vault(path).export()
+        with open(os.path.join(OUT, f"{name}.export.json"), "w", encoding="utf-8") as fh:
+            json.dump(export, fh, ensure_ascii=False, indent=1, sort_keys=True)
+            fh.write("\n")
+        print(f"{name}.export.json: schema {export['schema']}, {len(export['claims'])} claims")
+elif ARGS[:1] == ["--restore"]:         # a v4 vault made by the v4 code's trusted restore of a given backup
+    import json
+    source, name = ARGS[1], ARGS[2]
+    with open(source, encoding="utf-8") as fh:
+        backup = json.load(fh)
+    path = os.path.join(tempfile.mkdtemp(), "vault.db")
+    result = Vault(path).restore_trusted(backup)
+    text = dump(path)
+    with open(os.path.join(OUT, f"{name}.sql"), "w", encoding="utf-8") as fh:
+        fh.write(text)
+    print(f"{name}: {len(text)} bytes; sha256 {hashlib.sha256(text.encode()).hexdigest()[:16]} restore {result}")
+else:
+    builders = {"v4_clean": (clean, ""), "v4_partial_link_loss": (partial_link_loss, ""),
+                "v4_zero_link_loss": (zero_link_loss, ""), "v4_claim_row_replaced": (claim_row_replaced, ""),
+                "v4_check_bypass": (check_bypass, ""), "v4_nul_lengths": (nul_lengths, ""), "v4_nul_short": (nul_short, ""),
+                "v4_legacy_nul": (legacy_nul, "INSERT INTO records VALUES ('legacy/nul',CAST(X'4c6567616379006e6f7465' AS TEXT),"
+                                              f"'manual','private','active','{T}',NULL);")}
+    for name in ARGS or list(builders):
+        build, extra = builders[name]
+        fixture(name, build, extra)

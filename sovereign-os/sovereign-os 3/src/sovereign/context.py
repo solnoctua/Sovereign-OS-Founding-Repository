@@ -30,8 +30,12 @@ POLICY_VERSION = "sovereign.context.v0"
 # positive validation (ADR-0006, F-3): a source record is usable only in a state the storage CHECK set
 # allows, so a record written in any other state by a connection that disabled CHECKs never enters context.
 # It changes no decision, token or bundle for any state a CHECK-respecting writer can produce.
+# `revalidation_required` and `evidence_set_mismatch` (ADR-0006, D-A): an approved claim is approved memory only
+# if its complete evidence set is committed; one created before schema 5 awaits a human revalidation, and one
+# whose links differ from its commitment has lost evidence. They change nothing for a committed claim.
 REASONS = ("invalid_state", "superseded", "rejected", "contested", "not_authoritative", "stale", "orphaned",
-           "sensitive_cloud", "not_relevant", "duplicate", "budget_exceeded")
+           "revalidation_required", "evidence_set_mismatch", "sensitive_cloud", "not_relevant", "duplicate",
+           "budget_exceeded")
 _STATUS_REASON = {"rejected": "rejected", "superseded": "superseded", "contested": "contested",
                   "proposed": "not_authoritative"}
 
@@ -108,6 +112,7 @@ class RetrievalCandidate:
     score: int                      # distinct question terms matched
     matched_terms: tuple[str, ...]
     via: str                        # why retrieved: "pinned" | "lexical" | "provenance" (cites a candidate record)
+    integrity: str | None = None    # claims only: committed | unconfirmed | mismatch (anything else fails closed)
 
     def describe(self) -> dict:
         out = {"id": self.id, "type": self.type, "content": self.content, "created_at": self.created_at,
@@ -245,7 +250,8 @@ def _candidates(facts: dict) -> list[RetrievalCandidate]:
         found.append(RetrievalCandidate(claim["id"], "claim", claim["text"], claim["created_at"], claim["status"],
                                         claim["support"], inherited_sensitivity(claim["sources"]),
                                         tuple(claim["source_ids"]), claim["origin"], False, claim["score"],
-                                        tuple(claim["matched_terms"]), "lexical" if claim["score"] else "provenance"))
+                                        tuple(claim["matched_terms"]), "lexical" if claim["score"] else "provenance",
+                                        claim["integrity"]))
     return found
 
 
@@ -270,7 +276,9 @@ def _reasons(c: RetrievalCandidate, boundary: str, policy: ContextPolicy) -> tup
             reasons.add(_STATUS_REASON[c.status])
         if c.support in ("stale", "orphaned"):
             reasons.add(c.support)
-        if not reasons and not rules.is_authoritative(c.status, c.support):
+        if c.status == "approved" and c.integrity != "committed":
+            reasons.add("evidence_set_mismatch" if c.integrity == "mismatch" else "revalidation_required")
+        if not reasons and not rules.is_authoritative(c.status, c.support, c.integrity):
             reasons.add("not_authoritative")       # MemoryClaim decides authority; never assume it
     if boundary == "cloud" and c.sensitivity not in policy.cloud_sensitivities:
         reasons.add("sensitive_cloud")

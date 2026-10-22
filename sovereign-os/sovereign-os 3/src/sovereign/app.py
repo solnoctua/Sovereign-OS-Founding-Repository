@@ -45,6 +45,18 @@ class SupersedeIn(DecisionIn):
     source_ids: list[str] = Field(min_length=1, max_length=8)
 
 
+class ReviewedEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=1, max_length=200)
+    evidence_sha256: str | None = Field(min_length=64, max_length=64)
+
+
+class RevalidateIn(DecisionIn):
+    # The exact evidence the person was shown and reviewed, link by link (ADR-0006, D-A). The vault refuses the
+    # revalidation unless it equals the claim's surviving links, so a confirmation never covers unseen evidence.
+    evidence: list[ReviewedEvidence] = Field(min_length=1, max_length=8)
+
+
 class RestoreIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     confirm_trusted_restore: Literal[True]
@@ -194,6 +206,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
     @app.post("/api/claims/{claim_id:path}/supersede")
     def supersede_claim(claim_id: str, body: SupersedeIn):
         return claim_errors(lambda: vault.supersede_claim(claim_id, body.text, body.source_ids, body.note, body.expected_status))
+
+    @app.post("/api/claims/{claim_id:path}/revalidate")
+    def revalidate_claim(claim_id: str, body: RevalidateIn):
+        reviewed = [item.model_dump() for item in body.evidence]
+        return claim_errors(lambda: vault.revalidate_claim(claim_id, reviewed, body.note, body.expected_status))
 
     @app.delete("/api/claims/{claim_id:path}")
     def remove_claim(claim_id: str):
