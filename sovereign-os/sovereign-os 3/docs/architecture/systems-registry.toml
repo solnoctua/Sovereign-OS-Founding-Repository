@@ -38,6 +38,13 @@ known_gaps = []
 "context.POLICY.max_chars" = 12000
 "context.POLICY.retrieval_limit" = 50
 "store.EXPORT_SCHEMA" = "sovereign.v0.records.3"   # backup format 3: per-claim evidence-set commitments (ADR-0006, D-A)
+"provenance.MAX_HOPS" = 2                     # SB-2a (ADR-0005 §8.1, PR #11)
+"provenance.MAX_NODES" = 60
+"provenance.HISTORY_LIMIT" = 50
+"provenance.EXCERPT" = 400
+"provenance.MAX_RESPONSE_BYTES" = 262144
+"provenance.WORK_LIMIT" = 5000
+"provenance.VALUE_BYTES" = 65536             # largest stored value a graph read loads (second audit, F-7)
 
 [[system]]
 id = "canonical-store"
@@ -150,19 +157,19 @@ documentation = "docs/benchmarks/0003-retrieval-evaluation.md"
 [[system]]
 id = "sb2a-provenance-navigation"
 role = "Derived, computed-on-read provenance neighborhood (SUPPORTED_BY, CORRECTS, SUPERSEDES) for local navigation"
-status = "approved"
+status = "implemented"
 trust_class = "trusted-service"
 canonical_write = false
 personal_data = "content (display)"
 credentials = "none"
 egress = "none"
 persistent_state = "none (computed on read)"
-upstream = "native (WP-3 draft PR)"
+upstream = "native: src/sovereign/provenance.py; GET /api/provenance/{kind}/{id}"
 code = ["src/sovereign/provenance.py"]
-version_or_commit = "not in this tree"
+version_or_commit = "PR #11"
 license = "project"
-boundary = "Never feeds the Context Compiler; tokens identical with and without it (validation spec #3)"
-exit_test = "remove the module and endpoint; compiler tokens unchanged"
+boundary = "Never feeds the Context Compiler: tokens identical before and after graph reads over all 56 Benchmark 0003 queries (local, kimi), and no compiler, store, claims or provider module imports it (validation spec #3 item 4; no run with the module removed). Reads no stored value larger than VALUE_BYTES; a focus it cannot read fails closed (409)"
+exit_test = "remove the module and endpoint; nothing it computes is stored, so no state migrates (compiler independence is shown by the static import check, not by a removal run)"
 documentation = "docs/adr/0005-governed-second-brain-architecture.md #8.1; docs/second-brain/SECOND-BRAIN-VALIDATION.md #3"
 
 [[system]]
