@@ -223,3 +223,71 @@ def test_f4_storage_itself_refuses_text_whose_true_length_exceeds_its_bound(tmp_
         db.execute(sql, values)
     assert db.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 0
     db.close()
+
+
+# --- Independent adversarial review of the validity scan (2026-10-22) --------------------------
+# Builder regressions for the reviewer's reproduced findings: a state the scan exists to refuse must be refused
+# as VaultStateInvalid (HTTP 409) naming classes and counts only, never as an exception carrying row content.
+
+SECRET = "SYNTHETIC-SECRET-PAYLOAD-4242"
+
+
+def invalid_utf8_vault(tmp_path):
+    vault = Vault(str(tmp_path / "live.db"))
+    vault.add("Ordinary evidence")
+    db = sqlite3.connect(vault.path, isolation_level=None)          # ordinary connection, default pragmas
+    db.execute(f"INSERT INTO records(id,content,sensitivity,status,created_at) "
+               f"VALUES('x', CAST('{SECRET}' || X'FF' AS TEXT),'sensitive','active',?)", (T,))
+    db.close()
+    return vault
+
+
+def test_review_text_that_is_not_utf8_is_refused_without_disclosing_it(tmp_path):
+    vault = invalid_utf8_vault(tmp_path)
+    with pytest.raises(store.VaultStateInvalid) as refused:
+        vault.export()
+    assert refused.value.findings == {"unreadable_rows": 1}
+    assert SECRET not in str(refused.value) and refused.value.__cause__ is None and refused.value.__suppress_context__
+    response = TestClient(create_app(vault.path)).get("/api/export")
+    assert response.status_code == 409 and SECRET not in response.text
+
+
+def test_review_a_schema_4_vault_with_text_that_is_not_utf8_is_refused_unchanged(tmp_path):
+    path = load_v4("v4_clean", tmp_path)
+    db = sqlite3.connect(path, isolation_level=None)
+    db.execute(f"INSERT INTO records(id,content,sensitivity,status,created_at) "
+               f"VALUES('x', CAST('{SECRET}' || X'FF' AS TEXT),'sensitive','active',?)", (T,))
+    db.close()
+    before = Path(path).read_bytes()                                  # iterdump itself cannot decode the row
+    with pytest.raises(store.VaultStateInvalid, match="unreadable_rows") as refused:
+        Vault(path)
+    assert SECRET not in str(refused.value)
+    assert Path(path).read_bytes() == before and user_version(path) == 4
+
+
+@pytest.mark.parametrize("statement,values", [
+    ("INSERT INTO claims(id,text,origin,status,created_at) VALUES(?,'Blob id','human','proposed',?)", (b"blob-id", T)),
+    ("INSERT INTO claim_sources(claim_id,record_id,evidence_sha256) VALUES('c-blob',?,NULL)", (b"blob-record",)),
+])
+def test_review_a_mistyped_value_is_refused_not_a_crash(tmp_path, statement, values):
+    vault = Vault(str(tmp_path / "live.db"))
+    r = vault.add("Ordinary evidence")
+    vault.add_claim("Ordinary claim", [r["id"]])
+    db = raw(vault)                                                   # CHECKs off: an ordinary connection
+    if "claim_sources" in statement:
+        db.execute("INSERT INTO claims(id,text,origin,status,created_at) VALUES('c-blob','Claim','human','proposed',?)", (T,))
+    db.execute(statement, values)
+    db.close()
+    with pytest.raises(store.VaultStateInvalid, match="integrity_check"):
+        vault.export()
+    assert TestClient(create_app(vault.path)).get("/api/export").status_code == 409
+
+
+def test_review_a_schema_5_vault_relabelled_as_schema_4_is_refused_clearly(tmp_path):
+    vault = Vault(str(tmp_path / "live.db"))
+    vault.add("Ordinary evidence")
+    db = sqlite3.connect(vault.path, isolation_level=None)
+    db.execute("PRAGMA user_version=4")
+    db.close()
+    with pytest.raises(RuntimeError, match="already holds schema 5 tables"):
+        Vault(vault.path)
