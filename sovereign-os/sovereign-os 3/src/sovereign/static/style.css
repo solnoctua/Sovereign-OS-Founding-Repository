@@ -12,3 +12,11 @@
 .prov-focus{padding:10px 0}
 .prov-depth{display:flex;align-items:center;gap:10px;margin:8px 0}
 .prov-depth select{width:auto;display:inline-block;margin:0}
+
+/* Revalidation of claims made before schema 5 (ADR-0006, D-A) */
+.reval-dialog{max-width:720px;width:calc(100% - 32px);max-height:85vh;overflow:auto}
+.reval-source{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);margin:0}
+.reval-source input{margin-top:3px;flex-shrink:0}
+.reval-source small{display:block;opacity:.75;margin-bottom:2px}
+.reval-dialog .blocked{color:#e6a9a2}
+.reval-dialog .source-label{font-size:10px;color:#9dc3ab;margin-top:14px;letter-spacing:.08em}

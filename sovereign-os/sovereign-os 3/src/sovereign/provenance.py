@@ -33,8 +33,9 @@ Bounded (F-7):
 - a read that would exceed WORK_LIMIT ticks of SQLite work fails closed with ProvenanceTooLarge and returns
   nothing partial.
 
-The whole graph is read in one transaction, so it reflects a single snapshot. Status, support and authority are
-derived live in that snapshot by the store's own derivation (`Vault._claim`), never read from a copy.
+The whole graph is read in one transaction, so it reflects a single snapshot. Status, support, evidence-set integrity
+(ADR-0006, D-A) and authority are derived live in that snapshot by the store's own derivation (`Vault._claim`), never
+read from a copy.
 
 Navigation is not relevance (ADR-0004 decision 3, ADR-0005 R3). The Context Compiler never imports this module, and
 nothing here writes, persists or influences a context bundle or disclosure.
@@ -182,7 +183,8 @@ class _Graph:
         if kind == "record":
             out["sensitivity"] = item["sensitivity"]
         else:
-            out.update(support=item["support"], authoritative=item["authoritative"], origin=item["origin"])
+            out.update(support=item["support"], integrity=item["integrity"], authoritative=item["authoritative"],
+                       origin=item["origin"])
             if focus:
                 out["history"] = [{**e, "note": None if e["note"] is None else e["note"][:rules.MAX_NOTE],
                                    "at": e["at"][:TIME_CHARS]} for e in item["history"]]

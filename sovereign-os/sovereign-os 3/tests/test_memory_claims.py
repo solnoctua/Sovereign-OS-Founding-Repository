@@ -238,7 +238,7 @@ def test_trusted_restore_preserves_state_and_history(client,tmp_path):
     a,b,made=lifecycle_fixture(client)
     before=claims(client)
     snapshot=client.get("/api/export").json()
-    assert snapshot["schema"]=="sovereign.v0.records.2" and len(snapshot["claims"])==6
+    assert snapshot["schema"]=="sovereign.v0.records.3" and len(snapshot["claims"])==6
     second=TestClient(create_app(str(tmp_path / "new.db")))
     assert restore(second,snapshot)=={"imported":2,"records_skipped":0,"claims_restored":6,"approved_claims_restored":1,
                                       "claims_skipped_existing":0,"claims_skipped_conflict":0,"claims_forgotten":0}

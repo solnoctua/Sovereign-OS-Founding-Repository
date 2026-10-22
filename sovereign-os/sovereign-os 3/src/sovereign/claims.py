@@ -71,9 +71,27 @@ def support_of(source_states: list[str]) -> str:
     return "supported"
 
 
-def is_authoritative(status: str, support: str) -> bool:
-    """Only an approved claim whose evidence is intact counts as approved memory."""
-    return status == "approved" and support == "supported"
+# Evidence-set integrity, a dimension separate from lifecycle status and support (ADR-0006, D-A). A claim's
+# complete set of evidence links is committed write-once when it is created (or, for a claim created before
+# schema 5, when a human revalidates it), so the loss of any link becomes detectable:
+# - `committed`: the current links are exactly the committed set;
+# - `unconfirmed`: no commitment, because the claim predates schema 5 (or arrived in a backup that predates it),
+#   so its original set cannot be proven complete and it awaits a human revalidation;
+# - `mismatch`: the current links differ from the commitment.
+INTEGRITY = ("committed", "unconfirmed", "mismatch")
+
+
+def integrity_of(committed: tuple[int, str] | None, current: tuple[int, str]) -> str:
+    """Compare a claim's commitment (link count, digest), if any, with the same pair for its current links."""
+    if committed is None:
+        return "unconfirmed"
+    return "committed" if tuple(committed) == tuple(current) else "mismatch"
+
+
+def is_authoritative(status: str, support: str, integrity: str | None) -> bool:
+    """Only an approved claim whose evidence is intact and whose complete evidence set is committed counts as
+    approved memory."""
+    return status == "approved" and support == "supported" and integrity == "committed"
 
 
 def validate_history(history: list, origin: str, status: str) -> None:
@@ -95,9 +113,9 @@ def validate_history(history: list, origin: str, status: str) -> None:
         if event.get("from_status") != previous:
             raise ValueError("Claim history is not contiguous.")
         to, actor, note = event.get("to_status"), event.get("actor"), event.get("note")
-        if note is not None and (not isinstance(note, str) or len(note) > MAX_NOTE):
+        if note is not None and (not isinstance(note, str) or len(note) > MAX_NOTE or "\x00" in note):
             raise ValueError("Invalid claim history note.")
-        if not isinstance(event.get("at"), str):
+        if not isinstance(event.get("at"), str) or "\x00" in event["at"]:
             raise ValueError("Invalid claim history time.")
         if previous is None:
             if to != "proposed" or actor != origin:

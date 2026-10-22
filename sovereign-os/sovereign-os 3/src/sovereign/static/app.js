@@ -21,6 +21,8 @@ async function refresh(){
   drawRecords();drawContext();await refreshClaims();
 }
 const SUPPORT_LABEL={supported:"EVIDENCE INTACT",stale:"EVIDENCE CORRECTED — RE-CHECK",orphaned:"EVIDENCE MISSING OR UNVERIFIED — UNSUPPORTED"};
+// Evidence-set integrity (ADR-0006, D-A): shown only when the complete evidence set is not committed.
+const INTEGRITY_LABEL={unconfirmed:"MADE BEFORE SCHEMA 5 — REVALIDATION REQUIRED",mismatch:"EVIDENCE LINKS CHANGED — NOT AUTHORITATIVE"};
 const CLAIM_ACTIONS={proposed:["approve","reject","contest","correct"],approved:["contest","reject","correct"],contested:["approve","reject","correct"],rejected:[],superseded:[]};
 const claimsPage=cursor=>api("/api/claims"+(cursor?`?cursor=${encodeURIComponent(cursor)}`:""));
 async function refreshClaims(){
@@ -53,6 +55,7 @@ function drawClaims(){
     const statusLabel=c.authoritative?"APPROVED MEMORY":c.status==="approved"?"APPROVED · NO LONGER AUTHORITATIVE":c.status.toUpperCase()+" · NOT AUTHORITATIVE";
     const tags=el("div","record-actions");
     tags.append(el("span","tag claim-"+(c.authoritative?"approved":c.status==="approved"?"stale":c.status),statusLabel),el("span","tag claim-"+c.support,SUPPORT_LABEL[c.support]),el("span","tag",{model:"MODEL-PROPOSED",human:"HUMAN-WRITTEN",imported:"IMPORTED · UNVERIFIED"}[c.origin]));
+    if(c.integrity!=="committed")tags.append(el("span","tag claim-"+(c.integrity==="unconfirmed"?"stale":"orphaned"),INTEGRITY_LABEL[c.integrity]||"EVIDENCE SET UNKNOWN"));
     wrapper.append(tags,el("div","record-main",c.text));
     const evidence=el("div","claim-sources");
     for(const s of c.sources)evidence.append(el("div","",`Evidence ${s.id.slice(0,8)} [${s.state}]: ${s.content??"(not in this vault)"}`));
@@ -61,10 +64,32 @@ function drawClaims(){
     wrapper.append(evidence);
     const foot=el("div","record-foot");const actions=el("div","record-actions");
     for(const action of CLAIM_ACTIONS[c.status]){const btn=el("button","",action[0].toUpperCase()+action.slice(1));btn.addEventListener("click",()=>claimAction(c,action));actions.append(btn)}
+    if(c.integrity==="unconfirmed"&&CLAIM_ACTIONS[c.status].length){const btn=el("button","","Revalidate");btn.addEventListener("click",()=>openRevalidation(c));actions.append(btn)}
     const del=el("button","","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this claim and its history? Its evidence is not affected."))return;try{await api(`/api/claims/${encodeURIComponent(c.id)}`,{method:"DELETE"});await refreshClaims()}catch(e){alert(e.message)}});
     const why=el("button","","Provenance");why.addEventListener("click",()=>openProvenance("claim",c.id));
     actions.append(why,del);foot.append(el("span","",displayDate(c.created_at)),actions);wrapper.append(foot);container.append(wrapper)
   }
+}
+// Governed revalidation of a claim made before schema 5 (ADR-0006, D-A): every surviving source is shown in full and
+// must be ticked before confirming; the request names exactly the links shown, so it never covers unseen evidence.
+function openRevalidation(c){
+ state.reval=c;$("reval-claim").replaceChildren(el("small","",`claim · ${c.status.toUpperCase()} · ${SUPPORT_LABEL[c.support]}`),document.createTextNode(c.text));
+ const list=$("reval-evidence");list.replaceChildren();const boxes=[];
+ for(const s of c.sources){
+  const row=el("label","reval-source");const box=document.createElement("input");box.type="checkbox";box.disabled=s.state!=="active";
+  const body=el("div","record-main");body.append(el("small","",`source ${s.id.slice(0,8)} · ${s.state}${s.sensitivity?" · "+s.sensitivity.toUpperCase():""}`),document.createTextNode(s.content??"(not in this vault)"));
+  row.append(box,body);boxes.push(box);list.append(row);
+ }
+ const ok=c.support==="supported";
+ $("reval-blocked").hidden=ok;$("reval-blocked").textContent=ok?"":`Its surviving evidence is ${c.support}, so it cannot be confirmed as it stands. Reconstruct it with evidence you choose.`;
+ const sync=()=>{$("reval-confirm").disabled=!ok||!boxes.every(b=>b.checked)};for(const b of boxes)b.addEventListener("change",sync);sync();
+ $("reval-note").value="";$("reval-dialog").showModal();
+}
+async function confirmRevalidation(){
+ const c=state.reval;
+ const body={confirm:true,expected_status:c.status,note:$("reval-note").value.trim().slice(0,500)||null,
+  evidence:c.sources.map(s=>({id:s.id,evidence_sha256:c.source_hashes[s.id]}))};
+ try{await api(`/api/claims/${encodeURIComponent(c.id)}/revalidate`,{method:"POST",body:JSON.stringify(body)});$("reval-dialog").close();await refreshClaims()}catch(e){alert(e.message)}
 }
 function drawRecords(){
   $("count").textContent=`${state.records.length} shown`;
@@ -116,7 +141,7 @@ function invalidatePlan(){
  state.plan=null;state.planKey=null;$("plan").hidden=true;$("approval").hidden=true;
  const ask=$("ask");ask.disabled=true;ask.firstChild.textContent="Preview the context first ";
 }
-const REASON_LABEL={invalid_state:"record in an unrecognized state — never used",superseded:"superseded",rejected:"rejected",contested:"contested",not_authoritative:"not approved memory",stale:"evidence corrected",orphaned:"evidence missing or unverified",sensitive_cloud:"sensitive — stays on this device",not_relevant:"not relevant to the question",duplicate:"duplicate content",budget_exceeded:"context budget exceeded"};
+const REASON_LABEL={invalid_state:"record in an unrecognized state — never used",superseded:"superseded",rejected:"rejected",contested:"contested",not_authoritative:"not approved memory",stale:"evidence corrected",orphaned:"evidence missing or unverified",revalidation_required:"made before schema 5 — awaits your revalidation",evidence_set_mismatch:"evidence links differ from their commitment — never used",sensitive_cloud:"sensitive — stays on this device",not_relevant:"not relevant to the question",duplicate:"duplicate content",budget_exceeded:"context budget exceeded"};
 function itemNode(x,label){
  const node=el("div","context-item"+(x.role?"":" excluded"));
  const meta=[x.label?`${label} [${x.label}]`:label,x.type==="claim"?`claim ${x.id.slice(0,8)} · ${x.status} · evidence ${x.source_ids.map(i=>i.slice(0,8)).join(", ")}`:`source ${x.id.slice(0,8)} · ${displayDate(x.created_at)}`,x.sensitivity.toUpperCase()];
@@ -177,6 +202,9 @@ async function init(){
  $("cancel-edit").addEventListener("click",()=>$("edit-dialog").close());
  $("prov-close").addEventListener("click",()=>$("prov-dialog").close());
  $("prov-hops").addEventListener("change",()=>{if(state.provFocus)openProvenance(state.provFocus.kind,state.provFocus.id)});
+ $("reval-cancel").addEventListener("click",()=>$("reval-dialog").close());
+ $("reval-confirm").addEventListener("click",confirmRevalidation);
+ $("reval-reconstruct").addEventListener("click",()=>{const c=state.reval;$("reval-dialog").close();claimAction(c,"correct")});
  $("export").addEventListener("click",()=>{window.location.href="/api/export"});
  const loadFile=async(trusted)=>{const file=$("import-file").files[0];if(!file){alert("Choose an export file first.");return}
   try{const payload=JSON.parse(await file.text());
@@ -202,7 +230,7 @@ const provKey=x=>`${x.kind}:${x.id}`;
 function claimStatusLabel(c){return c.authoritative?"APPROVED MEMORY":c.status==="approved"?"APPROVED · NO LONGER AUTHORITATIVE":c.status.toUpperCase()+" · NOT AUTHORITATIVE"}
 function provItem(graph,node,note){
  const row=el("div","prov-item");const body=el("div","prov-text");
- const kind=node.kind==="claim"?`claim · ${claimStatusLabel(node)} · ${SUPPORT_LABEL[node.support]}`:`source record · ${node.status.toUpperCase()} · ${node.sensitivity.toUpperCase()}`;
+ const kind=node.kind==="claim"?[`claim · ${claimStatusLabel(node)} · ${SUPPORT_LABEL[node.support]}`,node.integrity!=="committed"?INTEGRITY_LABEL[node.integrity]||"EVIDENCE SET UNKNOWN":""].filter(Boolean).join(" · "):`source record · ${node.status.toUpperCase()} · ${node.sensitivity.toUpperCase()}`;
  body.append(el("small","",[kind,displayDate(node.created_at),note].filter(Boolean).join(" · ")),document.createTextNode(node.text_truncated?node.text+"…":node.text));
  const actions=el("div","record-actions");
  if(provKey(node)!==provKey(graph.focus)){const go=el("button","","Open");go.type="button";go.addEventListener("click",()=>openProvenance(node.kind,node.id));actions.append(go)}
@@ -217,7 +245,7 @@ function renderProvenance(graph){
  const near=new Set([focusKey]);const item=(end,note)=>{near.add(provKey(end));return provItem(graph,byKey.get(provKey(end)),note)};
  const head=el("div","prov-focus");head.append(provItem(graph,focus,"selected"));body.append(head);
  if(focus.kind==="claim"){
-  const why=focus.authoritative?"Approved by you, and every piece of evidence it cites is present and unchanged.":focus.status!=="approved"?`Not approved memory: its status is ${focus.status}.`:{stale:"You approved it, but evidence it cites has since been corrected; it no longer counts as approved memory.",orphaned:"You approved it, but evidence it cites is missing or has changed; it no longer counts as approved memory."}[focus.support];
+  const why=focus.authoritative?"Approved by you, and every piece of evidence it cites is present and unchanged.":focus.status!=="approved"?`Not approved memory: its status is ${focus.status}.`:focus.support!=="supported"?{stale:"You approved it, but evidence it cites has since been corrected; it no longer counts as approved memory.",orphaned:"You approved it, but evidence it cites is missing or has changed; it no longer counts as approved memory."}[focus.support]:{unconfirmed:"You approved it before schema 5, and Sovereign cannot prove its evidence set is complete; it counts as approved memory again once you revalidate it in the claims list.",mismatch:"You approved it, but its evidence links no longer match the set committed when it was made; it no longer counts as approved memory."}[focus.integrity]||"It does not count as approved memory.";
   body.append(el("p","micro",why));
   provSection(body,"SUPPORTED BY (evidence this claim cites)",out("SUPPORTED_BY").map(e=>item(e.to,EDGE_STATE[e.evidence_state])),focus.support==="orphaned"?"No verified evidence: what it cited is missing or has changed since the claim was made.":"None stored.");
   provSection(body,"SUPERSEDES (the earlier claim it replaced)",out("SUPERSEDES").map(e=>item(e.to)));

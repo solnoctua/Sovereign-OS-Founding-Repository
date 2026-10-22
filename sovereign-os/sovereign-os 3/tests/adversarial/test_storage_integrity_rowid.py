@@ -184,7 +184,7 @@ def test_legitimate_lifecycle_still_works_after_attacks(vault, pragmas):
 
 def test_a_claim_with_no_evidence_is_never_supported():
     assert rules.support_of([]) == "orphaned"
-    assert not rules.is_authoritative("approved", rules.support_of([]))
+    assert not rules.is_authoritative("approved", rules.support_of([]), "committed")
 
 
 def corrupt(v, sql):

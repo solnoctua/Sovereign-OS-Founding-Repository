@@ -446,9 +446,12 @@ def test_invalid_paging_parameters_are_rejected(client, params):
 
 
 def restored_claim(cid, record):
+    hashes = {record["id"]: store.evidence_hash(record)}
     return {"id": cid, "text": f"Claim {cid}", "origin": "human", "status": "proposed", "created_at": T,
-            "supersedes_id": None, "source_ids": [record["id"]], "source_hashes": {record["id"]: store.evidence_hash(record)},
-            "history": [{"from_status": None, "to_status": "proposed", "actor": "human", "note": None, "at": T}]}
+            "supersedes_id": None, "source_ids": [record["id"]], "source_hashes": hashes,
+            "history": [{"from_status": None, "to_status": "proposed", "actor": "human", "note": None, "at": T}],
+            "evidence_set": {"link_count": 1, "digest": store.evidence_set_digest(cid, hashes), "basis": "creation",
+                             "note": None, "at": T}}
 
 
 def claim_url(cid, action=""):

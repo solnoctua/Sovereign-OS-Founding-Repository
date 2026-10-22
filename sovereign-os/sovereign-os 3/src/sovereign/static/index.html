@@ -74,6 +74,14 @@
     <p class="micro">Computed now from links Sovereign stores: evidence a claim cites, corrections, and supersessions. It is a view for you only; it never changes what a model may see.</p>
     <label class="field-inline prov-depth" for="prov-hops">Links shown <select id="prov-hops"><option value="1">1 step away</option><option value="2">2 steps away</option></select></label>
     <div id="prov-body" class="prov-body" aria-live="polite"></div></dialog>
+  <dialog id="reval-dialog" class="reval-dialog" aria-labelledby="reval-title"><h2 id="reval-title">Revalidate a claim made before schema 5</h2>
+    <p>Before schema 5 a storage defect could remove a claim's evidence links without trace, so Sovereign cannot prove these are all the sources this claim was made from. It is not approved memory until you either confirm that the sources below adequately support it on their own, or reconstruct it with evidence you choose (the old claim is kept as superseded history).</p>
+    <div id="reval-claim" class="context-item"></div>
+    <div class="source-label">SURVIVING EVIDENCE — read and tick each one</div><div id="reval-evidence"></div>
+    <label for="reval-note">Note for the history (optional)</label><textarea id="reval-note" rows="2" maxlength="500"></textarea>
+    <p id="reval-blocked" class="blocked" hidden></p>
+    <p class="micro">Reconstruct: select the evidence in the library first; the new claim cites the selected records (or these surviving ones if none is selected) and starts as proposed.</p>
+    <div class="dialog-footer"><button type="button" class="secondary" id="reval-cancel">Cancel</button><button type="button" class="secondary" id="reval-reconstruct">Reconstruct instead</button><button type="button" class="primary" id="reval-confirm" disabled>Confirm these sources support it</button></div></dialog>
   <dialog id="edit-dialog"><form method="dialog" id="edit-form"><h2>Correct source record</h2><p>This creates a new active revision; the prior version remains local history until deletion.</p><textarea id="edit-text" rows="5" required maxlength="10000"></textarea><div class="dialog-footer"><button type="button" class="secondary" id="cancel-edit">Cancel</button><button type="submit" class="primary">Save correction</button></div></form></dialog>
 </body>
 </html>

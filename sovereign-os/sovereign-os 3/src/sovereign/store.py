@@ -28,14 +28,18 @@ from . import claims as rules
 
 # PRAGMA user_version. 0 = records-only vaults (ADR-0002). 1, 2, 3 = unreleased drafts (c847f9d, 708e9de, 36c9bbc).
 # 4 = ADR-0003 schema. 5 = the same tables, triggers and rules with the canonical tables below rebuilt
-# WITHOUT ROWID (ADR-0006, Issue #6).
+# WITHOUT ROWID (ADR-0006, Issue #6), plus write-once evidence-set commitments (D-A) and the storage rejection
+# of embedded NUL in current canonical text and identifiers (D-C): SCHEMA5_ADDITIONS.
 SCHEMA_VERSION = 5
 # A hidden rowid let INSERT OR REPLACE / REPLACE naming an existing rowid, and UPDATE OR REPLACE ... SET rowid,
 # delete a row without firing its DELETE trigger whenever recursive_triggers is off (SQLite's default). Without a
 # rowid the only uniqueness constraint left is each table's primary key, which the BEFORE triggers guard.
 # claim_events keeps INTEGER PRIMARY KEY AUTOINCREMENT: its rowid *is* `seq`, guarded by claim_events_no_replace.
 ROWID_FREE_TABLES = ("records", "tombstones", "claims", "claim_sources", "claim_tombstones")
-EXPORT_SCHEMAS = ("sovereign.v0.records.1", "sovereign.v0.records.2")
+EXPORT_SCHEMAS = ("sovereign.v0.records.1", "sovereign.v0.records.2", "sovereign.v0.records.3")
+# Version 3 of the backup format adds each claim's evidence-set commitment (`evidence_set`, null when the claim has
+# none). Backups in versions 1 and 2 predate commitments, so every claim they carry restores as `unconfirmed`.
+EXPORT_SCHEMA = "sovereign.v0.records.3"
 # One explicit size policy shared by export, import and restore: anything export produces is restorable.
 MAX_BACKUP_BYTES = 128 * 1024 * 1024
 MAX_ID, MAX_CONTENT, MAX_SOURCE = 200, 10000, 200
@@ -261,6 +265,71 @@ CLAIMS_SCHEMA = f"""
 """
 
 
+def _no_nul(*columns: str) -> str:
+    return " OR ".join(f"instr(coalesce({c}, ''), char(0)) > 0" for c in columns)
+
+
+# Schema 5 additions (ADR-0006), applied in the migration transaction: the table before the validity scan (empty,
+# so every claim created before schema 5 is `unconfirmed`), the rules after the rowid rebuild. A fresh vault takes
+# the same path, so fresh and migrated vaults have identical schemas.
+EVIDENCE_SETS_TABLE = f"""
+    -- D-A: a write-once commitment to a claim's complete evidence set: how many links it has and a digest binding
+    -- the claim id to every (record id, pinned evidence hash). Written in the creation transaction, after the links
+    -- and before the creation event (`creation`), or, for a claim created before schema 5, by an explicit human
+    -- revalidation of the surviving links (`revalidation`). Removed only with the claim, by forgetting it.
+    CREATE TABLE claim_evidence_sets (
+        claim_id TEXT PRIMARY KEY REFERENCES claims(id),
+        link_count INTEGER NOT NULL CHECK(typeof(link_count) = 'integer' AND link_count BETWEEN 1 AND {rules.MAX_SOURCES}),
+        digest TEXT NOT NULL CHECK(typeof(digest) = 'text' AND length(digest) = 64),
+        basis TEXT NOT NULL CHECK(basis IN ('creation', 'revalidation')),
+        note TEXT CHECK(note IS NULL OR (typeof(note) = 'text' AND length(note) <= {rules.MAX_NOTE})),
+        at TEXT NOT NULL CHECK(typeof(at) = 'text')
+    ) WITHOUT ROWID;
+"""
+SCHEMA5_ADDITIONS = f"""
+    -- The commitment's own rules are triggers, which hold even for a connection that disables CHECK constraints. A
+    -- creation commitment precedes the creation event. A revalidation is refused by the application for a claim
+    -- in a terminal status, but storage accepts it at any point, so a backup of a claim revalidated and later
+    -- rejected restores (its commitment is written after the history is replayed).
+    CREATE TRIGGER claim_evidence_sets_write_once BEFORE INSERT ON claim_evidence_sets WHEN
+        EXISTS (SELECT 1 FROM claim_evidence_sets WHERE claim_id = NEW.claim_id)
+        OR NOT EXISTS (SELECT 1 FROM claims WHERE id = NEW.claim_id)
+        OR NEW.link_count IS NOT (SELECT count(*) FROM claim_sources WHERE claim_id = NEW.claim_id)
+        OR typeof(NEW.digest) <> 'text' OR length(NEW.digest) <> 64 OR NEW.basis NOT IN ('creation', 'revalidation')
+        OR (NEW.basis = 'creation' AND EXISTS (SELECT 1 FROM claim_events WHERE claim_id = NEW.claim_id))
+        OR {_no_nul('NEW.digest', 'NEW.note', 'NEW.at')}
+    {_abort('an evidence-set commitment is written once: at creation, or by revalidating a claim created before schema 5')}
+    CREATE TRIGGER claim_evidence_sets_no_update BEFORE UPDATE ON claim_evidence_sets
+    {_abort('evidence-set commitments are write-once')}
+    CREATE TRIGGER claim_evidence_sets_no_delete BEFORE DELETE ON claim_evidence_sets WHEN NOT {_CLAIM_FORGOTTEN.format('OLD.claim_id')}
+    {_abort('evidence-set commitments are removed only by forgetting their claim')}
+    -- Forgetting a claim also removes its commitment (this replaces the schema 4 trigger of the same name).
+    DROP TRIGGER claim_tombstones_forget;
+    CREATE TRIGGER claim_tombstones_forget AFTER INSERT ON claim_tombstones BEGIN
+        DELETE FROM claim_evidence_sets WHERE claim_id = NEW.id;
+        DELETE FROM claim_events WHERE claim_id = NEW.id;
+        DELETE FROM claim_sources WHERE claim_id = NEW.id;
+        DELETE FROM claims WHERE id = NEW.id;
+    END;
+
+    -- D-C: no embedded NUL in current canonical text or identifiers, so SQLite's length() (which stops at a NUL)
+    -- and Python count the same characters. Triggers, because a connection can switch CHECK constraints off.
+    -- Legacy (ADR-0002) records keep theirs; record tombstones accept any record id, so such a record can always
+    -- be forgotten, and their times are written by Sovereign.
+    CREATE TRIGGER records_no_nul BEFORE INSERT ON records
+    WHEN NEW.legacy = 0 AND ({_no_nul('NEW.id', 'NEW.content', 'NEW.source', 'NEW.created_at', 'NEW.supersedes_id')})
+    {_abort('embedded NUL in a source record')}
+    CREATE TRIGGER claims_no_nul BEFORE INSERT ON claims WHEN {_no_nul('NEW.id', 'NEW.text', 'NEW.created_at', 'NEW.supersedes_id')}
+    {_abort('embedded NUL in a claim')}
+    CREATE TRIGGER claim_sources_no_nul BEFORE INSERT ON claim_sources WHEN {_no_nul('NEW.record_id', 'NEW.evidence_sha256')}
+    {_abort('embedded NUL in an evidence link')}
+    CREATE TRIGGER claim_events_no_nul BEFORE INSERT ON claim_events WHEN {_no_nul('NEW.note', 'NEW.at')}
+    {_abort('embedded NUL in claim history')}
+    CREATE TRIGGER claim_tombstones_no_nul BEFORE INSERT ON claim_tombstones WHEN {_no_nul('NEW.id')}
+    {_abort('embedded NUL in a claim tombstone')}
+"""
+
+
 class ForgetImpactChanged(Exception):
     """The effect of a Forget changed between its preview and its execution."""
 
@@ -286,6 +355,17 @@ def evidence_hash(record: Mapping) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def evidence_set_digest(claim_id: str, source_hashes: Mapping[str, str | None]) -> str:
+    """Commitment digest of a claim's complete evidence set: the claim id and every (record id, pinned hash) link."""
+    links = sorted([rid, digest] for rid, digest in source_hashes.items())
+    canonical = json.dumps([claim_id, links], ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _has_nul(*values) -> bool:
+    return any(isinstance(v, str) and "\x00" in v for v in values)
+
+
 def _record_retrieval_state(record: Mapping, score: int) -> list:
     """Policy projection of a relevant record for the retrieval fingerprint (ADR-0004).
 
@@ -302,7 +382,7 @@ def _claim_retrieval_state(claim: Mapping, score: int) -> list:
     state and sensitivity plus the evidence hash its link pins."""
     from .context import inherited_sensitivity   # the compiler's own rule, so the two cannot drift apart
     return [claim["id"], score, claim["created_at"], claim["status"], claim["support"],
-            inherited_sensitivity(claim["sources"]), rules.is_authoritative(claim["status"], claim["support"]),
+            inherited_sensitivity(claim["sources"]), claim["authoritative"],
             [[s["id"], s["state"], s["sensitivity"], claim["source_hashes"][s["id"]]] for s in claim["sources"]]]
 
 
@@ -382,6 +462,9 @@ class Vault:
             if version > SCHEMA_VERSION:
                 raise RuntimeError(f"Vault schema {version} is newer than this software supports ({SCHEMA_VERSION}).")
             if version == SCHEMA_VERSION:
+                if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='claim_evidence_sets'").fetchone():
+                    # Only a pre-release draft of schema 5 (before D-A) lacks it; refuse rather than guess.
+                    raise RuntimeError("Vault was created by a pre-release schema 5 draft; export records and restore into a new vault.")
                 db.execute("COMMIT")
                 return
             has_claims = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='claims'").fetchone()
@@ -391,12 +474,16 @@ class Vault:
             elif version != 4:
                 # Only unreleased benchmark drafts created these; refuse rather than guess.
                 raise RuntimeError("Vault was created by a pre-release claims build; export records and restore into a new vault.")
+            for statement in _statements(EVIDENCE_SETS_TABLE):   # empty: no claim made before schema 5 is committed
+                db.execute(statement)
             # Never carry forward, as a successful migration, a state no backup could restore exactly
-            # (ADR-0006, F-2): refuse before any destructive DDL, leaving the vault at its version.
+            # (ADR-0006, F-2): refuse before any destructive DDL; the rollback leaves the vault at its version.
             findings = self._validity_findings(db, self._export_payload(db))
             if findings:
                 raise VaultStateInvalid(findings, "Migration to schema 5")
             _rebuild_without_rowid(db)                                                          # 4 -> 5
+            for statement in _statements(SCHEMA5_ADDITIONS):
+                db.execute(statement)
             # One transaction: either the vault is fully at the new version or unchanged.
             db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             db.execute("COMMIT")
@@ -442,6 +529,8 @@ class Vault:
         content = content.strip()
         if not content or len(content) > MAX_CONTENT:
             raise ValueError("Text must be between 1 and 10,000 characters.")
+        if _has_nul(content, supersedes_id):
+            raise ValueError("Text and record ids cannot contain a NUL character (ADR-0006, D-C).")
         if sensitivity not in {"private", "sensitive"}:
             raise ValueError("Invalid sensitivity.")
         record_id = str(uuid4())
@@ -544,7 +633,8 @@ class Vault:
             for cid in dict.fromkeys([m["id"] for m in best(claim_matches)] + [m["id"] for m in best(linked)]):
                 claim = claim_of(cid)
                 points, terms = score(claim["text"])
-                claims.append({**{k: claim[k] for k in ("id", "text", "origin", "status", "created_at", "support", "source_ids")},
+                claims.append({**{k: claim[k] for k in ("id", "text", "origin", "status", "created_at", "support", "integrity",
+                                                        "source_ids")},
                                "sources": [{"id": s["id"], "state": s["state"], "sensitivity": s["sensitivity"]}
                                            for s in claim["sources"]],
                                "score": points, "matched_terms": terms})
@@ -640,7 +730,13 @@ class Vault:
         claim["sources"] = sources
         # Support is derived from current evidence, never stored, so it cannot drift.
         claim["support"] = rules.support_of([s["state"] for s in sources])
-        claim["authoritative"] = rules.is_authoritative(claim["status"], claim["support"])
+        # Integrity: do the current links match the claim's write-once evidence-set commitment (ADR-0006, D-A)?
+        committed = db.execute("SELECT link_count, digest, basis, note, at FROM claim_evidence_sets WHERE claim_id=?",
+                               (claim["id"],)).fetchone()
+        claim["evidence_set"] = dict(committed) if committed else None
+        claim["integrity"] = rules.integrity_of((committed["link_count"], committed["digest"]) if committed else None,
+                                                (len(links), evidence_set_digest(claim["id"], claim["source_hashes"])))
+        claim["authoritative"] = rules.is_authoritative(claim["status"], claim["support"], claim["integrity"])
         if history_limit is None:
             claim["history"] = [dict(e) for e in db.execute(
                 "SELECT from_status,to_status,actor,note,at FROM claim_events WHERE claim_id=? ORDER BY seq", (claim["id"],))]
@@ -670,21 +766,38 @@ class Vault:
             raise ValueError("A claim needs 1-8 distinct source record IDs.")
         if not all(1 <= len(rid) <= MAX_ID for rid in source_ids):
             raise ValueError("A claim cannot cite a record whose (legacy) id is outside current V0 bounds.")
+        if _has_nul(text, *source_ids):
+            raise ValueError("Claim text and evidence ids cannot contain a NUL character.")
         return text
 
+    @staticmethod
+    def _creation_set(claim_id: str, source_hashes: dict[str, str | None], at: str) -> dict:
+        return {"link_count": len(source_hashes), "digest": evidence_set_digest(claim_id, source_hashes),
+                "basis": "creation", "note": None, "at": at}
+
+    @staticmethod
+    def _commit_set(db, claim_id: str, evidence_set: dict) -> None:
+        db.execute("INSERT INTO claim_evidence_sets(claim_id,link_count,digest,basis,note,at) VALUES (?,?,?,?,?,?)",
+                   (claim_id, *(evidence_set[k] for k in ("link_count", "digest", "basis", "note", "at"))))
+
     def _insert_claim(self, db, claim_id: str, text: str, source_hashes: dict[str, str | None], origin: str,
-                      supersedes_id: str | None, created_at: str, history: list[dict]) -> None:
-        """Insert a claim and its fixed links, then write its history through the lifecycle triggers."""
+                      supersedes_id: str | None, created_at: str, history: list[dict], evidence_set: dict | None) -> None:
+        """Insert a claim, its fixed links and its evidence-set commitment, then write its history through the
+        lifecycle triggers. A commitment from creation precedes the history; one from a revalidation follows it."""
         db.execute("INSERT INTO claims(id,text,origin,status,created_at,supersedes_id) VALUES (?,?,?,'proposed',?,?)",
                    (claim_id, text, origin, created_at, supersedes_id))
         db.executemany("INSERT INTO claim_sources(claim_id,record_id,evidence_sha256) VALUES (?,?,?)",
                        [(claim_id, rid, digest) for rid, digest in source_hashes.items()])
+        if evidence_set is not None and evidence_set["basis"] == "creation":
+            self._commit_set(db, claim_id, evidence_set)
         if history:
             first = history[0]
             db.execute("INSERT INTO claim_events(claim_id,from_status,to_status,actor,note,at) VALUES (?,NULL,'proposed',?,?,?)",
                        (claim_id, origin, first.get("note"), first["at"]))
             for event in history[1:]:
                 self._record_transition(db, claim_id, event["from_status"], event["to_status"], event.get("note"), event["at"])
+        if evidence_set is not None and evidence_set["basis"] == "revalidation":
+            self._commit_set(db, claim_id, evidence_set)
 
     def _new_claim(self, db, text: str, source_ids: list[str], origin: str, supersedes_id: str | None) -> str:
         hashes = {}
@@ -694,7 +807,8 @@ class Vault:
                 raise ValueError(f"Source record missing or superseded: {rid}")
             hashes[rid] = evidence_hash(rec)
         claim_id, now = str(uuid4()), stamp()
-        self._insert_claim(db, claim_id, text, hashes, origin, supersedes_id, now, [{"at": now}])
+        self._insert_claim(db, claim_id, text, hashes, origin, supersedes_id, now, [{"at": now}],
+                           self._creation_set(claim_id, hashes, now))
         return claim_id
 
     @staticmethod
@@ -756,8 +870,8 @@ class Vault:
         """
         if target not in ("approved", "rejected", "contested"):
             raise ValueError("Use supersede to replace a claim.")
-        if note is not None and len(note) > rules.MAX_NOTE:
-            raise ValueError("Note too long.")
+        if note is not None and (len(note) > rules.MAX_NOTE or _has_nul(note)):
+            raise ValueError("Note too long or contains a NUL character.")
         with self.connection(write=True) as db:
             claim = self._get_claim(db, claim_id)
             if expected_status is not None and claim["status"] != expected_status:
@@ -770,8 +884,8 @@ class Vault:
                         expected_status: str | None = None) -> dict:
         """Human correction: the old claim becomes `superseded`; its replacement starts `proposed`."""
         text = self._validate_new(text, source_ids, "human")
-        if note is not None and len(note) > rules.MAX_NOTE:
-            raise ValueError("Note too long.")
+        if note is not None and (len(note) > rules.MAX_NOTE or _has_nul(note)):
+            raise ValueError("Note too long or contains a NUL character.")
         with self.connection(write=True) as db:
             old = self._get_claim(db, claim_id)
             if expected_status is not None and old["status"] != expected_status:
@@ -781,6 +895,46 @@ class Vault:
             self._record_transition(db, claim_id, old["status"], "superseded", note, stamp())
             new_id = self._new_claim(db, text, source_ids, "human", claim_id)
             return {"superseded": self._get_claim(db, claim_id), "replacement": self._get_claim(db, new_id)}
+
+    def revalidate_claim(self, claim_id: str, reviewed: list[dict], note: str | None = None,
+                         expected_status: str | None = None) -> dict:
+        """Governed revalidation of a claim created before schema 5 (ADR-0006, D-A).
+
+        Its original evidence set cannot be proven complete, so it is never authoritative until a human who was
+        shown the surviving evidence confirms that exactly those links adequately support it; that confirmation
+        commits the set, write-once, and is recorded with its note and time. `reviewed` is the list of links the
+        person reviewed (`id`, `evidence_sha256`) and must equal the surviving links: a compare-and-set on what
+        was displayed, so a confirmation never covers evidence nobody saw. Refused when any surviving link is not
+        current, verified evidence: the owner then reconstructs the claim by superseding it with evidence they
+        choose. Status and history are unchanged; the claim keeps whatever decisions it had.
+        """
+        if note is not None and (not isinstance(note, str) or len(note) > rules.MAX_NOTE or _has_nul(note)):
+            raise ValueError("Note too long or contains a NUL character.")
+        if (not isinstance(reviewed, list) or not 1 <= len(reviewed) <= rules.MAX_SOURCES
+                or not all(isinstance(r, dict) and set(r) == {"id", "evidence_sha256"} and _is_text(r["id"], 1, MAX_ID)
+                           and (r["evidence_sha256"] is None or _is_text(r["evidence_sha256"], 64, 64)) for r in reviewed)):
+            raise ValueError("List the evidence you reviewed: 1-8 links, each an id and its evidence hash.")
+        shown = {r["id"]: r["evidence_sha256"] for r in reviewed}
+        if len(shown) != len(reviewed):
+            raise ValueError("Duplicate evidence in the review.")
+        with self.connection(write=True) as db:
+            claim = self._get_claim(db, claim_id)
+            if expected_status is not None and claim["status"] != expected_status:
+                raise rules.TransitionError(f"Claim is now {claim['status']}, not {expected_status}.")
+            if claim["integrity"] == "committed":
+                raise rules.TransitionError("This claim's evidence set is already committed; there is nothing to revalidate.")
+            if claim["integrity"] == "mismatch":
+                raise rules.TransitionError("This claim's evidence links no longer match their commitment; reconstruct it instead.")
+            if not rules.TRANSITIONS[claim["status"]]:
+                raise rules.TransitionError(f"A {claim['status']} claim cannot be revalidated.")
+            if claim["support"] != "supported":
+                raise rules.TransitionError(f"Its surviving evidence is {claim['support']}, so it cannot be confirmed as it "
+                                            "stands; reconstruct it by superseding it with evidence you choose.")
+            if shown != claim["source_hashes"]:
+                raise rules.TransitionError("The surviving evidence differs from what you reviewed; review it again.")
+            self._commit_set(db, claim_id, {"link_count": len(shown), "digest": evidence_set_digest(claim_id, shown),
+                                            "basis": "revalidation", "note": note, "at": stamp()})
+            return self._get_claim(db, claim_id)
 
     def delete_claim(self, claim_id: str) -> bool:
         """Forget a claim: its tombstone removes the claim, its links and its history."""
@@ -806,13 +960,14 @@ class Vault:
         return payload
 
     def _export_payload(self, db: sqlite3.Connection) -> dict:
-        keys = ("id", "text", "origin", "status", "created_at", "supersedes_id", "source_ids", "source_hashes", "history")
+        keys = ("id", "text", "origin", "status", "created_at", "supersedes_id", "source_ids", "source_hashes", "history",
+                "evidence_set")
         rows = db.execute("SELECT * FROM records ORDER BY created_at,id").fetchall()
         tombs = db.execute("SELECT * FROM tombstones ORDER BY deleted_at,id").fetchall()
         claim_rows = db.execute("SELECT * FROM claims ORDER BY created_at,id").fetchall()
         claims = [{k: c[k] for k in keys} for c in (self._claim(db, r) for r in claim_rows)]
         claim_tombs = db.execute("SELECT * FROM claim_tombstones ORDER BY deleted_at,id").fetchall()
-        return {"schema": "sovereign.v0.records.2", "exported_at": stamp(),
+        return {"schema": EXPORT_SCHEMA, "exported_at": stamp(),
                 "records": [dict(r) for r in rows], "tombstones": [dict(t) for t in tombs],
                 "claims": claims, "claim_tombstones": [dict(t) for t in claim_tombs]}
 
@@ -825,8 +980,13 @@ class Vault:
         - rows orphaned from their claim (`foreign_key_check`), which an export would silently drop;
         - forgotten identities still present or still cited, which a restore would drop;
         - claims with a decision history but no evidence link, which a restore rejects;
+        - embedded NUL in current canonical text (D-C): schema 5 storage refuses it, so a schema 4 vault holding it
+          cannot migrate, and a live one could only hold it through a schema-level change;
+        - claims whose links no longer match their evidence-set commitment (D-A), which a restore refuses;
         - everything a trusted restore validates (`_parse`), with Python's character counts, so a length that
-          SQLite's `length()` stops counting at an embedded NUL is caught here.
+          SQLite's `length()` stops counting at an embedded NUL (in a legacy record) is caught here.
+
+        Findings are classes and counts only: no ids or content, so the refusal message discloses nothing more.
         """
         findings: dict[str, int] = {}
 
@@ -846,6 +1006,17 @@ class Vault:
         note("claim_with_history_without_evidence", count(
             """SELECT count(*) FROM claims c WHERE EXISTS (SELECT 1 FROM claim_events e WHERE e.claim_id = c.id)
                AND NOT EXISTS (SELECT 1 FROM claim_sources s WHERE s.claim_id = c.id)"""))
+        note("embedded_nul", sum(count(f"SELECT count(*) FROM {table} WHERE {condition}") for table, condition in (
+            ("records", f"legacy = 0 AND ({_no_nul('id', 'content', 'source', 'created_at', 'supersedes_id')})"),
+            ("claims", _no_nul("id", "text", "created_at", "supersedes_id")),
+            ("claim_sources", _no_nul("record_id", "evidence_sha256")),
+            ("claim_events", _no_nul("note", "at")),
+            ("claim_tombstones", _no_nul("id")),
+            ("claim_evidence_sets", _no_nul("digest", "note", "at")))))
+        note("evidence_set_mismatch", sum(
+            1 for c in payload["claims"] if c["evidence_set"] is not None
+            and (c["evidence_set"]["link_count"], c["evidence_set"]["digest"])
+            != (len(c["source_ids"]), evidence_set_digest(c["id"], c["source_hashes"]))))
         try:
             self._parse(payload, trusted=True)
         except (ValueError, KeyError, TypeError):
@@ -878,7 +1049,8 @@ class Vault:
                 raise ValueError("Invalid tombstone in import.")
         for tomb in claim_tombs:
             # Claim ids are always 1-MAX_ID, and so are claim tombstones (storage CHECK).
-            if not isinstance(tomb, dict) or not _is_text(tomb.get("id"), 1, MAX_ID) or not _is_text(tomb.get("deleted_at")):
+            if (not isinstance(tomb, dict) or not _is_text(tomb.get("id"), 1, MAX_ID) or not _is_text(tomb.get("deleted_at"))
+                    or _has_nul(tomb["id"])):
                 raise ValueError("Invalid tombstone in import.")
         records = []
         for row in raw_records:
@@ -897,7 +1069,9 @@ class Vault:
             else:
                 valid = (common and _is_text(record["id"], 1, MAX_ID) and _is_text(record["content"], 1, MAX_CONTENT)
                          and _is_text(record["source"], 1, MAX_SOURCE)
-                         and (record["supersedes_id"] is None or _is_text(record["supersedes_id"], 1, MAX_ID)))
+                         and (record["supersedes_id"] is None or _is_text(record["supersedes_id"], 1, MAX_ID))
+                         and not _has_nul(record["id"], record["content"], record["source"], record["created_at"],
+                                          record["supersedes_id"]))   # D-C: only legacy rows may hold an embedded NUL
             if not valid:
                 raise ValueError("Legacy record outside current V0 bounds: only a trusted restore of your own backup accepts it."
                                  if flagged and not trusted else "Invalid record in import.")
@@ -915,12 +1089,28 @@ class Vault:
                     or not (claim["supersedes_id"] is None or _is_text(claim["supersedes_id"], 1, MAX_ID))
                     or claim["supersedes_id"] == claim["id"]
                     or not isinstance(source_ids, list) or len(source_ids) > rules.MAX_SOURCES
-                    or not all(_is_text(r, 1, MAX_ID) for r in source_ids) or len(set(source_ids)) != len(source_ids)):
+                    or not all(_is_text(r, 1, MAX_ID) for r in source_ids) or len(set(source_ids)) != len(source_ids)
+                    or _has_nul(claim["id"], claim["text"], claim["created_at"], claim["supersedes_id"], *source_ids)):
                 raise ValueError("Invalid claim in import.")
             if (not isinstance(hashes, dict) or not set(hashes) <= set(source_ids)
-                    or not all(h is None or _is_text(h, 64, 64) for h in hashes.values())):
+                    or not all(h is None or (_is_text(h, 64, 64) and not _has_nul(h)) for h in hashes.values())):
                 raise ValueError("Invalid claim evidence hashes in import.")
             claim["source_hashes"] = {rid: hashes.get(rid) for rid in source_ids}
+            # A trusted backup in format 3 carries each claim's evidence-set commitment, which must match the links
+            # it carries: a backup that lost part of a claim's evidence is refused, not restored as complete (D-A).
+            # Earlier formats predate commitments, and an ordinary import makes new claims with their own.
+            committed = row.get("evidence_set") if trusted and payload["schema"] == EXPORT_SCHEMA else None
+            if committed is not None:
+                if (not isinstance(committed, dict) or set(committed) != {"link_count", "digest", "basis", "note", "at"}
+                        or type(committed["link_count"]) is not int or not _is_text(committed["digest"], 64, 64)
+                        or committed["basis"] not in ("creation", "revalidation") or not _is_text(committed["at"])
+                        or not (committed["note"] is None or _is_text(committed["note"], 0, rules.MAX_NOTE))
+                        or _has_nul(committed["digest"], committed["at"], committed["note"])):
+                    raise ValueError("Invalid evidence-set commitment in import.")
+                if (committed["link_count"] != len(source_ids)
+                        or committed["digest"] != evidence_set_digest(claim["id"], claim["source_hashes"])):
+                    raise ValueError("A claim's evidence links do not match its committed evidence set.")
+            claim["evidence_set"] = dict(committed) if committed is not None else None
             if trusted:
                 rules.validate_history(claim["history"], claim["origin"], claim["status"])
                 if claim["history"] and not source_ids:
@@ -1012,7 +1202,8 @@ class Vault:
                 hashes = {rec["id"]: evidence_hash(rec) for rec in evidence}
                 note = (f"Imported from an untrusted file (file claim {original[:64]}, stated origin {claim['origin']}, "
                         f"status {claim['status']}; not trusted).")
-                self._insert_claim(db, cid, claim["text"], hashes, "imported", None, now, [{"at": now, "note": note}])
+                self._insert_claim(db, cid, claim["text"], hashes, "imported", None, now, [{"at": now, "note": note}],
+                                   self._creation_set(cid, hashes, now))
                 imported_claims += 1
         return {"imported": imported, "records_skipped": skipped_records,
                 "claims_imported_as_proposed": imported_claims, "claims_skipped": skipped_claims}
@@ -1053,7 +1244,7 @@ class Vault:
                     conflicts += 1   # supersession diverged from local state; local state wins
                     continue
                 self._insert_claim(db, cid, claim["text"], claim["source_hashes"], claim["origin"], predecessor,
-                                   claim["created_at"], claim["history"])
+                                   claim["created_at"], claim["history"], claim["evidence_set"])
                 restored += 1
                 approved += claim["status"] == "approved"
         return {"imported": imported, "records_skipped": skipped_records, "claims_restored": restored,

@@ -266,3 +266,22 @@ def test_api_serves_legacy_ids_containing_slashes(tmp_path):
     client = TestClient(create_app(path))
     r = client.get("/api/provenance/record/notes/2024/a")
     assert r.status_code == 200 and r.json()["nodes"][0]["text"] == "Legacy synthetic note"
+
+
+# Evidence-set integrity (ADR-0006, D-A) ---------------------------------------------------------
+
+def test_a_claim_made_before_schema_5_shows_as_unconfirmed_until_revalidated(tmp_path):
+    fixture = Path(__file__).resolve().parent / "fixtures" / "v4" / "v4_partial_link_loss.sql"
+    path = tmp_path / "v4.db"
+    db = sqlite3.connect(path)
+    db.execute("PRAGMA ignore_check_constraints=ON")
+    db.executescript(fixture.read_text("utf-8"))
+    db.close()
+    vault = Vault(str(path))
+    c = next(x for x in vault.list_claims() if x["text"].startswith("Approved claim resting on evidence one"))
+    focus = node(provenance.neighborhood(vault, "claim", c["id"]), ("claim", c["id"]))
+    assert (focus["status"], focus["integrity"], focus["authoritative"]) == ("approved", "unconfirmed", False)
+    vault.revalidate_claim(c["id"], [{"id": r, "evidence_sha256": c["source_hashes"][r]} for r in c["source_ids"]],
+                           expected_status="approved")
+    focus = node(provenance.neighborhood(vault, "claim", c["id"]), ("claim", c["id"]))
+    assert (focus["integrity"], focus["authoritative"]) == ("committed", True)     # read live, never copied
