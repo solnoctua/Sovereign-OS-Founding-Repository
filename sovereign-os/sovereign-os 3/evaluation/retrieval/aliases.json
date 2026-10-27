@@ -1,0 +1,33 @@
+{
+ "about": "Fixed, local alias map for the Benchmark 0003 alias experiment only. Generic English vocabulary: British/American variants, common synonyms and standard abbreviations. Each group is rewritten to its first member in both questions and texts, keeping a regular inflection (s, es, ed, ing), before tokenisation. It is deliberately not personal: nicknames or relationships (who 'my sister' is) are personal facts, which would need MemoryClaim governance, not a word list. It was written by the author of the queries, so its results are an optimistic upper bound.",
+ "groups": [
+  ["sofa", "couch", "settee"],
+  ["apartment", "flat"],
+  ["car", "vehicle", "automobile"],
+  ["doctor", "physician", "dr"],
+  ["gp", "general practitioner"],
+  ["holiday", "vacation"],
+  ["film", "movie"],
+  ["lawyer", "solicitor", "attorney"],
+  ["ci", "continuous integration"],
+  ["pr", "pull request"],
+  ["pto", "annual leave", "paid time off"],
+  ["eta", "estimated time of arrival", "estimated arrival"],
+  ["pm", "project manager"],
+  ["gift", "present"],
+  ["repair", "fix", "mend"],
+  ["buy", "purchase"],
+  ["start", "begin"],
+  ["mum", "mom", "mother"],
+  ["dad", "father"],
+  ["tap", "faucet"],
+  ["rubbish", "trash", "garbage"],
+  ["tv", "television"],
+  ["autumn", "fall"],
+  ["lift", "elevator"],
+  ["phone", "mobile", "cellphone"],
+  ["kid", "child"],
+  ["salary", "pay", "wage"],
+  ["shop", "store"]
+ ]
+}
