@@ -1,16 +1,16 @@
 # Second-Brain Validation Specification
 
-**Status:** PROPOSED; no test described here is implemented. This document owns the test requirements for the [ADR-0005](../adr/0005-governed-second-brain-architecture.md) slices *other than* retrieval evaluation. It is a validation specification, not a benchmark, and carries no benchmark number.
+**Status:** PROPOSED. Tests exist only where §1 says so; every other requirement here is specified, not implemented. This document owns the test requirements for the [ADR-0005](../adr/0005-governed-second-brain-architecture.md) slices *other than* retrieval evaluation. It is a validation specification, not a benchmark, and carries no benchmark number.
 
 **History:** this file began in PR #3 as a draft "Benchmark 0003" retrieval specification. Retrieval evaluation now belongs to the executed Benchmark 0003 in PR #4, so the draft was renamed and narrowed to the provenance graph, the Obsidian snapshot export and later second-brain slices. Nothing in it re-specifies or duplicates PR #4's harness.
 
 ## 1. What is validated where
 
-| Area | Owner | State (2026-10-20) |
+| Area | Owner | State |
 | --- | --- | --- |
 | Retrieval and governed-context evaluation (SB-1) | **Benchmark 0003 — retrieval evaluation**: `docs/benchmarks/0003-retrieval-evaluation.md` and the `evaluation/retrieval/` harness, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) | Executed on synthetic data, evaluation only, **not merged**; at `da52ce9` its Codex P2 finding (scale timings) is resolved by removing the timings, and CI passed. By founder direction (2026-10-20) no production retrieval change is authorized (R1–R7, ADR-0005 §12.2); its remaining founder decisions are listed there |
 | A future lexical change (SB-4) | The implementing PR regenerates Benchmark 0003 | **Not authorized** (R1): Porter normalization and the exact-stem tie-break are evaluated candidates only |
-| Provenance graph (SB-2) | §3 | Specified, not implemented |
+| Provenance graph (SB-2a navigation) | §3 | Implemented by PR #11. Items 1–6 are tested as listed at the end of §3; item 4's "graph module absent" variant is a static check, not a run |
 | Obsidian snapshot export (SB-2) | §4 | Specified, not implemented |
 | Human-declared organization, temporal claims, structured relations (SB-3, SB-6, SB-7) | §5 | Future; each needs its own ADR |
 | Semantic/hybrid experiments (SB-5) | A new retriever inside the **Benchmark 0003 harness**, behind the same `score` seam and ground truth — never a second harness | Deferred (R6) |
@@ -57,6 +57,26 @@ The provenance graph is computed on read from `claim_sources`, `records.supersed
 4. **Navigation is not relevance (R3):** traversing the graph never changes a Context Compiler decision. A test compiles every Benchmark 0003 query (requires PR #4 merged; otherwise the SB-2 synthetic corpus) with and without graph code loaded and requires identical tokens.
 5. **Bounded and local:** neighborhood queries are hop- and size-bounded; graph responses never enter `outbound`, provider messages or receipts.
 6. **Read-only:** the canonical export before and after any graph query is byte-identical.
+
+**Tests (PR #11, SB-2a).** They are in `tests/test_provenance.py` unless another file is named.
+
+- **Item 1:**
+  - `test_every_edge_is_one_stored_link_and_nothing_else`;
+  - `test_one_hop_neighbourhood_of_a_claim_is_exactly_its_own_links`.
+- **Item 2:**
+  - `test_status_support_and_authority_are_live`;
+  - `test_a_claim_made_before_schema_5_shows_as_unconfirmed_until_revalidated`.
+- **Item 3:** the three Forget tests and `test_api_returns_the_graph_and_hides_forgotten_items`.
+- **Item 4:**
+  - `test_graph_queries_leave_every_benchmark_token_identical` compiles all 56 Benchmark 0003 queries for `local` and `kimi` before and after a two-hop graph read of every record and claim. It requires identical tokens.
+  - `test_neither_the_compiler_nor_the_store_imports_the_graph` checks statically that `context.py`, `store.py`, `claims.py` and `providers.py` do not import the graph.
+  - No test runs the compiler with the graph module removed.
+  - The comparison of all 168 bundles (56 queries × `local`, `kimi`, `openai`) runs outside the suite. It is recorded in `docs/reviews/2026-10-22-pr11-audit-remediation.md`.
+- **Item 5:**
+  - `test_hops_and_size_are_bounded`;
+  - `test_graph_output_never_reaches_a_bundle_or_receipt`, which checks that no graph marker appears in a compiled bundle's description or receipt;
+  - the work, byte, history and value-size bounds in `tests/adversarial/test_pr11_audit_regressions.py` and `tests/adversarial/test_pr11_f7_allocation.py`. The value-size tests measure Python's peak allocation during a graph read, not only the response size.
+- **Item 6:** `test_graph_queries_never_write`. The export and the vault file's bytes are unchanged.
 
 ## 4. Obsidian snapshot export (SB-2)
 
