@@ -99,3 +99,31 @@ Ruleset `25374786` "Main branch protection" is active and targets the default br
 **Draft-check gap (verified).** Both CI jobs carry `if: … draft == false`. On the draft heads `ddec603`, `d43e579` and `f0b6539`, the required check runs from the Actions app report `conclusion: skipped`, and GitHub counts a skipped required check as passing. A draft cannot be merged. But until the `ready_for_review` run registers, a PR marked ready shows green required checks for runs that never executed, and so does any non-draft PR whose jobs are skipped for any reason.
 
 The options and recommended defaults are in `docs/DEVELOPMENT.md` (PR #9). This record changes no setting.
+
+## Second Codex audit: F-9 on the integration (2026-10-27)
+
+**Context.** The founder reported the second Codex audit's verdicts:
+
+| Head | Verdict |
+| --- | --- |
+| PR #10 `8ea54b5` | PASS |
+| PR #11 `7b8dec8` | CHANGES REQUIRED (F-7) |
+| The rehearsed integration `85bda11` | BLOCK, with F-9 (P2) |
+
+F-9 names three observations: graph validation status, the registry's persistent-state inventory, and reversal and recovery instructions. The audit's own report was not available to the builder. The rows below are the builder's reading of those observations against `85bda11`. **No finding is closed here.**
+
+| Observation | What `85bda11` said | Change |
+| --- | --- | --- |
+| **Graph validation status** | The validation spec said "no test described here is implemented" and listed the provenance graph as "Specified, not implemented". Meanwhile the registry and the BUILD plan said SB-2a was implemented and tested against §3, with compiler tokens "identical with and without it" | **PR #11:** the spec says §3 is implemented by PR #11 and maps each item to its tests. Item 4 is tested over all 56 queries for `local` and `kimi`, plus a static import check; no test runs with the module removed. **R11:** the registry boundary and BUILD plan 5.4 say exactly that, and the registry states the new `provenance.VALUE_BYTES` |
+| **Persistent-state inventory** | `canonical-store` named no tables. `memory-claim-governance` listed four claim tables but not schema 5's `claim_evidence_sets` | **This PR:** `canonical-store` names `records`, `tombstones` and SQLite's rollback journal. `tests/test_systems_registry.py` requires every table that a fresh vault holds to be named by an implemented entry; with the previous text it fails, naming `records` and `tombstones`. **R10:** adds `claim_evidence_sets` |
+| **Reversal and recovery** | The claims exit test was "drop the four claim tables and triggers per ADR-0003 reversal; ADR-0002 rows unchanged". No test exercises that direct-SQL reversal, and it does not apply to a schema-5 vault. `DEVELOPMENT.md` offered "rollback by previous tag plus a canonical export", but schema-4 software refuses a format-3 export (verified: `ValueError: Unsupported export schema.`). Recovery of a refused vault was not mentioned | **This PR:** the schema-4 exit says that ADR-0003's reversal is documented, not tested. **R10:** the exit is the tested schema-5 route: export, rewrite as format 2, trusted-restore into v4 (`test_reversal_route_v5_backup_restores_into_v4_software_and_back`), after which claims are unconfirmed until revalidated. It also adds a dated note in ADR-0003, the format-2 step in `DEVELOPMENT.md`, and, in `canonical-store`, that a refused vault stays unchanged with no recovery tool yet (ADR-0006 decision 7) |
+
+**R8 and R13 reviewed.** Neither touches these three subjects, so both are unchanged. Merging #10 without the revised R10 now fails exactly four checks:
+- the trigger count;
+- schema 4 ≠ 5;
+- the known gaps;
+- the inventory, which names `claim_evidence_sets`.
+
+**Not changed (noticed in passing).** `docs/DEVELOPMENT.md` (#9) still says, under "what actually holds", that both CI jobs are skipped on drafts. Its next section explains that D-E removes the condition. Once #9 is on `main`, that sentence describes the past.
+
+The revised reconciliation commits are on a new rehearsal branch, `rehearsal/merge-sequence-20261027`. The audited `rehearsal/merge-sequence-20261022` (`85bda11`) is left unchanged.
