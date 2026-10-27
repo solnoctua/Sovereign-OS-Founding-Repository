@@ -1,69 +1,68 @@
 # GitHub governance setup: separate agent identity and enforced review (founder decision D-F)
 
-**Status:** prepared, **not applied**. The founder approved D-F in principle on 2026-10-22:
+**Status:** applied on 2026-10-27, except step 6 (in progress). The founder approved D-F in principle on 2026-10-22:
 - separate the coding agents' GitHub identity and credentials from the founder's account;
 - enforce human review and Code Owner requirements through effective GitHub rulesets.
 
-Every step below changes accounts, permissions or repository settings, so the founder performs it. No agent has changed any of them. Writing these steps down enforces nothing. Only the verification commands below show what GitHub actually enforces.
+Only the founder changes accounts, permissions and repository settings. No agent has changed any of them. Writing these steps down enforces nothing. Only the verification commands below show what GitHub actually enforces.
 
-## Current state (verified through the REST API on 2026-10-22)
+## Current state (verified through the REST API on 2026-10-27)
 
-**Identity.** Claude Code sessions act as the GitHub account connected at <https://claude.ai/connect-github>. Today that is `solnoctua`, the founder's own account (`GET /user`). It is also the author of every open PR and the only code owner.
+**Identities.**
+- Coding agents act as `owlbuilder`, the account connected at <https://claude.ai/connect-github> (`GET /user` in a Claude Code session). It has Write access, without Maintain or Admin, and cannot bypass the ruleset.
+- The founder reviews, approves and merges as `solnoctua`, the only code owner.
 
-**Ruleset `25374786`** ("Main branch protection") is active on the default branch and has no bypass actors.
+**Ruleset `25374786`** ("Main branch protection") is active on the default branch, has no bypass actors and was last updated on 2026-10-27. `main-ruleset.proposed.json` records the same rules.
 
 | Rule | Current setting |
 | --- | --- |
 | Pull request before merging | Required |
+| Approving reviews | **1** |
+| Code Owner review | **Required**, from `.github/CODEOWNERS` on the target branch (see below) |
+| Stale approvals | **Dismissed** on push |
+| Last push | **Must be approved** by someone other than its pusher |
 | Review threads resolved | Required |
 | Required checks `full-test-suite` and `memory-adversarial` | Required, with the branch up to date with `main` |
+| Merge methods | **Merge commits only** |
 | Force-push and deletion | Blocked |
-| Approving reviews | **None required** (count 0) |
-| Code-owner review | **Not required** |
-| Stale-approval dismissal, last-push approval | **Off** |
 
-**Consequence.** Nothing in GitHub distinguishes an agent's merge from the founder's. "No autonomous merges" is an instruction, not a control.
+Merge commits keep every commit's attribution, and a squash or rebase of #10 would rewrite commits that the stacked #11 contains.
 
-## Order of operations
+**What this enforces, and what it does not.**
+- **Code Owner review needs CODEOWNERS on the target branch.** GitHub reads `.github/CODEOWNERS` from the PR's base branch. Until the file is on `main` (PR #18, which replaces #9), one approval from any account with write access satisfies the rule, and that is all that gates PR #18 itself. Once it is on `main`, every path needs `solnoctua`'s approval. The file's first rule is the catch-all `* @solnoctua`, and `tests/test_policy_invariants.py` fails if that rule is removed or moved, or if a later rule drops the founder.
+- **Neither the author nor the last pusher can approve.** The founder should therefore not push to an agent's branch, including with GitHub's *Update branch* button: the founder would become the last pusher, and their approval would no longer count. Ask the agent to update the branch instead.
+- **Who presses merge is not enforced.** Once the approval and the checks are in place, any account with write access can merge, `owlbuilder` included. Agents never merge. That is an instruction, not a control.
+- **Draft checks are real only once D-E is on `main`.** Until PR #18 merges, other PRs' draft runs still report `skipped` (`docs/DEVELOPMENT.md`, D-E).
 
-The order matters. GitHub never lets a PR's author approve that PR, so requiring an approval while agents still act as `solnoctua` would block every merge.
+## Setup steps
 
-1. **Create the agent identity.** Create a GitHub account for coding agents only, for example `sovereign-builder`. Give it its own email address and two-factor authentication. Do not reuse the founder's credentials. A GitHub App is an alternative, but it needs a host that can use App tokens; Claude Code sessions use the account connected at claude.ai.
-2. **Grant it Write and nothing more.** In the repository's *Settings → Collaborators*, invite `sovereign-builder` with the **Write** role. Never grant Maintain or Admin. Write lets it push branches and open PRs. Once step 5 is in place, it cannot merge to `main` without the founder's approval.
-3. **Point agent sessions at it.** For the claude.ai account that runs coding sessions, connect `sovereign-builder` at <https://claude.ai/connect-github> instead of `solnoctua`, and keep the Claude GitHub App installed on this repository. The founder reviews and merges on github.com as `solnoctua`.
-4. **Remove founder credentials from agent environments.** Agent environments must hold no personal access token, SSH key or `gh` login of `solnoctua`, and no environment secret derived from one. Revoke any such token that was ever given to an agent.
-5. **Apply the ruleset**, as `solnoctua`, from a checkout of `main` after this PR merges:
+Steps 1–5 are done. They stay here as the record of what was set up, in order.
+
+1. **Create the agent identity. Done:** `owlbuilder`. The account is for coding agents only. It needs its own email address and two-factor authentication, and never the founder's credentials. A GitHub App was the alternative, but Claude Code sessions use the account connected at claude.ai.
+2. **Grant it Write and nothing more. Done.** Never grant Maintain or Admin. Write lets it push branches and open PRs.
+3. **Point agent sessions at it. Done:** Claude Code sessions connect `owlbuilder` at <https://claude.ai/connect-github> instead of `solnoctua`. The Claude GitHub App stays installed on this repository.
+4. **Remove founder credentials from agent environments. Done for the 2026-10-27 session:** it held no personal access token, SSH key or `gh` login of `solnoctua`, and no secret derived from one. Any such token ever given to an agent must be revoked; only the founder can confirm that.
+5. **Apply the ruleset. Done on 2026-10-27.** The plan applied it after this PR merged. It was applied before, so Code Owner review takes effect only when CODEOWNERS reaches `main` (see above). Re-applying the recorded rules is a founder action:
    ```sh
    gh api -X PUT repos/solnoctua/Sovereign-OS-Founding-Repository/rulesets/25374786 \
      --input "sovereign-os/sovereign-os 3/docs/engineering/main-ruleset.proposed.json"
    ```
-   The file changes only the pull-request rule:
-   - one approving review;
-   - code-owner review (`.github/CODEOWNERS` names `solnoctua`);
-   - stale approvals dismissed on push;
-   - the last push approved by someone other than its pusher.
+6. **Re-open the founder-authored PRs under the agent identity. In progress.** `solnoctua` cannot approve PRs that `solnoctua` authored. `owlbuilder` opens a new PR from each existing branch, with the same commits and no rewrite. The old PR is closed with a link to its replacement once the founder authorizes it.
+   - #9 is replaced by #18 (opened 2026-10-27). #9 stays open until the founder closes it.
+   - Still authored by `solnoctua` on 2026-10-27: #7, #8, #10, #11, #12 and #13.
+   - Rejected: a temporary bypass for `solnoctua`, which is recorded but weakens the gate; merging those PRs before the ruleset applied, which would have left them unenforced.
 
-   Deletion, force-push, thread resolution and the two strict required checks are carried over unchanged, and there are still no bypass actors. The required checks only mean something once D-E is in effect, which this PR does: both jobs run on draft PRs too.
-6. **Re-open the existing PRs under the agent identity.** PRs already authored by `solnoctua` (#5 and #8–#13) cannot be approved by `solnoctua`.
-   - **Recommended:** `sovereign-builder` opens a new PR from each existing branch, with the same commits and no rewrite, and the old PR is closed with a link to its replacement.
-   - **Not recommended:** a temporary bypass for `solnoctua`, which is recorded but weakens the gate.
-   - **Not recommended:** applying the ruleset only after those merges, which would leave them unenforced.
-
-## Verification (run after each step)
+## Verification
 
 | Check | Command | Expected |
 | --- | --- | --- |
-| Agent identity | In a new coding session: `gh api user --jq .login` | `sovereign-builder` |
-| Agent permission | `gh api repos/solnoctua/Sovereign-OS-Founding-Repository/collaborators/sovereign-builder/permission --jq .permission` (as the founder) | `write` |
-| Effective rules | `gh api repos/solnoctua/Sovereign-OS-Founding-Repository/rules/branches/main --jq '.[] \| {type, parameters}'` | `required_approving_review_count: 1`, `require_code_owner_review: true`, `dismiss_stale_reviews_on_push: true`, `require_last_push_approval: true`, both required checks, no bypass |
-| CODEOWNERS parses | `gh api "repos/solnoctua/Sovereign-OS-Founding-Repository/codeowners/errors?ref=main"` | `{"errors":[]}` |
-| Approval is enforced | `sovereign-builder` opens a trivial PR | Merge blocked until `solnoctua` approves; `sovereign-builder` cannot approve its own PR |
+| Agent identity | In a new coding session: `gh api user --jq .login` | `owlbuilder` |
+| Agent permission | `gh api repos/solnoctua/Sovereign-OS-Founding-Repository/collaborators/owlbuilder/permission --jq .permission` (as the founder) | `write` |
+| Effective rules | `gh api repos/solnoctua/Sovereign-OS-Founding-Repository/rules/branches/main --jq '.[] \| {type, parameters}'` | `required_approving_review_count: 1`, `require_code_owner_review: true`, `dismiss_stale_reviews_on_push: true`, `require_last_push_approval: true`, `allowed_merge_methods: ["merge"]`, both required checks, no bypass |
+| CODEOWNERS parses | `gh api "repos/solnoctua/Sovereign-OS-Founding-Repository/codeowners/errors?ref=main"` (before the merge, `ref=<PR branch>`) | `{"errors":[]}` |
+| Approval is enforced | `owlbuilder` opens a PR that is ready for review, with green checks | `mergeable_state: blocked` until `solnoctua` approves; `owlbuilder` cannot approve its own PR |
 | Checks really ran | `gh api repos/solnoctua/Sovereign-OS-Founding-Repository/commits/<head sha>/check-runs --jq '.check_runs[] \| {name, conclusion}'` on a draft PR head | both `success` (or `failure`), never `skipped` |
 
-## Optional, separate from D-F
+## Before D-F (verified through the REST API on 2026-10-22)
 
-Allowed merge methods could be restricted to `merge` (merge commits):
-- a squash or rebase merge of #10 would rewrite the commits that the stacked #11 contains;
-- merge commits keep every commit's attribution.
-
-This is a separate choice. It is not in the proposed file.
+Claude Code sessions acted as `solnoctua`, the founder's own account, which was also the author of every open PR and the only code owner. Ruleset `25374786` required a pull request, resolved threads, both strict checks and blocked force-push and deletion. It required no approving review and no Code Owner review, left stale-approval dismissal and last-push approval off, and allowed all three merge methods. Nothing in GitHub distinguished an agent's merge from the founder's.

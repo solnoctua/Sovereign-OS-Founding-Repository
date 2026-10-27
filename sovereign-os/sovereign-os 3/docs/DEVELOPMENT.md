@@ -42,36 +42,32 @@ Resolve disagreement by, in order: Constitution candidate and accepted ADRs; obs
 | --- | --- | --- |
 | **0 mechanical** | typo, narrow styling change, fixture cleanup, behaviour-preserving refactor | one builder + tests |
 | **1 normal product change** | bounded endpoint, UI behaviour, internal refactor with meaningful behaviour, documentation of process | one builder + tests; lightweight second-model review when uncertainty is nontrivial |
-| **2 consequential** | personal-state schema or migration, memory-authority logic, provider or disclosure behaviour, permissions, deletion or recovery, new major dependency, agent or tool execution, authentication, anything under `.github/CODEOWNERS` | written spec + primary builder + **independent reviewer artifact** + adversarial tests + founder approval |
+| **2 consequential** | personal-state schema or migration, memory-authority logic, provider or disclosure behaviour, permissions, deletion or recovery, new major dependency, agent or tool execution, authentication, any path listed explicitly in `.github/CODEOWNERS` (the catch-all `*` alone does not make a change Tier 2) | written spec + primary builder + **independent reviewer artifact** + adversarial tests + founder approval |
 | **3 foundational** | Constitution amendment, major architecture rewrite, trust model, system-wide memory model, migration strategy, self-modification, high-impact security design | independent architecture reasoning by at least two strong models, explicit disagreement analysis, evidence or research as needed, frontier-model escalation when useful, founder decision before implementation or merge |
 
 ## Pull request contract (the quality bar for every PR)
 
-Every PR body, using `.github/pull_request_template.md`, states: (1) the exact goal; (2) the current baseline (`HEAD`) and affected invariants; (3) impacted files; (4) why the implementation is minimal; (5) acceptance tests; (6) how existing behaviour was verified intact; (7) security or policy impact; (8) the tests actually executed, with results; (9) what was not tested; (10) rollback strategy; (11) reviewer findings separated from builder responses; (12) founder decisions still required. A PR touching a `.github/CODEOWNERS` path without a reviewer-owned findings artifact must not be merged. This is a process rule; GitHub does not enforce it today (see below).
+Every PR body, using `.github/pull_request_template.md`, states: (1) the exact goal; (2) the current baseline (`HEAD`) and affected invariants; (3) impacted files; (4) why the implementation is minimal; (5) acceptance tests; (6) how existing behaviour was verified intact; (7) security or policy impact; (8) the tests actually executed, with results; (9) what was not tested; (10) rollback strategy; (11) reviewer findings separated from builder responses; (12) founder decisions still required. A PR touching a path listed explicitly in `.github/CODEOWNERS` without a reviewer-owned findings artifact must not be merged. This is a process rule: GitHub enforces the founder's approval (see below), not the artifact.
 
 ## Containment of coding agents (what actually holds)
 
 A coding agent with shell and repository write access can edit `store.py`, `context.py` or the triggers; no Python check contains it. What does:
 
-- **The GitHub ruleset on `main`.** Ruleset `25374786` "Main branch protection" is active on the default branch. It has no bypass actors and was last updated on 2026-10-19. There is no legacy branch protection. This was verified through the REST API on 2026-10-22 (Codex audit F-10; builder record `docs/reviews/2026-10-22-f9-f10-reconciliation.md` in PR #8).
+- **The GitHub ruleset on `main`.** Ruleset `25374786` "Main branch protection" is active on the default branch. It has no bypass actors and was last updated on 2026-10-27 (decision D-F). There is no legacy branch protection. This was verified through the REST API on 2026-10-27. The state before D-F, verified on 2026-10-22 (Codex audit F-10), is recorded in `docs/engineering/GITHUB-GOVERNANCE-SETUP.md`.
   - **Enforced:**
-    - a pull request before merging;
+    - a pull request before merging, with one approving review;
+    - review from `.github/CODEOWNERS`, once the file is on `main` (GitHub reads it from the target branch);
+    - dismissal of stale approvals, and approval of the last push by someone other than its pusher;
     - all review threads resolved;
     - required checks `full-test-suite` and `memory-adversarial` from GitHub Actions, with the branch up to date with `main`;
-    - no force-push and no deletion.
+    - merge commits only, no force-push and no deletion.
 
     Auto-merge is disabled for the repository.
-  - **Not enforced:**
-    - approving reviews (the required count is 0);
-    - review from `.github/CODEOWNERS`, so the file is advisory;
-    - dismissal of stale approvals;
-    - approval of the last push.
-
-    All three merge methods are allowed.
-  - **Who can merge.** Every PR is opened by `solnoctua`, who is also the only code owner and the GitHub identity that coding agents use. GitHub does not let an author approve their own PR. So the founder's approval is today the founder's own merge, after a reviewer-owned findings artifact and a fresh independent review of the exact head. Nothing in GitHub separates that act from an agent's, so an agent using this identity could merge any PR whose checks pass and whose threads are resolved. Agents are instructed never to merge (no autonomous merges); that is an instruction, not a control.
+  - **Not enforced:** who presses merge. Once the approval and the checks are in place, any account with write access can merge, including the agent identity. Agents are instructed never to merge (no autonomous merges); that is an instruction, not a control.
+  - **Who approves.** Coding agents act as `owlbuilder`, with Write and no bypass, and open the PRs. The founder approves and merges as `solnoctua`, the only code owner, after a reviewer-owned findings artifact where one is required and a fresh independent review of the exact head. GitHub does not let an author approve their own PR, so PRs that `solnoctua` opened are re-opened by `owlbuilder`.
   - **Skipped checks count as passing.** Both CI jobs are skipped while a PR is a draft (`if: … draft == false`), and GitHub counts a skipped required check as passing. On draft heads the required check runs report `conclusion: skipped` (verified on `ddec603`, `d43e579` and `f0b6539`). A draft cannot be merged. But a PR just marked ready shows green required checks until the `ready_for_review` run registers, and so does any PR whose jobs are skipped for another reason.
 - **Reviewer-owned findings artifacts** the builder cannot rewrite (format below).
-- **Policy tests** (`tests/test_policy_invariants.py`): personal content leaves the process only through `providers.generate`; `app.py` calls it at exactly one site; the schema version in code is documented in an ADR; the trigger set changes only with an ADR reference.
+- **Policy tests** (`tests/test_policy_invariants.py`): personal content leaves the process only through `providers.generate`; `app.py` calls it at exactly one site; the schema version in code is documented in an ADR; the trigger set changes only with an ADR reference; `.github/CODEOWNERS` keeps the founder catch-all `* @solnoctua` first, and every rule names the founder.
 - **Dependency pinning** (ranges in `pyproject.toml` today; hash-pinned lock when the first real-data instance exists), **signed tags** for anything run on real data, and **rollback** by previous tag plus a canonical export.
 
 Agents never receive the personal vault path; development knowledge lives in Git and, once Builder 1 exists, in a separate development vault file.
@@ -82,9 +78,9 @@ Agents never receive the personal vault path; development knowledge lives in Git
   - **Implemented in this PR:** both jobs in `.github/workflows/sovereign-ci.yml` lost their `if:` condition.
   - **When it takes effect:** a `pull_request` run uses the workflow file of the PR's merge commit. Until this PR is on `main`, other PRs' draft heads still report `skipped`; a `workflow_dispatch` run on a branch executes both jobs on its exact head.
   - **What the checks test:** `pull_request` CI tests the merge commit. Because the ruleset requires branches to be up to date with `main`, at merge time that merge commit has the same tree as the reviewed head.
-- **D-F: approved in principle.** Separate the coding agents' GitHub identity and credentials from the founder's account, and enforce human and Code Owner review through effective rulesets.
-  - **Prepared, not applied:** the founder's ordered steps, an exact ruleset body (`docs/engineering/main-ruleset.proposed.json`) and verification commands are in `docs/engineering/GITHUB-GOVERNANCE-SETUP.md`.
-  - **Who acts:** no agent has changed an account, a permission or a setting. Until the founder applies those steps, the review gaps listed above remain.
+- **D-F: approved in principle; applied on 2026-10-27.** Separate the coding agents' GitHub identity and credentials from the founder's account, and enforce human and Code Owner review through effective rulesets.
+  - **Applied:** coding agents act as `owlbuilder` with Write. Ruleset `25374786` requires one approval, Code Owner review, stale-approval dismissal and last-push approval, and allows merge commits only. `docs/engineering/GITHUB-GOVERNANCE-SETUP.md` has the current state, the completed steps, the verification commands and the remaining step: re-opening the founder-authored PRs under `owlbuilder`. `docs/engineering/main-ruleset.proposed.json` records the applied rules.
+  - **Who acts:** only the founder changes accounts, permissions and settings. No agent has changed any of them.
 
 The options as presented before the decisions:
 

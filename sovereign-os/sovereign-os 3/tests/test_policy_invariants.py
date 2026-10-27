@@ -2,8 +2,9 @@
 
 These are mechanical tripwires, not security boundaries. They fail CI when a change moves
 personal content towards a new network path, bumps the storage schema without documenting it in
-an ADR, changes the storage-trigger set silently, or ships a findings file that is not
-reviewer-shaped. A failure means "this needs a review and an ADR reference", never "unsafe".
+an ADR, changes the storage-trigger set silently, ships a findings file that is not
+reviewer-shaped, or removes the founder from any path in CODEOWNERS. A failure means "this needs a
+review and an ADR reference", never "unsafe".
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from sovereign import store
 
 PROJECT = Path(__file__).resolve().parents[1]
 SRC = PROJECT / "src" / "sovereign"
+CODEOWNERS = PROJECT.parents[1] / ".github" / "CODEOWNERS"
 NETWORK_IMPORTS = re.compile(r"^\s*(?:import|from)\s+(openai|httpx|requests|urllib|socket|http\.client|aiohttp|websockets)\b", re.M)
 
 # Storage triggers are the ADR-0003 contract. Changing this number requires an ADR reference in the
@@ -69,3 +71,13 @@ def test_findings_example_matches_the_reviewer_owned_shape():
         assert finding["confidence"] in finding_schema["properties"]["confidence"]["enum"]
         assert finding["severity"] in finding_schema["properties"]["severity"]["enum"]
         assert finding["evidence"], "a finding without evidence cannot be confirmed"
+
+
+def test_codeowners_keeps_the_founder_catch_all_first():
+    # GitHub applies the last matching pattern, so a later rule without the founder would remove the
+    # founder from those paths, and a catch-all after the explicit entries would replace them.
+    rules = [line.split() for line in CODEOWNERS.read_text(encoding="utf-8").splitlines()
+             if line.strip() and not line.lstrip().startswith("#")]
+    assert rules and rules[0] == ["*", "@solnoctua"], "the first CODEOWNERS rule must be '* @solnoctua'"
+    assert all("@solnoctua" in rule[1:] for rule in rules), "every CODEOWNERS rule must keep @solnoctua"
+    assert all(rule[0] != "*" for rule in rules[1:]), "only the first CODEOWNERS rule may be the catch-all"
