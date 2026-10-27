@@ -117,3 +117,93 @@ The code is the same at `3486ab3`, whose merge changed only the PR #10 record.
 ## Observed outside this PR (not changed)
 
 `GET /api/claims` and `Vault.list_claims` hydrate every listed claim's full decision history, so a page of up to 200 claims grows without bound as decisions accumulate. This behaviour was already on `main` before PR #11 and is not part of SB-2a. It is tracked separately as [Issue #14](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/14), not fixed here.
+
+## Second Codex audit: F-7 and F-9 (2026-10-27)
+
+**Verdicts, as the founder reported them:**
+
+| Head | Verdict |
+| --- | --- |
+| PR #10 `8ea54b5` | PASS |
+| PR #11 `7b8dec8` | CHANGES REQUIRED |
+| Integration `85bda11` (the rehearsal branch) | BLOCK |
+
+The remaining findings are F-7 (P2) and F-9 (P2). The second report and its evidence package were not available to the builder: they were not on GitHub, in the repository, or in this session's upload and attachment directories. The builder worked from the founder's summary. **No finding is closed by this record.** Closing them needs a targeted independent re-audit.
+
+### F-7: memory allocated before graph output
+
+**Cause.** The import boundary accepts a record's `created_at` of any length. The graph then read whole rows (`SELECT *`) and hashed them, and every admitted item kept its hydrated content, including each claim's sources. The node, byte and work limits applied only afterwards.
+
+**Reproduction.** Synthetic vaults were built through the real APIs. Each graph read ran in a fresh process; "Python peak" is tracemalloc's peak during the read.
+
+| Case | `7b8dec8`: Python peak / RSS growth / response | `2b4b9b1`: Python peak / RSS growth / outcome |
+| --- | --- | --- |
+| Codex's case: an imported record with a ~100 MB timestamp, as focus | 310 MB / 286 MB / 326 B | 0.7 MB / 95.5 MB / 409, content-free |
+| Legacy record with a 20 MB source and a 20 MB timestamp | 114 MB / 155 MB / 327 B | 0.7 MB / 38.2 MB / 409 |
+| Legacy root whose correction has a 20 MB id | 81 MB / 136 MB / 278 B, `truncated` | 0.7 MB / 20.0 MB / 409: the neighbour list cannot be read |
+| Ordinary record whose citing claim also cites the ~100 MB record | 310 MB / 286 MB / 804 B | 0.02 MB / 95.9 MB / 337 B: the claim left out, `truncated` |
+| That claim as focus | 310 MB / 286 MB / 1,332 B | 0.7 MB / 95.8 MB / 409 |
+| Hub of 1,000 claims, each citing 8 records at the content limit (40,000 bytes each), one hop | 18.8 MB / 20.4 MB / 85,489 B | 1.1 MB / 2.3 MB / the same 85,489 B |
+| Same hub, claim focus, two hops | 17.0 MB / 19.1 MB / 112,230 B | 1.5 MB / 3.1 MB / the same 112,230 B |
+| Claim with 1,500 decisions (notes of 485 four-byte characters) | 0.4 MB / 0.8 MB / 104,011 B | 0.4 MB / 0.9 MB / the same 104,011 B |
+
+The 0.7 MB in refused cases includes formatting the exception in the measuring script.
+
+**Mechanism.** The graph's read connection sets `SQLITE_LIMIT_LENGTH` to `VALUE_BYTES` (64 KiB). Measured on SQLite 3.45.1, a stored value above the limit raises `SQLITE_TOOBIG` (`sqlite3.DataError`) from its stored byte length, before it is loaded:
+
+| Value | Without the limit | With it |
+| --- | --- | --- |
+| 100 MB text | 100 MB in Python | 0 MB, refused |
+| 100 MB BLOB | — | refused |
+| Legacy text `a\x00` + 100 MB (`length()` reports 1) | — | refused (bytes counted) |
+| 25 M four-byte characters | — | refused |
+| A value compared in SQL (`JOIN … ON u.k = t.v`) | — | refused |
+| Binding an oversized parameter | — | refused |
+| 64,000 bytes (16,000 four-byte characters) | — | read |
+| 68,000 bytes | — | refused |
+
+Values are read whole or not at all, so evidence hashes are always computed over canonical values. The focus fails closed with the content-free `ProvenanceTooLarge` (HTTP 409). An unreadable neighbour is left out and sets `truncated`; it can leave capacity unused within that expansion, and `truncated` says so. An unreadable neighbour list fails closed. Rows are read by explicit columns, and an admitted item keeps only what expansion needs. Canonical storage, history, evidence hashes, Forget and the Context Compiler are unchanged.
+
+**Regressions:** `tests/adversarial/test_pr11_f7_allocation.py`, 14 tests covering the nine required properties.
+
+| Run | Result |
+| --- | --- |
+| `7b8dec8` (pinned `src`) | **13 failed, 1 passed** |
+| `2b4b9b1` | **14 passed** |
+
+On `7b8dec8`:
+- **12 failures are behavioural:**
+  - large values were loaded: 54 MB for the incoming-evidence case and 19.7 MB for the hub;
+  - a BLOB timestamp raised `TypeError` during JSON serialisation, which the API would answer with a 500.
+- **1 failure is a missing mechanism:** `VALUE_BYTES` does not exist.
+- **The pass** is the decision-history control, which `HISTORY_LIMIT` already bounded.
+
+**Remaining limitation ([Issue #17](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/17), not changed here).** RSS still grows by about the oversized row's size in the refused cases. The cause is not the graph: on schema 5's WITHOUT ROWID tables, SQLite's B-tree search reads a whole overflowing cell into C memory to compare keys, before any value limit applies. A bare lookup of that row costs the same 95.5 MB. On `main` the same imported value costs:
+
+| Operation on `main` | RSS growth |
+| --- | --- |
+| Adding an unrelated note | 97 MB |
+| Listing memories | 479 MB |
+| A Context Compiler run | 382 MB |
+
+The remedy is a bound on time values and legacy metadata at the write boundaries. That changes PR #10's audited storage contract, so it is left to the founder.
+
+### F-9 in this PR
+
+The validation spec now says that §3 is implemented by this PR and maps each item to its tests. It states item 4's real coverage:
+- tokens over all 56 queries for `local` and `kimi`;
+- a static import check;
+- no run with the module removed.
+
+The other F-9 observations concern the integrated documents. They are fixed in PR #8 (the inventory test and the honest claims exit) and in the revised reconciliation commits R10 and R11. See `docs/reviews/2026-10-22-f9-f10-reconciliation.md` on PR #8.
+
+### Results at `7017394`
+
+The record commit that follows changes documentation only.
+
+| Check | Result |
+| --- | --- |
+| `pytest -q` (full) | 753 passed |
+| `pytest -q tests/adversarial` | 630 passed |
+| `python -m evaluation.retrieval --check` | exit 0 |
+| Benchmark 0003, 168 bundles (56 questions × `local`, `kimi`, `openai`) | byte-identical to `main` (`17bd68094cb87888`) |
