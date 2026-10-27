@@ -20,11 +20,18 @@ Eligibility comes before capacity (F-5). An endpoint becomes a node only if it i
 
 Each query applies these conditions before anything is counted. So an absent, forgotten or ineligible endpoint never
 becomes a node or an edge, never uses capacity, never sets `truncated` and never appears in any field. `truncated`
-means exactly this: an eligible neighbour of an expanded item was left out by the node limit or the byte limit.
-The claim's own `support` already says when its evidence is missing or unverified.
+means exactly this: an eligible neighbour of an expanded item was left out by the node limit, the byte limit or the
+value-size limit. The claim's own `support` already says when its evidence is missing or unverified.
 
-Bounded (F-7):
+Bounded (F-7), before anything is materialised, not only in what is returned:
 
+- no stored value larger than VALUE_BYTES is ever read. The read's connection sets SQLite's length limit, so SQLite
+  refuses such a value from its stored byte length, before loading it (verified for text, BLOBs, multi-byte text and
+  legacy text with an embedded NUL). Text, timestamps, ids and notes are read whole or not at all, so evidence
+  hashes are always computed over canonical values. The focus fails closed with ProvenanceTooLarge; a neighbour that
+  cannot be read is left out and sets `truncated`; a neighbour list that cannot be read fails closed;
+- rows are read by explicit columns, and an admitted item keeps only what expansion needs (ids, link states and,
+  for a record to be expanded, its evidence hash), so hydrated text is released as soon as its node is built;
 - each neighbour query is index-ordered by id and LIMITed to the remaining capacity plus one;
 - text is an excerpt except for the focus;
 - only the focus claim carries decision history: its most recent HISTORY_LIMIT events, while the stored
@@ -55,8 +62,12 @@ HISTORY_LIMIT = 50    # most recent decisions shown for the focus claim; the sto
 EXCERPT = 400         # characters of text shown for every item except the focus
 TIME_CHARS = 64       # timestamps are display-only here; an anomalous legacy value is clipped
 MAX_RESPONSE_BYTES = 256 * 1024   # the graph as JSONResponse serialises it, never more
+VALUE_BYTES = 64 * 1024           # largest stored value read; the largest bounded one (content) is 40,000 bytes
 WORK_TICK = 1000      # SQLite VM instructions per progress tick
 WORK_LIMIT = 5000     # ticks per read; beyond it the read is interrupted and fails closed
+
+_RECORD_COLUMNS = "r.id, r.content, r.source, r.sensitivity, r.status, r.created_at, r.supersedes_id"
+_CLAIM_COLUMNS = "c.id, c.text, c.origin, c.status, c.created_at, c.supersedes_id"
 
 _RECORD_STATES = tuple(sorted(rules.VERIFIED_STATES))
 _CLAIM_STATES = tuple(rules.STATUSES)
@@ -97,8 +108,11 @@ def neighborhood(vault, kind: str, item_id: str, hops: int = 1, max_nodes: int =
     with vault.connection() as db:   # one read transaction: a single consistent snapshot
         work = _Work()
         db.set_progress_handler(work.tick, WORK_TICK)
+        db.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, VALUE_BYTES)   # this connection only; closed after the read
         try:
             return _Graph(db, vault, hops, max_nodes).build(kind, item_id)
+        except sqlite3.DataError:    # SQLITE_TOOBIG: a value the graph needs exceeds VALUE_BYTES
+            raise ProvenanceTooLarge("This item cannot be shown within the provenance size limit.") from None
         except sqlite3.OperationalError:
             if work.ticks > WORK_LIMIT:
                 raise ProvenanceTooLarge("This item's links cannot be shown within the provenance work limit.") from None
@@ -115,25 +129,38 @@ def _size(value) -> int:
 class _Graph:
     def __init__(self, db, vault, hops, max_nodes):
         self.db, self.vault, self.hops, self.max_nodes = db, vault, hops, max_nodes
-        self.items: dict[tuple[str, str], dict] = {}     # admitted (kind, id) -> item, in admission order
+        self.items: dict[tuple[str, str], dict] = {}     # admitted (kind, id) -> what expansion needs, in admission order
         self.layer: dict[tuple[str, str], int] = {}
         self.nodes: dict[tuple[str, str], dict] = {}
         self.edges: list[dict] = []
         self.pending: dict[tuple[str, str], list] = {}   # target not yet admitted -> links from admitted items
+        self.unreadable: set[tuple[str, str]] = set()    # eligible neighbours left out by the value-size limit
         self.truncated = False
         self.used = 0
 
     # --- loading: eligibility is part of every query ---------------------------------------------
 
     def _load(self, kind, ident, focus=False):
+        """The item, read whole; sqlite3.DataError if any value it needs, its evidence included, exceeds VALUE_BYTES."""
         if kind == "record":
-            row = self.db.execute(f"SELECT * FROM records r WHERE r.id = ? AND {_RECORD_OK}",
+            row = self.db.execute(f"SELECT {_RECORD_COLUMNS} FROM records r WHERE r.id = ? AND {_RECORD_OK}",
                                   (ident, *_RECORD_STATES)).fetchone()
             return dict(row) if row else None
-        row = self.db.execute(f"SELECT * FROM claims c WHERE c.id = ? AND {_CLAIM_OK}", (ident, *_CLAIM_STATES)).fetchone()
+        row = self.db.execute(f"SELECT {_CLAIM_COLUMNS} FROM claims c WHERE c.id = ? AND {_CLAIM_OK}",
+                              (ident, *_CLAIM_STATES)).fetchone()
         if row is None:
             return None
         return self.vault._claim(self.db, row, history_limit=HISTORY_LIMIT if focus else 0)
+
+    @staticmethod
+    def _kept(kind, item, expand):
+        """What expansion needs from an admitted item. The rest of the hydrated item, its text included, is released."""
+        kept = {"id": item["id"], "supersedes_id": item["supersedes_id"]}
+        if kind == "claim":
+            kept["sources"] = [{"id": s["id"], "state": s["state"]} for s in item["sources"]]
+        elif expand:
+            kept["evidence"] = evidence_hash(item)       # over the canonical values, read whole
+        return kept
 
     def _eligible(self, kind, ident) -> bool:
         if kind == "record":
@@ -155,8 +182,9 @@ class _Graph:
             yield "CORRECTS", ("record", item["supersedes_id"]), None
 
     def _incoming(self, kind, item, limit):
-        """Eligible items linking to this one that are not admitted yet: at most `limit` per link type, in id order."""
-        admitted = {k: [i for (kk, i) in self.items if kk == k] for k in KINDS}
+        """Eligible items linking to this one that are not admitted yet (nor known unreadable): at most `limit` per
+        link type, in id order."""
+        admitted = {k: [i for (kk, i) in [*self.items, *self.unreadable] if kk == k] for k in KINDS}
         if kind == "claim":
             sql = (f"SELECT c.id FROM claims c INDEXED BY ix_claims_supersedes WHERE c.supersedes_id = ? AND {_CLAIM_OK} "
                    f"AND c.id NOT IN {_marks(len(admitted['claim']))} ORDER BY c.id LIMIT ?")
@@ -168,7 +196,7 @@ class _Graph:
         correcting = (f"SELECT r.id FROM records r INDEXED BY ix_records_supersedes WHERE r.supersedes_id = ? "
                       f"AND {_RECORD_OK} AND r.id NOT IN {_marks(len(admitted['record']))} ORDER BY r.id LIMIT ?")
         return ([("claim", i) for (i,) in self.db.execute(
-                    citing, (item["id"], evidence_hash(item), *_CLAIM_STATES, *admitted["claim"], limit))]
+                    citing, (item["id"], item["evidence"], *_CLAIM_STATES, *admitted["claim"], limit))]
                 + [("record", i) for (i,) in self.db.execute(
                     correcting, (item["id"], *_RECORD_STATES, *admitted["record"], limit))])
 
@@ -210,7 +238,7 @@ class _Graph:
             del self.layer[k]
             return False
         self.used += cost
-        self.items[k], self.nodes[k] = item, node
+        self.items[k], self.nodes[k] = self._kept(k[0], item, layer < self.hops), node
         self.edges.extend(edges)
         self.pending.pop(k, None)
         for t, _, target, state in links:
@@ -238,11 +266,17 @@ class _Graph:
                 incoming = self._incoming(k[0], self.items[k], remaining + 1)
                 outgoing = [target for _, target, _ in self._out(k[0], self.items[k])
                             if target not in self.items and self._eligible(*target)]
-                for c in sorted(set(incoming) | set(outgoing)):
+                for c in sorted((set(incoming) | set(outgoing)) - self.unreadable):
                     if len(self.items) >= self.max_nodes:
                         self.truncated = True          # an eligible neighbour is left out by the node limit
                         break
-                    if not self._admit(c, self._load(*c), layer + 1):
+                    try:
+                        item = self._load(*c)
+                    except sqlite3.DataError:          # ... or by the value-size limit, before anything is loaded
+                        self.unreadable.add(c)
+                        self.truncated = True
+                        continue
+                    if not self._admit(c, item, layer + 1):
                         self.truncated = full = True   # ... or by the byte limit
                         break
                     following.append(c)
