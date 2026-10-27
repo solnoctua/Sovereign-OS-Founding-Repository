@@ -119,7 +119,7 @@ Contract: [OBSIDIAN-PROJECTION.md](OBSIDIAN-PROJECTION.md) revision 3 — a one-
 32. **Forget boundary disclosure:** the Forget preview and result say that earlier exports, and leftovers of interrupted exports, are outside Sovereign's control and must be deleted by the user, and never say "deleted everywhere"; every note's banner and Start Here state the snapshot time and that forgetting in Sovereign does not change the export.
 33. **ZIP hygiene:** entries are relative paths under one top folder with the UTF-8 name flag, regular files only, with no `..`, absolute paths or symbolic links; extracting with at least two common tools (pinned) yields the verified tree byte for byte.
 34. **Lineage residual (D15):** the export preview states, without naming any item, that included claims may restate superseded sensitive claims.
-35. **Storage prerequisite (before production SB-2):** once the separate Tier 2 storage fix lands, raw `INSERT OR REPLACE`/`REPLACE` naming an existing rowid in `tombstones`, `claim_tombstones`, `records`, `claims` or `claim_sources`, and `UPDATE OR REPLACE … SET rowid`, are rejected on a connection with `recursive_triggers` off (SECURITY-GATE).
+35. **Storage prerequisite (before production SB-2):** covered by `tests/adversarial/test_storage_integrity_rowid.py` in the Issue #6 repair PR (ADR-0006, PROPOSED, unmerged). Once the separate Tier 2 storage fix lands, raw `INSERT OR REPLACE`/`REPLACE` naming an existing rowid in `tombstones`, `claim_tombstones`, `records`, `claims` or `claim_sources`, and `UPDATE OR REPLACE … SET rowid`, are rejected on a connection with `recursive_triggers` off (SECURITY-GATE).
 
 ### 4.5 Usability (reported, not gated)
 
