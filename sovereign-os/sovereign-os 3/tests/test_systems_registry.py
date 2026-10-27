@@ -6,10 +6,12 @@ components may write canonical state, nothing with personal content claims unkno
 anything deferred or rejected cannot be described as implemented.
 
 It must also agree with the code in the same tree (Codex audit F-9, 2026-10-22): the schema version, every stated
-limit, the known integrity gaps (each probed), and whether each entry's code exists. CI runs on a pull
+limit, the known integrity gaps (each probed), whether each entry's code exists, and (second audit, F-9) the
+persistent-state inventory: every table a vault holds. CI runs on a pull
 request's merge commit, so a PR that changes one of these facts without updating the registry fails.
 """
 import importlib
+import re
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -125,3 +127,20 @@ def test_status_agrees_with_whether_the_code_exists():
             assert all(exists), entry["id"]
         else:
             assert not any(exists), f"{entry['id']} has code in this tree but is marked {entry['status']}"
+
+
+def test_every_table_a_vault_holds_is_in_the_persistent_state_inventory():
+    from sovereign.store import Vault
+    with tempfile.TemporaryDirectory() as d:
+        db = sqlite3.connect(Vault(f"{d}/probe.db").path)
+        try:
+            tables = [r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type = 'table' "
+                                               "AND name NOT LIKE 'sqlite_%' ORDER BY name")]
+        finally:
+            db.close()
+    named = set()
+    for entry in load()["system"]:
+        if entry["status"] == "implemented":
+            named |= set(re.findall(r"[a-z_]+", entry["persistent_state"]))
+    missing = [table for table in tables if table not in named]
+    assert tables and not missing, f"vault tables missing from the registry's persistent_state inventory: {missing}"

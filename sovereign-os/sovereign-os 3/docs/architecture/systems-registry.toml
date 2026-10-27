@@ -9,6 +9,7 @@
 # trust_class: authority-core | trusted-service | restricted | external
 # personal_data: none | metadata | content
 # canonical_write: true only for authority-core components that write the vault.
+# persistent_state: every vault table is named by an implemented entry (checked against a fresh vault).
 # code (optional): files an implemented entry consists of. An entry whose code exists must be `implemented`;
 #   an `implemented` entry's code must exist.
 #
@@ -46,7 +47,7 @@ canonical_write = true
 personal_data = "content"
 credentials = "none"
 egress = "none"
-persistent_state = "vault SQLite file (SOVEREIGN_DB_PATH; default ./data/sovereign.db)"
+persistent_state = "vault SQLite file (SOVEREIGN_DB_PATH; default ./data/sovereign.db): tables records, tombstones; SQLite's rollback journal beside it while a write is in progress"
 upstream = "native: src/sovereign/store.py on stdlib sqlite3"
 code = ["src/sovereign/store.py"]
 version_or_commit = "schema user_version: code_facts.schema_user_version"
@@ -64,13 +65,13 @@ canonical_write = true
 personal_data = "content"
 credentials = "none"
 egress = "none"
-persistent_state = "same vault file (claims, claim_sources, claim_events, claim_tombstones)"
+persistent_state = "same vault file: tables claims, claim_sources, claim_events, claim_tombstones"
 upstream = "native: src/sovereign/claims.py"
 code = ["src/sovereign/claims.py"]
 version_or_commit = "ADR-0003 as merged (4fbecbe lineage)"
 license = "project"
 boundary = "Same as canonical-store. Open gaps: code_facts.known_gaps (zero-source-authority: support_of([]) returns supported)."
-exit_test = "drop the four claim tables and triggers per ADR-0003 reversal; ADR-0002 rows unchanged"
+exit_test = "documented, not tested: ADR-0003's direct-SQL reversal to the ADR-0002 schema (drop the four claim tables and their triggers, then user_version 0)"
 documentation = "docs/adr/0003-memory-claim-authority.md"
 
 [[system]]
