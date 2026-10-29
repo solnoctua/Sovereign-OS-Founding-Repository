@@ -21,8 +21,8 @@
 | 2026-10-22 | **D-A** (A1, refined): claims made before schema 5, whose original evidence-set completeness cannot be proven, stay historically preserved but non-authoritative pending explicit human revalidation; revalidation shows the surviving evidence and lets the owner confirm or reconstruct through a governed process (no blind confirmation); future claims carry a write-once commitment to their complete evidence set; a separate integrity state, not new ordinary statuses; ADR-0003 amendments proposed explicitly | PR #10 (ADR-0006, implemented, unmerged) |
 | 2026-10-22 | **D-B** (B1): refuse invalid migrations and exports rather than pretend they succeeded; preserve the original state; report the reason without disclosing unnecessary content; document an eventual explicit offline recovery pathway; no quarantine subsystem now | PR #10 (ADR-0006) |
 | 2026-10-22 | **D-C** (C1): reject embedded NUL in new canonical text and identifiers at the application and storage boundaries; preserve legacy data; refuse an incompatible migration rather than delete or alter | PR #10 (ADR-0006) |
-| 2026-10-22 | **D-E**: required CI jobs execute on draft PRs and exact reviewed commits; a skipped job is not evidence of test execution | PR #9 (workflow) |
-| 2026-10-22 | **D-F** (in principle): separate the coding agents' GitHub identity and credentials from the founder's account; enforce human and Code Owner review through effective rulesets; prepare the settings for the founder, change no account permission without authorization | PR #9 (`docs/engineering/GITHUB-GOVERNANCE-SETUP.md`, prepared, not applied) |
+| 2026-10-22 | **D-E**: required CI jobs execute on draft PRs and exact reviewed commits; a skipped job is not evidence of test execution | PR #18, which replaced #9 (`.github/workflows/sovereign-ci.yml`) |
+| 2026-10-22 | **D-F** (in principle): separate the coding agents' GitHub identity and credentials from the founder's account; enforce human and Code Owner review through effective rulesets; prepare the settings for the founder, change no account permission without authorization | Applied on 2026-10-27: agent identity `owlbuilder` (Write); ruleset `25374786` requires one approval and Code Owner review (`docs/engineering/GITHUB-GOVERNANCE-SETUP.md`, PR #18) |
 | 2026-10-22 | Target merge sequence **#5 → #9 → #8 → #10 → #11 → #12 → #13**, each subject to its own approval and integration gates; #10 needs D-A/B/C resolved and a fresh independent PASS; #11 stays stacked on #10 until #10 merges, then is retargeted to `main`, its diff and ancestry verified, required CI run and an independent PASS obtained; registry and Security Gate reconciled against the final integration state; #13 remains a proposal; no merge without the founder's explicit authorization of that merge | `ROADMAP.md` §H; `docs/reviews/2026-10-22-f9-f10-reconciliation.md` |
 
 ## Proposed (require founder approval before merge)
@@ -48,6 +48,6 @@ Forking Linux now; a graph database; a managed Obsidian projection with registry
 ## Required next approvals
 
 1. WP-0 (this consolidation) and closing PR #7.
-2. WP-1 Builder 0 documents and the GitHub settings checklist.
+2. WP-1 Builder 0 documents and the GitHub settings checklist: done (PR #18, merged 2026-10-27; D-F settings applied).
 3. WP-2 migration approach (ADR-0006) after the independent reviewer artifact.
 4. WP-3 SB-2a after independent audit.
