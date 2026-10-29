@@ -32,7 +32,7 @@ python -m pip install -e '.[dev]'
 python -m sovereign
 ```
 
-Open **http://127.0.0.1:8765** in your Mac's browser. The server creates a local SQLite database in `./data/sovereign.db`. That path is meant to be excluded from Git, but the repository currently has no `.gitignore` and tracks an empty `data/sovereign.db` (see [`docs/SECURITY-GATE.md`](docs/SECURITY-GATE.md)): **never commit it after use**, and check `git status` before every commit. Press Ctrl+C in Terminal to stop it.
+Open **http://127.0.0.1:8765** in your Mac's browser. The server creates a local SQLite database in `./data/sovereign.db`. The root `.gitignore` excludes vault databases and generated artifacts, and CI checks that none are tracked (see [`docs/SECURITY-GATE.md`](docs/SECURITY-GATE.md)). **Never commit a vault database or secrets**; check `git status` before every commit. Ignore rules do not remove data from Git history. Press Ctrl+C in Terminal to stop it.
 
 Run checks:
 
