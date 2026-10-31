@@ -5,7 +5,7 @@
 ## Current concrete protections
 
 - Loopback-only server documented (`127.0.0.1:8765`), fixed host allowlist, deny most cross-origin state-changing requests, JSON-only write operations.
-- API keys read from environment variables rather than database or code. A `.gitignore` for vault data, secrets and backups is intended but **missing (known defect, found 2026-10-19)**: the repository currently has **no** `.gitignore`; an empty `data/sovereign.db` and `__pycache__` files are tracked, so running the app or tests from the project folder modifies tracked files. Until a separate fix restores the ignore rules and untracks those files, check `git status` before every commit.
+- API keys read from environment variables rather than database or code. Repository hygiene: a root `.gitignore` excludes vault DBs, Python caches, environment files and common key formats; the previously tracked prototype `data/sovereign.db` and `__pycache__` artifacts have been removed from the current tree, and CI checks tracked paths. This is **not** a secret scanner or a Git-history purge. Review `git status` and staged diffs before every commit; if real private data ever entered Git history, treat it as a separate incident requiring investigation and remediation.
 - No automatic cloud memory disclosure. Cloud context is compiled locally by deterministic policy (ADR-0004) and sent only after a per-request approval of the exact previewed bundle, bound by a context token (any relevant change → 409, no provider call). Sensitive records and claims inheriting sensitivity never leave; explicitly selected sensitive records are refused server-side. Cloud prompts carry request-scoped labels (M1/E1…), never durable record or claim IDs. Bundles and questions are not persisted.
 - Local evidence mode never calls a model provider.
 - Imported content treated as data in prompts; no external tool calling enabled.
@@ -37,5 +37,29 @@ ADR-0005 discusses deferred FTS/embedding indexes, typed relationships as struct
 - **Untrusted Markdown is active content:** record or claim text containing links, embeds, remote images, HTML, tags or plugin code blocks would create fabricated graph edges, forged properties or network requests when opened in Obsidian. The design renders all such text inside inert fenced blocks; a zero-network-request native test is an acceptance gate.
 - **Graph structure leaks excluded items:** a link, title, filename or navigation entry can reveal a sensitive or out-of-scope record even when its text is excluded. The design computes the authorized node set before any edge, replaces excluded endpoints with a fixed, non-identifying sentence, and verifies every export structurally before offering it.
 - **Filesystem writes and downloads:** an export endpoint without authentication would let any local client write files or download every included note; V0 exports are CLI-only, write only a new ZIP or a new folder (plus their own hidden temporary file or staging folder beside it), always refuse Git working trees and existing files or folders, refuse other Obsidian vaults unless explicitly confirmed, and refuse known sync and network locations on a best-effort basis. A later UI download button needs its own threat review.
+
+## Status update 2026-10-22 (founder directive; consolidation)
+
+This section describes `main` before the Issue #6 repair (PR #10). The PR that changes one of these facts updates this section in the same PR; the facts the code can show (schema version, stated limits, known gaps, what is implemented) are checked against the code by `tests/test_systems_registry.py`.
+
+- **Issue #6 (hidden-rowid replacement):** re-reproduced on 2026-10-22 against `main` with default pragmas on disposable synthetic vaults: `records`, `tombstones`, `claims` and `claim_sources` rows can be deleted or replaced through a rowid collision without any guard firing; `UPDATE OR REPLACE … SET rowid` deletes a record without a tombstone; primary-key `REPLACE` forms stay blocked. A repair is in progress as a separate Tier 2 draft PR (schema version 5, rowid-free canonical tables; see ADR-0006, PROPOSED). **It is not merged, and ADR-0003's storage-contract sentence claiming coverage "with or without `recursive_triggers`" remains wrong until it is.**
+- **Zero-source authority (new, 2026-10-22):** `claims.support_of([])` returns `supported`, so an approved claim whose evidence links were removed by the defect above derives as authoritative. Required invariant (founder-accepted): *a MemoryClaim with missing, invalid, corrupted or insufficiently verified required evidence is never authoritative.* Fixed in the same draft PR; not merged.
+- **D15 (lineage sensitivity):** still deferred; a Tier 2 policy proposal evaluating transitive lineage, forgotten predecessors, legacy restore, fingerprint invalidation and a deliberate human declassification path is scheduled after the storage repair (ROADMAP §H). Current behaviour is unchanged and not certified safe for real private data.
+- **Enforcement claims:** `ARCHITECTURE.md` §14 now states, per mechanism, what K1 and K2 resist and do not resist. SQLite triggers are an integrity mechanism against connections, not a security boundary against processes; the single egress call site is a correctness property of one process, not isolation.
+
+### Usage thresholds (labels, not permissions)
+
+No threshold is authorized merely by being named. Each requires explicit threat modelling, independent verification and founder approval before any data of that class enters a vault.
+
+| Threshold | Name | Requires (all independently reviewed) | Data permitted |
+| --- | --- | --- | --- |
+| 1 | Safe synthetic development | Current state | Synthetic fixtures only |
+| 2 | Deliberately non-sensitive project use | PR #5 merged; WP-0 reconciled; a separate project vault file; the owner's written discipline that nothing private enters it | Project, study, development and public knowledge |
+| 3 | Intermediate private use under disclosed limitations | Issue #6 repair and zero-source rule merged; D15 resolved; bearer token on every `/api` route; vault file mode 0600; FileVault verified on; provider keys in Keychain; encrypted backups with a restore drill on a fresh account; no sync; residual risks written down (journal pages, Spotlight, Time Machine, provider retention) | The owner's own private data; no third-party sensitive content; no account secrets |
+| 4 | Trusted lifelong personal data | Threshold 3 plus: app-level or hardware-backed encryption decision; signed backups; device identity and revocation; deletion lifecycle across backups; independent security review of the whole | Full personal life |
+| 5 | Governed external actions | K3 broker in a separate process; grants, scoped tokens, receipts, idempotency; adversarial injection tests | Side effects |
+| 6 | More autonomous operation | Standing grants with review cadence; budgets; stop controls; measured approval burden; ADR-0005 §10 gates | Proactive agents |
+
+Authentication alone does not pass any threshold. Localhost is not isolation. A loopback model endpoint is not proof of offline operation.
 
 No change to the current NOT PASSED status.
