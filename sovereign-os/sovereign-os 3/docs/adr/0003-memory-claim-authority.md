@@ -2,6 +2,7 @@
 
 - Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)
 - Narrowed by: [ADR-0004](0004-governed-retrieval-context-compiler.md) (governed retrieval) — the rule "Claims are never sent to a model" below
+- Amended by: [ADR-0006](0006-rowid-free-canonical-tables.md) (ratified by the founder 2026-10-31): authority also requires evidence-set integrity `committed`; storage refuses embedded NUL in the columns ADR-0006 decision 6 lists; the backup format is version 3 (see *Migration* below)
 - Date: 2026-10-19
 - Decision owner: Human project owner
 
@@ -164,8 +165,8 @@ The triggers enforce the following for any connection issuing INSERT/UPDATE/DELE
 - Locking is SQLite's rollback journal: an export holds a read lock for its duration, so a concurrent write waits up to the 10 s busy timeout; conversely, a continuous unpaced stream of writes can delay a reader up to the same timeout. (WAL mode was not adopted because it would keep forgotten pages in the `-wal` file.)
 
 ### Migration
-- **Versions** (`PRAGMA user_version`): 0 = records-only vaults (ADR-0002); 4 = the ADR-0003 schema as first released; 5 = this schema: the same tables, triggers and rules, with `records`, `tombstones`, `claims`, `claim_sources` and `claim_tombstones` rebuilt `WITHOUT ROWID`, plus write-once evidence-set commitments and the rejection of embedded NUL in current text ([ADR-0006](0006-rowid-free-canonical-tables.md), PROPOSED; migration 0 → 5 and 4 → 5 in one transaction).
-- **Proposed amendments (pending founder approval of ADR-0006):** authority additionally requires a committed evidence set; claims made before schema 5 are not authoritative until revalidated; the backup format becomes version 3. See [ADR-0006, Proposed amendments](0006-rowid-free-canonical-tables.md#proposed-amendments-to-adr-0003-and-the-backup-contract). Until approved, the text of this ADR is unchanged.
+- **Versions** (`PRAGMA user_version`): 0 = records-only vaults (ADR-0002); 4 = the ADR-0003 schema as first released; 5 = this schema: the same tables, triggers and rules, with `records`, `tombstones`, `claims`, `claim_sources` and `claim_tombstones` rebuilt `WITHOUT ROWID`, plus write-once evidence-set commitments and the rejection of embedded NUL in the columns listed in ADR-0006 decision 6 ([ADR-0006](0006-rowid-free-canonical-tables.md), accepted 2026-10-31; migration 0 → 5 and 4 → 5 in one transaction).
+- **Amendments (ratified by the founder on 2026-10-31 with ADR-0006):** authority additionally requires a committed evidence set; claims made before schema 5 are preserved but not authoritative until a governed revalidation; the backup format becomes version 3. See [ADR-0006, Amendments](0006-rowid-free-canonical-tables.md#amendments-to-adr-0003-and-the-backup-contract). The rest of this ADR's text is unchanged; where it differs, the amendments govern.
 - **Migration 0 → 4** is additive and runs in one `BEGIN IMMEDIATE` transaction: new tables, indexes and triggers, plus the `legacy` column set on every existing record. Every original column of every existing row stays byte-identical.
 - **Refused:** vaults newer than this version, and vaults from the unreleased drafts (`user_version` 1 = `c847f9d`, 2 = `708e9de`, 3 = `36c9bbc`/`35ce01b`, or an unversioned `claims` table).
 

@@ -51,10 +51,10 @@ egress = "none"
 persistent_state = "vault SQLite file (SOVEREIGN_DB_PATH; default ./data/sovereign.db): tables records, tombstones; SQLite's rollback journal beside it while a write is in progress"
 upstream = "native: src/sovereign/store.py on stdlib sqlite3"
 code = ["src/sovereign/store.py"]
-version_or_commit = "schema user_version: code_facts.schema_user_version (5 since PR #20, which replaced #10)"
+version_or_commit = "schema user_version: code_facts.schema_user_version (5 from PR #20, the replacement for #10)"
 license = "project"
-boundary = "Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Canonical tables are WITHOUT ROWID and current text cannot hold an embedded NUL (ADR-0006)."
-exit_test = "export -> restore into a fresh vault round-trips (format 3; tests/test_memory_claims.py, tests/adversarial). A vault the validity scan refuses stays unchanged at its version; no recovery tool exists yet (ADR-0006 decision 7)"
+boundary = "Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Canonical tables are WITHOUT ROWID; an embedded NUL is refused in the columns ADR-0006 decision 6 lists (not in legacy records, record tombstones or claim tombstones' deleted_at)."
+exit_test = "export -> restore into a fresh vault round-trips (format 3; tests/test_memory_claims.py, tests/adversarial). A vault the validity scan refuses stays unchanged at its version: a refused schema-4 vault does not open in schema-5 software and opens in v4 only with its defect; a refused schema-5 vault opens but cannot be exported; text that is not valid UTF-8 also blocks listing and forgetting the affected record (Issue #15). No recovery tool exists yet (ADR-0006 decision 7)"
 documentation = "docs/adr/0003-memory-claim-authority.md; ARCHITECTURE.md #14"
 
 [[system]]
@@ -69,10 +69,10 @@ egress = "none"
 persistent_state = "same vault file: tables claims, claim_sources, claim_events, claim_tombstones, claim_evidence_sets (write-once evidence-set commitments, ADR-0006)"
 upstream = "native: src/sovereign/claims.py"
 code = ["src/sovereign/claims.py"]
-version_or_commit = "ADR-0003 as merged (4fbecbe lineage)"
+version_or_commit = "ADR-0003 as merged (4fbecbe lineage), amended by ADR-0006 (ratified 2026-10-31)"
 license = "project"
 boundary = "Same as canonical-store. Authority requires at least one link, only verified evidence states, and a committed evidence set; claims made before schema 5 are not authoritative until revalidated (ADR-0006, D-A)."
-exit_test = "tested reversal to schema-4 software (ADR-0006): export, rewrite as format 2 (schema .2, every claim's evidence_set removed) and trusted-restore into v4 (test_reversal_route_v5_backup_restores_into_v4_software_and_back, fixture v4_restored_from_v5_backup); moved forward again, every claim is unconfirmed until revalidated. ADR-0003's direct-SQL reversal does not apply to schema 5 and is not tested"
+exit_test = "tested reversal to schema-4 software, for a vault that exports (passes the validity scan; ADR-0006): export, rewrite as format 2 (schema .2, every claim's evidence_set removed) and trusted-restore into v4 (test_reversal_route_v5_backup_restores_into_v4_software_and_back, fixture v4_restored_from_v5_backup); moved forward again, every claim is unconfirmed until revalidated. ADR-0003's direct-SQL reversal does not apply to schema 5 and is not tested"
 documentation = "docs/adr/0003-memory-claim-authority.md"
 
 [[system]]
