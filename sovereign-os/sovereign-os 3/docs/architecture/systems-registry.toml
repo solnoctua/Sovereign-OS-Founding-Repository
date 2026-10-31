@@ -22,8 +22,8 @@ schema_version = 1
 updated = 2026-10-22
 
 [code_facts]
-schema_user_version = 4                       # store.SCHEMA_VERSION
-known_gaps = ["issue-6-hidden-rowid", "zero-source-authority"]
+schema_user_version = 5                       # store.SCHEMA_VERSION (ADR-0006)
+known_gaps = []
 
 [code_facts.limits]                           # "module.NAME" or "module.OBJECT.field" under src/sovereign
 "store.MAX_BACKUP_BYTES" = 134217728          # 128 MiB, one limit for export, import and restore (ADR-0003)
@@ -37,6 +37,7 @@ known_gaps = ["issue-6-hidden-rowid", "zero-source-authority"]
 "context.POLICY.max_items" = 12
 "context.POLICY.max_chars" = 12000
 "context.POLICY.retrieval_limit" = 50
+"store.EXPORT_SCHEMA" = "sovereign.v0.records.3"   # backup format 3: per-claim evidence-set commitments (ADR-0006, D-A)
 
 [[system]]
 id = "canonical-store"
@@ -50,10 +51,10 @@ egress = "none"
 persistent_state = "vault SQLite file (SOVEREIGN_DB_PATH; default ./data/sovereign.db): tables records, tombstones; SQLite's rollback journal beside it while a write is in progress"
 upstream = "native: src/sovereign/store.py on stdlib sqlite3"
 code = ["src/sovereign/store.py"]
-version_or_commit = "schema user_version: code_facts.schema_user_version"
+version_or_commit = "schema user_version: code_facts.schema_user_version (5 since PR #20, which replaced #10)"
 license = "project"
-boundary = "Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Open gaps: code_facts.known_gaps (issue-6-hidden-rowid: hidden-rowid REPLACE bypasses the triggers)."
-exit_test = "export -> restore into a fresh vault round-trips (tests/test_memory_claims.py, tests/adversarial)"
+boundary = "Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Canonical tables are WITHOUT ROWID and current text cannot hold an embedded NUL (ADR-0006)."
+exit_test = "export -> restore into a fresh vault round-trips (format 3; tests/test_memory_claims.py, tests/adversarial). A vault the validity scan refuses stays unchanged at its version; no recovery tool exists yet (ADR-0006 decision 7)"
 documentation = "docs/adr/0003-memory-claim-authority.md; ARCHITECTURE.md #14"
 
 [[system]]
@@ -65,13 +66,13 @@ canonical_write = true
 personal_data = "content"
 credentials = "none"
 egress = "none"
-persistent_state = "same vault file: tables claims, claim_sources, claim_events, claim_tombstones"
+persistent_state = "same vault file: tables claims, claim_sources, claim_events, claim_tombstones, claim_evidence_sets (write-once evidence-set commitments, ADR-0006)"
 upstream = "native: src/sovereign/claims.py"
 code = ["src/sovereign/claims.py"]
 version_or_commit = "ADR-0003 as merged (4fbecbe lineage)"
 license = "project"
-boundary = "Same as canonical-store. Open gaps: code_facts.known_gaps (zero-source-authority: support_of([]) returns supported)."
-exit_test = "documented, not tested: ADR-0003's direct-SQL reversal to the ADR-0002 schema (drop the four claim tables and their triggers, then user_version 0)"
+boundary = "Same as canonical-store. Authority requires at least one link, only verified evidence states, and a committed evidence set; claims made before schema 5 are not authoritative until revalidated (ADR-0006, D-A)."
+exit_test = "tested reversal to schema-4 software (ADR-0006): export, rewrite as format 2 (schema .2, every claim's evidence_set removed) and trusted-restore into v4 (test_reversal_route_v5_backup_restores_into_v4_software_and_back, fixture v4_restored_from_v5_backup); moved forward again, every claim is unconfirmed until revalidated. ADR-0003's direct-SQL reversal does not apply to schema 5 and is not tested"
 documentation = "docs/adr/0003-memory-claim-authority.md"
 
 [[system]]

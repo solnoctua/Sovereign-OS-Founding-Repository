@@ -190,6 +190,7 @@ The triggers enforce the following for any connection issuing INSERT/UPDATE/DELE
 ## Migration and reversibility
 
 - **To reverse:** drop the four claim tables, the triggers on `records`/`tombstones` and `ix_records_supersedes`, run `ALTER TABLE records DROP COLUMN legacy` (SQLite ≥ 3.35), then set `PRAGMA user_version = 0`. Every ADR-0002 row is then exactly as it was.
+  *Note (2026-10-27, ADR-0006):* no test exercises this direct-SQL reversal, and it does not apply to a schema-5 vault, whose canonical tables are WITHOUT ROWID and which holds `claim_evidence_sets`. A schema-5 vault is reversed to schema-4 software by the tested route in [ADR-0006 § Compatibility and reversal](0006-rowid-free-canonical-tables.md#compatibility-and-reversal).
 - **Alternatively:** export and restore records into an older build after stripping the `claims` keys and setting `schema` to `.1`.
 - **Tested:**
   - migration of a records-only vault, rollback on forced failure, and refusal of newer and pre-release vaults;

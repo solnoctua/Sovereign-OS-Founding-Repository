@@ -23,7 +23,9 @@ NETWORK_IMPORTS = re.compile(r"^\s*(?:import|from)\s+(openai|httpx|requests|urll
 
 # Storage triggers are the ADR-0003 contract. Changing this number requires an ADR reference in the
 # change (ADR-0003 migration section or a new ADR) and an independent review of the trigger text.
-EXPECTED_TRIGGER_COUNT = 36
+# 44 = the 36 of schema 4 + 8 of schema 5 (ADR-0006: three claim_evidence_sets_* write-once triggers and five
+# *_no_nul triggers; claim_tombstones_forget is replaced, not added).
+EXPECTED_TRIGGER_COUNT = 44
 
 
 def test_only_the_provider_adapter_imports_network_clients():
