@@ -50,6 +50,7 @@ Steps 1–5 are done. They stay here as the record of what was set up, in order.
 6. **Re-open the founder-authored PRs under the agent identity. In progress.** `solnoctua` cannot approve PRs that `solnoctua` authored. `owlbuilder` opens a new PR from each existing branch, with the same commits and no rewrite. The old PR is closed with a link to its replacement once the founder authorizes it.
    - #9 was replaced by #18 (merged 2026-10-27), and #8 by #19 (merged 2026-10-31). GitHub shows #9 and #8 as merged too, because their head commits reached `main`.
    - #10 was replaced by #20 (merged 2026-11-02). GitHub shows #10 as merged too.
+   - #11 is replaced by #21 (opened 2026-11-02; a candidate, not merged).
    - Still authored by `solnoctua` on 2026-11-02: #11, #12 and #13. #7 is closed.
    - Rejected: a temporary bypass for `solnoctua`, which is recorded but weakens the gate; merging those PRs before the ruleset applied, which would have left them unenforced.
 

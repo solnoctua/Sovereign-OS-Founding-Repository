@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | Retrieval and governed-context evaluation (SB-1) | **Benchmark 0003 — retrieval evaluation**: `docs/benchmarks/0003-retrieval-evaluation.md` and the `evaluation/retrieval/` harness, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) | Executed on synthetic data, evaluation only, merged to `main` on 2026-10-22 (`eeed753`); at `da52ce9` its Codex P2 finding (scale timings) was resolved by removing the timings, and CI passed. By founder direction (2026-10-20) no production retrieval change is authorized (R1–R7, ADR-0005 §12.2); its remaining founder decisions are listed there |
 | A future lexical change (SB-4) | The implementing PR regenerates Benchmark 0003 | **Not authorized** (R1): Porter normalization and the exact-stem tie-break are evaluated candidates only |
-| Provenance graph (SB-2a navigation) | §3 | Implemented by PR #11. Items 1–6 are tested as listed at the end of §3; item 4's "graph module absent" variant is a static check, not a run |
+| Provenance graph (SB-2a navigation) | §3 | Implemented by PR #21, the replacement for #11 (a candidate until the founder merges it). Items 1–6 are tested as listed at the end of §3; item 4's "graph module absent" variant is a static check, not a run |
 | Obsidian snapshot export (SB-2) | §4 | Specified, not implemented |
 | Human-declared organization, temporal claims, structured relations (SB-3, SB-6, SB-7) | §5 | Future; each needs its own ADR |
 | Semantic/hybrid experiments (SB-5) | A new retriever inside the **Benchmark 0003 harness**, behind the same `score` seam and ground truth — never a second harness | Deferred (R6) |
@@ -58,7 +58,7 @@ The provenance graph is computed on read from `claim_sources`, `records.supersed
 5. **Bounded and local:** neighborhood queries are hop- and size-bounded; graph responses never enter `outbound`, provider messages or receipts.
 6. **Read-only:** the canonical export before and after any graph query is byte-identical.
 
-**Tests (PR #11, SB-2a).** They are in `tests/test_provenance.py` unless another file is named.
+**Tests (SB-2a; written in PR #11, carried by PR #21).** They are in `tests/test_provenance.py` unless another file is named.
 
 - **Item 1:**
   - `test_every_edge_is_one_stored_link_and_nothing_else`;
@@ -75,7 +75,7 @@ The provenance graph is computed on read from `claim_sources`, `records.supersed
 - **Item 5:**
   - `test_hops_and_size_are_bounded`;
   - `test_graph_output_never_reaches_a_bundle_or_receipt`, which checks that no graph marker appears in a compiled bundle's description or receipt;
-  - the work, byte, history and value-size bounds in `tests/adversarial/test_pr11_audit_regressions.py` and `tests/adversarial/test_pr11_f7_allocation.py`. The value-size tests measure Python's peak allocation during a graph read, not only the response size.
+  - the work, byte, history and value-size bounds in `tests/adversarial/test_pr11_audit_regressions.py` and `tests/adversarial/test_pr11_f7_allocation.py`. The value-size tests measure Python's peak allocation during a graph read, not only the response size. They do not bound process memory: SQLite loads a whole overflowing row in C memory before the value-size limit applies, so a read that touches an oversized row (Issue #17) peaks at about that row's size. No test bounds RSS.
 - **Item 6:** `test_graph_queries_never_write`. The export and the vault file's bytes are unchanged.
 
 ## 4. Obsidian snapshot export (SB-2)
