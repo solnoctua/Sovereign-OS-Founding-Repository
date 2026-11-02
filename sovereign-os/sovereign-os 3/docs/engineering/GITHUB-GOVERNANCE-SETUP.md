@@ -30,7 +30,7 @@ Merge commits keep every commit's attribution, and a squash or rebase of #10 wou
 
 **What this enforces, and what it does not.**
 - **Code Owner review needs CODEOWNERS on the target branch.** GitHub reads `.github/CODEOWNERS` from the PR's base branch. The file has been on `main` since PR #18 (which replaced #9) merged on 2026-10-27, so every path needs `solnoctua`'s approval. Before that, one approval from any account with write access satisfied the rule, and that was all that gated PR #18 itself. The file's first rule is the catch-all `* @solnoctua`, and `tests/test_policy_invariants.py` fails if that rule is removed or moved, or if a later rule drops the founder.
-- **Neither the author nor the last pusher can approve.** The founder should therefore not push to an agent's branch, including with GitHub's *Update branch* button: the founder would become the last pusher, and their approval would no longer count. Ask the agent to update the branch instead.
+- **Neither the author nor the last pusher can approve.** The founder should therefore not push to an agent's branch, including with GitHub's *Update branch* button: the founder would become the last pusher, and their approval would no longer count. Ask the agent to update the branch instead. If the founder does push, a commit that changes nothing does not reset the rule: GitHub counts only a push with changes. On PR #20 (2026-11-02), an empty agent commit left the founder as last pusher, and an agent commit with a real change was needed before the founder's approval counted.
 - **Who presses merge is not enforced.** Once the approval and the checks are in place, any account with write access can merge, `owlbuilder` included. Agents never merge. That is an instruction, not a control.
 - **Draft checks are real since D-E reached `main`** with PR #18 (2026-10-27). Before that, other PRs' draft runs reported `skipped` (`docs/DEVELOPMENT.md`, D-E).
 
@@ -49,8 +49,8 @@ Steps 1–5 are done. They stay here as the record of what was set up, in order.
    ```
 6. **Re-open the founder-authored PRs under the agent identity. In progress.** `solnoctua` cannot approve PRs that `solnoctua` authored. `owlbuilder` opens a new PR from each existing branch, with the same commits and no rewrite. The old PR is closed with a link to its replacement once the founder authorizes it.
    - #9 was replaced by #18 (merged 2026-10-27), and #8 by #19 (merged 2026-10-31). GitHub shows #9 and #8 as merged too, because their head commits reached `main`.
-   - #10 is replaced by #20 (opened 2026-10-31; a candidate, not merged).
-   - Still authored by `solnoctua` on 2026-10-31: #10, #11, #12 and #13. #7 is closed.
+   - #10 was replaced by #20 (merged 2026-11-02). GitHub shows #10 as merged too.
+   - Still authored by `solnoctua` on 2026-11-02: #11, #12 and #13. #7 is closed.
    - Rejected: a temporary bypass for `solnoctua`, which is recorded but weakens the gate; merging those PRs before the ruleset applied, which would have left them unenforced.
 
 ## Verification
