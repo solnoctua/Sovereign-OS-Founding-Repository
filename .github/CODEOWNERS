@@ -1,0 +1,35 @@
+# Sovereign: every path requires founder review before merge.
+# Ruleset 25374786 on `main` requires one approval and Code Owner review (verified 2026-10-27).
+# GitHub reads CODEOWNERS from the PR's target branch, so this file is enforced only once it exists
+# there: until it is on `main`, any approval from an account with write access satisfies the rule.
+# Coding agents open PRs as `owlbuilder`, because GitHub does not let an author approve their own PR
+# (docs/engineering/GITHUB-GOVERNANCE-SETUP.md, decision D-F).
+# The last matching pattern wins, so the catch-all stays first (tests/test_policy_invariants.py).
+# The explicit entries below mark the kernel, governance and automation paths (Tier 2 in
+# docs/DEVELOPMENT.md); the catch-all alone does not make a change Tier 2.
+
+# Default: the founder owns every file
+*                                                           @solnoctua
+
+# Enforcement Kernel K1 / K2 and the HTTP boundary
+/sovereign-os/sovereign-os\ 3/src/sovereign/store.py        @solnoctua
+/sovereign-os/sovereign-os\ 3/src/sovereign/claims.py       @solnoctua
+/sovereign-os/sovereign-os\ 3/src/sovereign/context.py      @solnoctua
+/sovereign-os/sovereign-os\ 3/src/sovereign/app.py          @solnoctua
+/sovereign-os/sovereign-os\ 3/src/sovereign/providers.py    @solnoctua
+
+# Governance and security documents
+/sovereign-os/sovereign-os\ 3/CONSTITUTION.md               @solnoctua
+/sovereign-os/sovereign-os\ 3/ARCHITECTURE.md               @solnoctua
+/sovereign-os/sovereign-os\ 3/AGENTS.md                     @solnoctua
+/sovereign-os/sovereign-os\ 3/docs/adr/                     @solnoctua
+/sovereign-os/sovereign-os\ 3/docs/SECURITY-GATE.md         @solnoctua
+/sovereign-os/sovereign-os\ 3/docs/FOUNDER-DECISIONS.md     @solnoctua
+/sovereign-os/sovereign-os\ 3/docs/architecture/            @solnoctua
+/sovereign-os/sovereign-os\ 3/tests/adversarial/            @solnoctua
+/sovereign-os/sovereign-os\ 3/tests/test_policy_invariants.py @solnoctua
+
+# Repository automation
+/.github/                                                   @solnoctua
+/AGENTS.md                                                  @solnoctua
+/CLAUDE.md                                                  @solnoctua

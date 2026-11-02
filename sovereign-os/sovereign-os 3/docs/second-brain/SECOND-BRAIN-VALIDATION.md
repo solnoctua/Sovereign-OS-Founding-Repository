@@ -8,7 +8,7 @@
 
 | Area | Owner | State |
 | --- | --- | --- |
-| Retrieval and governed-context evaluation (SB-1) | **Benchmark 0003 — retrieval evaluation**: `docs/benchmarks/0003-retrieval-evaluation.md` and the `evaluation/retrieval/` harness, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) | Executed on synthetic data, evaluation only, **not merged**; at `da52ce9` its Codex P2 finding (scale timings) is resolved by removing the timings, and CI passed. By founder direction (2026-10-20) no production retrieval change is authorized (R1–R7, ADR-0005 §12.2); its remaining founder decisions are listed there |
+| Retrieval and governed-context evaluation (SB-1) | **Benchmark 0003 — retrieval evaluation**: `docs/benchmarks/0003-retrieval-evaluation.md` and the `evaluation/retrieval/` harness, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) | Executed on synthetic data, evaluation only, merged to `main` on 2026-10-22 (`eeed753`); at `da52ce9` its Codex P2 finding (scale timings) was resolved by removing the timings, and CI passed. By founder direction (2026-10-20) no production retrieval change is authorized (R1–R7, ADR-0005 §12.2); its remaining founder decisions are listed there |
 | A future lexical change (SB-4) | The implementing PR regenerates Benchmark 0003 | **Not authorized** (R1): Porter normalization and the exact-stem tie-break are evaluated candidates only |
 | Provenance graph (SB-2a navigation) | §3 | Implemented by PR #11. Items 1–6 are tested as listed at the end of §3; item 4's "graph module absent" variant is a static check, not a run |
 | Obsidian snapshot export (SB-2) | §4 | Specified, not implemented |
@@ -54,7 +54,7 @@ The provenance graph is computed on read from `claim_sources`, `records.supersed
 1. **Edges are exactly canonical:** every `SUPPORTED_BY`, `CORRECTS` and `SUPERSEDES` edge corresponds to one stored link, and nothing else produces an edge. These are structural facts and need no claims about themselves.
 2. **Status, support and authority are read live**, equal `claims.is_authoritative` and derived support, and change immediately after a decision or correction.
 3. **Forget leaves nothing:** after record or claim Forget, no node, edge, title or count of the forgotten item is returned.
-4. **Navigation is not relevance (R3):** traversing the graph never changes a Context Compiler decision. A test compiles every Benchmark 0003 query (requires PR #4 merged; otherwise the SB-2 synthetic corpus) with and without graph code loaded and requires identical tokens.
+4. **Navigation is not relevance (R3):** traversing the graph never changes a Context Compiler decision. A test compiles every Benchmark 0003 query (PR #4 is merged, so the benchmark corpus is available on `main`) before and after graph queries, and with the graph module absent, and requires identical tokens.
 5. **Bounded and local:** neighborhood queries are hop- and size-bounded; graph responses never enter `outbound`, provider messages or receipts.
 6. **Read-only:** the canonical export before and after any graph query is byte-identical.
 
@@ -139,7 +139,7 @@ Contract: [OBSIDIAN-PROJECTION.md](OBSIDIAN-PROJECTION.md) revision 3 — a one-
 32. **Forget boundary disclosure:** the Forget preview and result say that earlier exports, and leftovers of interrupted exports, are outside Sovereign's control and must be deleted by the user, and never say "deleted everywhere"; every note's banner and Start Here state the snapshot time and that forgetting in Sovereign does not change the export.
 33. **ZIP hygiene:** entries are relative paths under one top folder with the UTF-8 name flag, regular files only, with no `..`, absolute paths or symbolic links; extracting with at least two common tools (pinned) yields the verified tree byte for byte.
 34. **Lineage residual (D15):** the export preview states, without naming any item, that included claims may restate superseded sensitive claims.
-35. **Storage prerequisite (before production SB-2):** covered by `tests/adversarial/test_storage_integrity_rowid.py` in the Issue #6 repair PR (ADR-0006, PROPOSED, unmerged). Once the separate Tier 2 storage fix lands, raw `INSERT OR REPLACE`/`REPLACE` naming an existing rowid in `tombstones`, `claim_tombstones`, `records`, `claims` or `claim_sources`, and `UPDATE OR REPLACE … SET rowid`, are rejected on a connection with `recursive_triggers` off (SECURITY-GATE).
+35. **Storage prerequisite (before production SB-2):** covered by `tests/adversarial/test_storage_integrity_rowid.py` (ADR-0006, schema 5, PR #20, the replacement for #10; satisfied on `main` only once PR #20 merges): raw `INSERT OR REPLACE`/`REPLACE` naming an existing rowid in `tombstones`, `claim_tombstones`, `records`, `claims` or `claim_sources`, and `UPDATE OR REPLACE … SET rowid`, are rejected on a connection with `recursive_triggers` off (SECURITY-GATE).
 
 ### 4.5 Usability (reported, not gated)
 

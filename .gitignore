@@ -1,0 +1,37 @@
+# Sovereign: source is versioned; private state and generated output are not.
+# Applies from the repository root, including the nested canonical project.
+
+# Python/build/test output
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+.DS_Store
+
+# Local vaults, journals, backups and user-held exports
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+**/private-exports/
+**/private-backups/
+**/vault-backups/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx

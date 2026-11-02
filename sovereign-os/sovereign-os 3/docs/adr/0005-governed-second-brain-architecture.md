@@ -5,7 +5,7 @@
 - **Decision owner:** Human project owner
 - **Review tier:** Tier 3 direction. Every implementation slice that changes schema, memory authority, deletion, retrieval relevance or disclosure is separately Tier 2 (see `AGENTS.md`, `docs/DEVELOPMENT.md`).
 - **Builds on:** [ADR-0003](0003-memory-claim-authority.md) (MemoryClaim authority) and [ADR-0004](0004-governed-retrieval-context-compiler.md) (Context Compiler) **as merged to `main`** (`4fbecbe`, including `cee2c66`, the policy-state truncation fingerprint, which this branch now contains). This ADR amends neither; §6, §7, §8.2–§8.3 and D15 name where a later slice would have to.
-- **Read alongside:** [Second-brain levels guide](../second-brain/LEVELS-AND-OBSIDIAN.md), [Obsidian export spec](../second-brain/OBSIDIAN-PROJECTION.md), [Second-brain validation spec](../second-brain/SECOND-BRAIN-VALIDATION.md), [Architecture](../../ARCHITECTURE.md), [Roadmap §G](../../ROADMAP.md). Retrieval evaluation: Benchmark 0003, `docs/benchmarks/0003-retrieval-evaluation.md`, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4) and **not yet merged**.
+- **Read alongside:** [Second-brain levels guide](../second-brain/LEVELS-AND-OBSIDIAN.md), [Obsidian export spec](../second-brain/OBSIDIAN-PROJECTION.md), [Second-brain validation spec](../second-brain/SECOND-BRAIN-VALIDATION.md), [Architecture](../../ARCHITECTURE.md), [Roadmap §G](../../ROADMAP.md). Retrieval evaluation: Benchmark 0003, `docs/benchmarks/0003-retrieval-evaluation.md`, delivered by [PR #4](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/pull/4), **merged to `main` on 2026-10-22** (`eeed753`) as evaluation infrastructure only (status update; see *Revision notes*).
 - **Constitution:** subordinate to the proposed Constitution; no constitutional text is amended or ratified by this document.
 
 ## 1. Problem and mission
@@ -191,7 +191,7 @@ Deliberately small first; one numbering (also ROADMAP §G):
 | Slice | Delivers | Level | State / gate |
 | --- | --- | --- | --- |
 | **SB-0** | This ADR, guide, export spec, validation spec, demo vault (docs only; PR #3) | — | D1–D14 approved 2026-10-21; D15 deferred (§15.1) |
-| **SB-1** | Benchmark 0003 retrieval evaluation: synthetic corpus, harness, governed-recall/noise/precision baseline, lexical alternatives, provenance admission (counterfactual) and navigation | L3 evaluation | **Executed in PR #4 (`da52ce9`), not merged**; its Codex P2 is resolved and CI passed; no production retrieval change authorized (R1) |
+| **SB-1** | Benchmark 0003 retrieval evaluation: synthetic corpus, harness, governed-recall/noise/precision baseline, lexical alternatives, provenance admission (counterfactual) and navigation | L3 evaluation | **Executed in PR #4 and merged 2026-10-22** (`eeed753`); its Codex P2 is resolved and CI passed; no production retrieval change authorized (R1) |
 | **SB-2** | Provenance graph computed on read (local navigation only) + a one-way **Obsidian snapshot export** CLI (a ZIP or a new folder) for sources, claims, revisions and histories, with inert serialization, scope closure, structural verification and byte-limited filenames; no registry, no reconciliation, no canonical schema change. **First user-visible slice** | L2 view + L4 provenance | Tier 2 (it renders personal data into a file the user takes away); validation spec §3–§4; **before production use:** the separate high-priority Tier 2 storage-integrity fix (SECURITY-GATE) |
 | **SB-3** | Human-declared projects/concepts and membership; export hubs | L1/L2 | Tier 2 schema ADR; D2 |
 | **SB-4** | A lexical change — **none is authorized** (R1). Porter normalization and the exact-stem tie-break are evaluated candidates only; any proposal is its own Tier 2 PR with a `POLICY_VERSION` bump, regenerated Benchmark 0003, independent review and founder approval, and chooses its stemmer implementation there. IDF, BM25 and any persistent FTS5 index deferred (R2) | L3 lexical | Not authorized |
@@ -205,7 +205,7 @@ These slices complement, and never displace, M0–M5. Security, recovery and dai
 
 ## 12. Evidence and evaluation
 
-### 12.1 Benchmark 0003 (PR #4, `da52ce9`) — executed, evaluation only, not merged
+### 12.1 Benchmark 0003 (PR #4, `da52ce9`; merged 2026-10-22) — executed, evaluation only
 
 Benchmark 0003 is the canonical retrieval evaluation (subject to its own audit and merge). It evaluates the merged Context Compiler on a synthetic corpus of 254 records, 16 claims and 56 queries with an explicit, policy-validated oracle; it measures retrieval before policy and governed context after policy, for local and cloud targets; no provider is called. Results for locally eligible expected items (88), from PR #4 at `da52ce9`; every retriever keeps 56/56 tokens on an unchanged vault, and none produces a policy violation:
 
@@ -245,7 +245,7 @@ A better retrieval score never compensates for a broken invariant. **Must-pass (
 
 ### 12.4 Evaluation state (as of 2026-10-20; mirrors validation spec §1)
 
-1. **Retrieval evaluation (SB-1):** Benchmark 0003, executed in PR #4 (`da52ce9`), **not merged**; production retrieval unchanged.
+1. **Retrieval evaluation (SB-1):** Benchmark 0003, executed in PR #4 (`da52ce9`) and **merged 2026-10-22**; production retrieval unchanged.
 2. **Provenance graph tests (SB-2, validation spec §3):** specified, **not implemented**.
 3. **Obsidian snapshot export tests (SB-2, validation spec §4):** specified, **not implemented**; no native Obsidian check has been executed.
 4. **Structured entity, temporal and relationship tests (SB-3, SB-6, SB-7, validation spec §5):** future; each needs its own ADR.
@@ -330,6 +330,8 @@ D8, D9 and D14 record the founder's 2026-10-20 direction. The founder's decision
 **No implementation, new permission, persistent schema, background ingestion or constitutional amendment is authorized by this document.**
 
 ## Revision notes
+
+**Status update** (2026-10-22; metadata only, no technical change): PR #4 (Benchmark 0003) was merged to `main` as `eeed753` as evaluation infrastructure only; the "not merged" statements above are updated accordingly. The founder's 2026-10-22 directive splits delivery of SB-2 into SB-2a (provenance navigation in the UI, validation spec §3) and SB-2b (snapshot export, validation spec §4) inside this ADR's approved scope; this is a sequencing decision recorded in ROADMAP §H, not an amendment of D1–D14. The storage-integrity repair (Issue #6) is in progress as a separate Tier 2 PR and remains unmerged.
 
 **Founder approval** (2026-10-21; status and decision metadata only, no technical change): the Status line, §11 SB-0, §12.2 and §15 record the approval of D1–D14 and R1–R7 and the deferral of D15; §15.1 is the decision record.
 
