@@ -1,0 +1,107 @@
+{
+ "claim_tombstones": [],
+ "claims": [
+  {
+   "created_at": "2026-10-22T06:07:25+00:00",
+   "history": [
+    {
+     "actor": "human",
+     "at": "2026-10-22T06:07:25+00:00",
+     "from_status": null,
+     "note": null,
+     "to_status": "proposed"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T06:07:25+00:00",
+     "from_status": "proposed",
+     "note": "checked",
+     "to_status": "approved"
+    }
+   ],
+   "id": "1b08af49-54e9-4d31-8991-2b09a7fd8d71",
+   "origin": "human",
+   "source_hashes": {
+    "e1c48843-371f-47f6-ba10-3f06d5085b63": "f4fb8ad3bf0ffeceb39b1580ed170481991bb20281f853455cea05920734711a",
+    "e73598a1-b799-4e00-a6df-d7cc083c6c45": "286b274cc36e2a1f3379ff2827b8197b29ddf10d62494a86a0179dbed69bd670"
+   },
+   "source_ids": [
+    "e1c48843-371f-47f6-ba10-3f06d5085b63",
+    "e73598a1-b799-4e00-a6df-d7cc083c6c45"
+   ],
+   "status": "approved",
+   "supersedes_id": null,
+   "text": "Reversal approved claim"
+  },
+  {
+   "created_at": "2026-10-22T06:07:25+00:00",
+   "history": [
+    {
+     "actor": "human",
+     "at": "2026-10-22T06:07:25+00:00",
+     "from_status": null,
+     "note": null,
+     "to_status": "proposed"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T06:07:25+00:00",
+     "from_status": "proposed",
+     "note": null,
+     "to_status": "contested"
+    }
+   ],
+   "id": "4230a0d3-f0ec-46d2-a206-9389fc322ff4",
+   "origin": "human",
+   "source_hashes": {
+    "e73598a1-b799-4e00-a6df-d7cc083c6c45": "286b274cc36e2a1f3379ff2827b8197b29ddf10d62494a86a0179dbed69bd670"
+   },
+   "source_ids": [
+    "e73598a1-b799-4e00-a6df-d7cc083c6c45"
+   ],
+   "status": "contested",
+   "supersedes_id": null,
+   "text": "Reversal contested claim"
+  }
+ ],
+ "exported_at": "2026-10-22T06:07:25+00:00",
+ "records": [
+  {
+   "content": "Reversal synthetic note",
+   "created_at": "2026-10-22T06:07:25+00:00",
+   "id": "2d7b9ff6-abd2-494d-86e5-af03ac48a211",
+   "legacy": 0,
+   "sensitivity": "private",
+   "source": "manual",
+   "status": "superseded",
+   "supersedes_id": null
+  },
+  {
+   "content": "Reversal synthetic note, corrected",
+   "created_at": "2026-10-22T06:07:25+00:00",
+   "id": "e1c48843-371f-47f6-ba10-3f06d5085b63",
+   "legacy": 0,
+   "sensitivity": "private",
+   "source": "manual",
+   "status": "active",
+   "supersedes_id": "2d7b9ff6-abd2-494d-86e5-af03ac48a211"
+  },
+  {
+   "content": "Reversal second note",
+   "created_at": "2026-10-22T06:07:25+00:00",
+   "id": "e73598a1-b799-4e00-a6df-d7cc083c6c45",
+   "legacy": 0,
+   "sensitivity": "sensitive",
+   "source": "manual",
+   "status": "active",
+   "supersedes_id": null
+  }
+ ],
+ "schema": "sovereign.v0.records.2",
+ "tombstones": [
+  {
+   "deleted_at": "2026-10-22T06:07:25+00:00",
+   "id": "971f5f1c-d9ea-49fd-af54-a52d33509b67"
+  }
+ ]
+}
