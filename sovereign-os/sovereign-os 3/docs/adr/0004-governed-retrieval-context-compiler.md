@@ -76,7 +76,7 @@ Constitutional constraints:
 - **Further conditions on eligible candidates:**
   - they must also be relevant: pinned, or sharing at least one term with the question. A claim surfaced only through provenance is `not_relevant` (context minimisation);
   - they must pass the boundary (`sensitive_cloud`), duplicate (`duplicate`) and budget (`budget_exceeded`) checks.
-- **Every applicable reason is listed** in precedence order: `superseded`, `rejected`, `contested`, `not_authoritative`, `stale`, `orphaned`, `sensitive_cloud`, `not_relevant`, `duplicate`, `budget_exceeded`. `reason` is the first.
+- **Every applicable reason is listed** in precedence order: `invalid_state`, `superseded`, `rejected`, `contested`, `not_authoritative`, `stale`, `orphaned`, `sensitive_cloud`, `not_relevant`, `duplicate`, `budget_exceeded`. `reason` is the first. `invalid_state` (added 2026-10-22 by [ADR-0006](0006-rowid-free-canonical-tables.md), PROPOSED) is fail-closed positive validation: a source record whose status is outside the storage CHECK set is never used. It changes no bundle or token for any state a CHECK-respecting writer can produce.
 - **Authority is not assumed.** The compiler re-checks `claims.is_authoritative` for any claim with no lifecycle or support reason, so an unexpected state is `not_authoritative`.
 - **Distinct roles.** Evidence and approved memory stay separate in the bundle, the receipt and the prompt.
 

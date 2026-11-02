@@ -110,19 +110,19 @@ Items one stored link (claim ↔ cited record, record ↔ its correction) away f
 
 ## Exclusion reasons over all candidates (local / cloud)
 
-| Retriever | superseded | rejected | contested | not_authoritative | stale | orphaned | sensitive_cloud | not_relevant | duplicate | budget_exceeded |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `baseline` | 10 / 10 | 2 / 2 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 13 | 7 / 7 | 0 / 0 | 232 / 230 |
-| `porter_count` | 13 / 13 | 2 / 2 | 6 / 6 | 4 / 4 | 4 / 4 | 1 / 1 | 0 / 15 | 9 / 9 | 0 / 0 | 320 / 316 |
-| `porter_idf` | 13 / 13 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 15 | 10 / 10 | 0 / 0 | 320 / 316 |
-| `fts5_bm25` | 10 / 10 | 1 / 1 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 11 | 7 / 7 | 0 / 0 | 226 / 224 |
-| `fts5_porter_bm25` | 13 / 13 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 15 | 10 / 10 | 0 / 0 | 320 / 316 |
-| `fts5_porter_bm25_aliases` | 13 / 13 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 19 | 12 / 11 | 0 / 0 | 321 / 317 |
-| `fts5_porter_bm25_provenance` | 14 / 14 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 18 | 0 / 0 | 0 / 0 | 329 / 322 |
-| `exact_stem` | 13 / 13 | 2 / 2 | 6 / 6 | 4 / 4 | 4 / 4 | 1 / 1 | 0 / 15 | 9 / 9 | 0 / 0 | 320 / 316 |
-| `exact_stem_tiebreak` | 10 / 10 | 2 / 2 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 13 | 7 / 7 | 0 / 0 | 232 / 230 |
-| `baseline_provenance` | 11 / 11 | 2 / 2 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 15 | 0 / 0 | 0 / 0 | 235 / 232 |
-| `exact_stem_provenance` | 14 / 14 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 18 | 0 / 0 | 0 / 0 | 329 / 322 |
+| Retriever | invalid_state | superseded | rejected | contested | not_authoritative | stale | orphaned | revalidation_required | evidence_set_mismatch | sensitive_cloud | not_relevant | duplicate | budget_exceeded |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `baseline` | 0 / 0 | 10 / 10 | 2 / 2 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 13 | 7 / 7 | 0 / 0 | 232 / 230 |
+| `porter_count` | 0 / 0 | 13 / 13 | 2 / 2 | 6 / 6 | 4 / 4 | 4 / 4 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 15 | 9 / 9 | 0 / 0 | 320 / 316 |
+| `porter_idf` | 0 / 0 | 13 / 13 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 15 | 10 / 10 | 0 / 0 | 320 / 316 |
+| `fts5_bm25` | 0 / 0 | 10 / 10 | 1 / 1 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 11 | 7 / 7 | 0 / 0 | 226 / 224 |
+| `fts5_porter_bm25` | 0 / 0 | 13 / 13 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 15 | 10 / 10 | 0 / 0 | 320 / 316 |
+| `fts5_porter_bm25_aliases` | 0 / 0 | 13 / 13 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 19 | 12 / 11 | 0 / 0 | 321 / 317 |
+| `fts5_porter_bm25_provenance` | 0 / 0 | 14 / 14 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 18 | 0 / 0 | 0 / 0 | 329 / 322 |
+| `exact_stem` | 0 / 0 | 13 / 13 | 2 / 2 | 6 / 6 | 4 / 4 | 4 / 4 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 15 | 9 / 9 | 0 / 0 | 320 / 316 |
+| `exact_stem_tiebreak` | 0 / 0 | 10 / 10 | 2 / 2 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 13 | 7 / 7 | 0 / 0 | 232 / 230 |
+| `baseline_provenance` | 0 / 0 | 11 / 11 | 2 / 2 | 6 / 6 | 3 / 3 | 3 / 3 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 15 | 0 / 0 | 0 / 0 | 235 / 232 |
+| `exact_stem_provenance` | 0 / 0 | 14 / 14 | 2 / 2 | 6 / 6 | 5 / 5 | 4 / 4 | 1 / 1 | 0 / 0 | 0 / 0 | 0 / 18 | 0 / 0 | 0 / 0 | 329 / 322 |
 
 ## Governed recall by query category (local, items recalled / eligible)
 

@@ -2,6 +2,7 @@
 
 - Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)
 - Narrowed by: [ADR-0004](0004-governed-retrieval-context-compiler.md) (governed retrieval) — the rule "Claims are never sent to a model" below
+- Amended by: [ADR-0006](0006-rowid-free-canonical-tables.md) (ratified by the founder 2026-10-31): authority also requires evidence-set integrity `committed`; storage refuses embedded NUL in the columns ADR-0006 decision 6 lists; the backup format is version 3 (see *Migration* below)
 - Date: 2026-10-19
 - Decision owner: Human project owner
 
@@ -60,7 +61,7 @@ Two adversarial audits shaped this revision:
 - Human authority is immediately revocable: `approved → rejected` needs no contest step.
 - Approval requires intact evidence (checked in the domain layer).
 - **Correction happens only by supersession.** In one transaction, the old claim → `superseded`, then a new `proposed` claim is created with `supersedes_id` and its own fixed evidence links.
-- **Authoritative = `approved` AND every link's evidence is present, active and hash-identical.**
+- **Authoritative = `approved` AND every link's evidence is present, active and hash-identical**, and the claim has at least one link: a claim with no evidence links derives as `orphaned` (2026-10-22, Issue #6).
   - A corrected source makes a claim `stale`.
   - A missing or non-identical source makes it `orphaned` (shown per source as `missing` or `unverified`).
 - **History length is unbounded.** Approve/contest cycles are legitimate, so there is no per-claim event ceiling.
@@ -136,7 +137,7 @@ Two adversarial audits shaped this revision:
 
 ### Storage contract (SQLite triggers, `store.py` `CLAIMS_SCHEMA`)
 
-The triggers enforce the following for any connection issuing INSERT/UPDATE/DELETE, including `INSERT OR REPLACE`, `REPLACE` and upsert forms. Every insert is checked by a BEFORE INSERT trigger, which runs before SQLite's REPLACE deletions. This holds with or without `PRAGMA foreign_keys` and `recursive_triggers`. There are no `ON DELETE CASCADE` actions; rows are removed only by the forget triggers.
+The triggers enforce the following for any connection issuing INSERT/UPDATE/DELETE, including `INSERT OR REPLACE`, `REPLACE` and upsert forms. Every insert is checked by a BEFORE INSERT trigger, which runs before SQLite's REPLACE deletions. **Correction (2026-10-22):** in schema 4 this held only for primary-key conflicts. A statement naming an existing hidden rowid made SQLite delete the conflicting row without firing DELETE triggers whenever `recursive_triggers` was off ([Issue #6](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/6)). From schema 5 the canonical tables have no rowid ([ADR-0006](0006-rowid-free-canonical-tables.md), PROPOSED), and the guarantee holds with or without `PRAGMA foreign_keys` and `recursive_triggers`. There are no `ON DELETE CASCADE` actions; rows are removed only by the forget triggers.
 - **Claims:**
   - Never replaced or re-created; never reusing a tombstoned ID.
   - Created only as `proposed`.
@@ -164,7 +165,8 @@ The triggers enforce the following for any connection issuing INSERT/UPDATE/DELE
 - Locking is SQLite's rollback journal: an export holds a read lock for its duration, so a concurrent write waits up to the 10 s busy timeout; conversely, a continuous unpaced stream of writes can delay a reader up to the same timeout. (WAL mode was not adopted because it would keep forgotten pages in the `-wal` file.)
 
 ### Migration
-- **Versions** (`PRAGMA user_version`): 0 = records-only vaults (ADR-0002); 4 = this schema.
+- **Versions** (`PRAGMA user_version`): 0 = records-only vaults (ADR-0002); 4 = the ADR-0003 schema as first released; 5 = this schema: the same tables, triggers and rules, with `records`, `tombstones`, `claims`, `claim_sources` and `claim_tombstones` rebuilt `WITHOUT ROWID`, plus write-once evidence-set commitments and the rejection of embedded NUL in the columns listed in ADR-0006 decision 6 ([ADR-0006](0006-rowid-free-canonical-tables.md), accepted 2026-10-31; migration 0 → 5 and 4 → 5 in one transaction).
+- **Amendments (ratified by the founder on 2026-10-31 with ADR-0006):** authority additionally requires a committed evidence set; claims made before schema 5 are preserved but not authoritative until a governed revalidation; the backup format becomes version 3. See [ADR-0006, Amendments](0006-rowid-free-canonical-tables.md#amendments-to-adr-0003-and-the-backup-contract). The rest of this ADR's text is unchanged; where it differs, the amendments govern.
 - **Migration 0 → 4** is additive and runs in one `BEGIN IMMEDIATE` transaction: new tables, indexes and triggers, plus the `legacy` column set on every existing record. Every original column of every existing row stays byte-identical.
 - **Refused:** vaults newer than this version, and vaults from the unreleased drafts (`user_version` 1 = `c847f9d`, 2 = `708e9de`, 3 = `36c9bbc`/`35ce01b`, or an unversioned `claims` table).
 
@@ -189,6 +191,7 @@ The triggers enforce the following for any connection issuing INSERT/UPDATE/DELE
 ## Migration and reversibility
 
 - **To reverse:** drop the four claim tables, the triggers on `records`/`tombstones` and `ix_records_supersedes`, run `ALTER TABLE records DROP COLUMN legacy` (SQLite ≥ 3.35), then set `PRAGMA user_version = 0`. Every ADR-0002 row is then exactly as it was.
+  *Note (2026-10-27, ADR-0006):* no test exercises this direct-SQL reversal, and it does not apply to a schema-5 vault, whose canonical tables are WITHOUT ROWID and which holds `claim_evidence_sets`. A schema-5 vault is reversed to schema-4 software by the tested route in [ADR-0006 § Compatibility and reversal](0006-rowid-free-canonical-tables.md#compatibility-and-reversal).
 - **Alternatively:** export and restore records into an older build after stripping the `claims` keys and setting `schema` to `.1`.
 - **Tested:**
   - migration of a records-only vault, rollback on forced failure, and refusal of newer and pre-release vaults;
