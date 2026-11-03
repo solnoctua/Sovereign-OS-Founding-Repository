@@ -1,275 +1,574 @@
 {
   "schema": "sovereign.devcontext.v1",
-  "fingerprint": "sha256:728f841e68da15c824b3e253353aa5bc4c6965596f9c0c9586ce1224c2f6d7a6",
-  "task": {
-    "text": "Issue #15: text that is not valid UTF-8 makes Forget fail with a 500; check ADR-0003's Forget contract",
-    "terms": [
-      "0003",
-      "500",
-      "adr",
-      "check",
-      "contract",
-      "fail",
-      "forget",
-      "issue",
-      "makes",
-      "text",
-      "utf",
-      "valid"
+  "fingerprint": "sha256:f5300bba542f864e37545de1a9f01cc8bef9ba2c3d5b9a75073d0b89b2f6f030",
+  "package": {
+    "task": {
+      "text": "Issue #15: Vault.delete, Vault.forget_preview and Vault._forget_plan in src/sovereign/store.py fail when stored text is not valid UTF-8. Keep the Forget contract of ADR-0003.",
+      "terms": [
+        "0003",
+        "adr",
+        "contract",
+        "delete",
+        "fail",
+        "forget",
+        "issue",
+        "keep",
+        "plan",
+        "preview",
+        "sovereign",
+        "src",
+        "store",
+        "stored",
+        "text",
+        "utf",
+        "valid",
+        "vault"
+      ],
+      "anchors": [
+        {
+          "kind": "issue_or_pr",
+          "value": "#15",
+          "resolution": "resolved"
+        },
+        {
+          "kind": "symbol",
+          "value": "Vault.delete",
+          "resolution": "resolved"
+        },
+        {
+          "kind": "symbol",
+          "value": "Vault.forget_preview",
+          "resolution": "resolved"
+        },
+        {
+          "kind": "symbol",
+          "value": "Vault._forget_plan",
+          "resolution": "resolved"
+        },
+        {
+          "kind": "path",
+          "value": "src/sovereign/store.py",
+          "resolution": "resolved"
+        },
+        {
+          "kind": "adr",
+          "value": "ADR-0003",
+          "resolution": "resolved"
+        }
+      ]
+    },
+    "inputs": {
+      "project_root": "sovereign-os/sovereign-os 3",
+      "target": {
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "tree": "0fcadc186de77a0cc70e3e3145cf4e7c40f4ba23"
+      },
+      "candidate": null
+    },
+    "generator": {
+      "name": "devcontext",
+      "version": "0.0.0-spec-example",
+      "selection_version": "devcontext-selection-2",
+      "stopwords_sha256": "d7201270c0b668153c2531f2646d5f0115bb8e6f388abe4a0841541939482c9b"
+    },
+    "parameters": {
+      "max_output_bytes": 49152,
+      "reserve_bytes": 8192,
+      "core_bytes": 8192,
+      "required_percent": 40,
+      "source_percent": 35,
+      "test_percent": 15,
+      "max_items": 40,
+      "max_item_bytes": 2048,
+      "max_file_bytes": 262144,
+      "max_required_paths": 20
+    },
+    "usage": {
+      "excerpt_bytes": 10872,
+      "items": 14,
+      "truncated": false
+    },
+    "authority_order": [
+      "Constitution candidate (NOT RATIFIED)",
+      "founder decisions (`../FOUNDER-DECISIONS.md`)",
+      "approved ADRs",
+      "`ARCHITECTURE.md`",
+      "`ROADMAP.md` \u00a7H",
+      "this plan",
+      "bounded PRs"
     ],
-    "anchors": [
+    "sources": [
       {
-        "kind": "issue_or_pr",
-        "value": "#15",
-        "resolved": true
+        "id": "R1",
+        "path": "sovereign-os/sovereign-os 3/AGENTS.md",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "e7f71b65351570c9f3202e60af10877e133e410c",
+        "status_line": null,
+        "status_line_truncated": false
       },
       {
-        "kind": "adr",
-        "value": "ADR-0003",
-        "resolved": true
+        "id": "R2",
+        "path": "sovereign-os/sovereign-os 3/docs/SECURITY-GATE.md",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "8afe381583594c6beae139ec17db55f8dfdfb149",
+        "status_line": null,
+        "status_line_truncated": false
+      },
+      {
+        "id": "R3",
+        "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
+        "status_line": "**Status:** record of decisions, not a roadmap (sequence lives in `ROADMAP.md` \u00a7H; detail in `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`). Entries are short. A decision is binding only when listed under *Approved*. Writing a reviewer recommendation here does not approve it.",
+        "status_line_truncated": false
+      },
+      {
+        "id": "R4",
+        "path": ".github/CODEOWNERS",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "730433f00ead41241017783d0a73e08284d941a9",
+        "status_line": null,
+        "status_line_truncated": false
+      },
+      {
+        "id": "R5",
+        "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "9e4a602cb33941ce2072b64f24f671e3fd54319c",
+        "status_line": null,
+        "status_line_truncated": false
+      },
+      {
+        "id": "R6",
+        "path": "sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "94aabdbc6eb94db9d65f6aa76df1ca7caa8e0d58",
+        "status_line": "- Status: Proposed (Benchmark 0001; Tier 2 \u2014 hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)",
+        "status_line_truncated": false
+      },
+      {
+        "id": "R7",
+        "path": "sovereign-os/sovereign-os 3/docs/architecture/systems-registry.toml",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "53c423cf1940ac2a94278cb4c0058496ee522ec0",
+        "status_line": null,
+        "status_line_truncated": false
+      },
+      {
+        "id": "R8",
+        "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_pr10_audit_regressions.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "075f8ab1895aeeaca902143e9418be7aa7eab330",
+        "status_line": null,
+        "status_line_truncated": false
       }
-    ]
-  },
-  "repository": {
-    "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
-    "tree": "0fcadc186de77a0cc70e3e3145cf4e7c40f4ba23",
-    "project_root": "sovereign-os/sovereign-os 3",
-    "range": null,
-    "working_tree": "clean"
-  },
-  "generator": {
-    "name": "devcontext",
-    "version": "0.0.0-spec-example",
-    "selection_version": "devcontext-selection-1",
-    "stopwords_sha256": "d7201270c0b668153c2531f2646d5f0115bb8e6f388abe4a0841541939482c9b"
-  },
-  "parameters": {
-    "max_bytes": 32768,
-    "max_items": 40,
-    "max_item_bytes": 2048,
-    "max_file_bytes": 262144
-  },
-  "usage": {
-    "used_bytes": 6340,
-    "items": 8,
-    "truncated": false
-  },
-  "authority_order": [
-    "Constitution candidate (NOT RATIFIED)",
-    "founder decisions (`../FOUNDER-DECISIONS.md`)",
-    "approved ADRs",
-    "`ARCHITECTURE.md`",
-    "`ROADMAP.md` §H",
-    "this plan",
-    "bounded PRs"
-  ],
-  "items": [
-    {
-      "id": "S1",
-      "class": "governance_doc",
-      "citation": {
-        "path": "sovereign-os/sovereign-os 3/AGENTS.md",
-        "blob": "e7f71b65351570c9f3202e60af10877e133e410c",
+    ],
+    "items": [
+      {
+        "id": "S1",
+        "source": "R1",
+        "class": "governance_doc",
         "lines": [
           5,
           14
+        ],
+        "symbol": "Read before consequential work",
+        "span": [
+          5,
+          14
+        ],
+        "excerpt": "## Read before consequential work\n\n1. `CONSTITUTION.md` \u2014 enduring principles; currently a ratification candidate. Do not change it unless the founder explicitly asks for a constitutional amendment.\n2. `ARCHITECTURE.md` \u2014 current technical direction and boundaries.\n3. `ROADMAP.md` \u2014 current milestones and priority order.\n4. `docs/SECURITY-GATE.md` \u2014 restrictions before real sensitive data use.\n5. Relevant ADRs in `docs/adr/`.\n6. For memory/retrieval, also read `docs/adr/0005-governed-second-brain-architecture.md`, `docs/second-brain/LEVELS-AND-OBSIDIAN.md`, and the benchmark for the feature's phase.\n7. For sequencing, work packages, external-repository adoption and enforcement boundaries, read `ROADMAP.md` \u00a7H, `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`, `ARCHITECTURE.md` \u00a714 and `docs/FOUNDER-DECISIONS.md`. The development loop and review tiers live only in `docs/DEVELOPMENT.md`; do not restate them here.\n",
+        "excerpt_truncated": false,
+        "role": "core",
+        "reasons": [
+          "core:agents_read_before_consequential_work"
         ]
       },
-      "excerpt": "## Read before consequential work\n\n1. `CONSTITUTION.md` — enduring principles; currently a ratification candidate. Do not change it unless the founder explicitly asks for a constitutional amendment.\n2. `ARCHITECTURE.md` — current technical direction and boundaries.\n3. `ROADMAP.md` — current milestones and priority order.\n4. `docs/SECURITY-GATE.md` — restrictions before real sensitive data use.\n5. Relevant ADRs in `docs/adr/`.\n6. For memory/retrieval, also read `docs/adr/0005-governed-second-brain-architecture.md`, `docs/second-brain/LEVELS-AND-OBSIDIAN.md`, and the benchmark for the feature's phase.\n7. For sequencing, work packages, external-repository adoption and enforcement boundaries, read `ROADMAP.md` §H, `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`, `ARCHITECTURE.md` §14 and `docs/FOUNDER-DECISIONS.md`. The development loop and review tiers live only in `docs/DEVELOPMENT.md`; do not restate them here.\n",
-      "excerpt_truncated": false,
-      "status_text": null,
-      "reasons": [
-        "must_include:agents_reading_order"
-      ]
-    },
-    {
-      "id": "S2",
-      "class": "governance_doc",
-      "citation": {
-        "path": "sovereign-os/sovereign-os 3/docs/SECURITY-GATE.md",
-        "blob": "8afe381583594c6beae139ec17db55f8dfdfb149",
+      {
+        "id": "S2",
+        "source": "R2",
+        "class": "governance_doc",
         "lines": [
           3,
           3
-        ]
-      },
-      "excerpt": "**Current status: NOT PASSED. Synthetic or intentionally non-sensitive demonstrations only.**",
-      "excerpt_truncated": false,
-      "status_text": null,
-      "reasons": [
-        "must_include:security_gate_status"
-      ]
-    },
-    {
-      "id": "S3",
-      "class": "adr",
-      "citation": {
-        "path": "sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md",
-        "blob": "94aabdbc6eb94db9d65f6aa76df1ca7caa8e0d58",
-        "lines": [
+        ],
+        "symbol": null,
+        "span": [
           3,
           3
+        ],
+        "excerpt": "**Current status: NOT PASSED. Synthetic or intentionally non-sensitive demonstrations only.**",
+        "excerpt_truncated": false,
+        "role": "core",
+        "reasons": [
+          "core:security_gate_status"
         ]
       },
-      "excerpt": "- Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)",
-      "excerpt_truncated": false,
-      "status_text": "- Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)",
-      "reasons": [
-        "must_include:adr_status:ADR-0003"
-      ]
-    },
-    {
-      "id": "S4",
-      "class": "binding_decision",
-      "citation": {
-        "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
-        "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
+      {
+        "id": "S3",
+        "source": "R3",
+        "class": "binding_decision",
         "lines": [
           10,
           10
+        ],
+        "symbol": null,
+        "span": [
+          10,
+          10
+        ],
+        "excerpt": "| 2026-10-19 | ADR-0003 MemoryClaim authority; ADR-0004 governed retrieval and exact-plan disclosure (V0 decisions 1\u20136) | `store.py`, `claims.py`, `context.py` |",
+        "excerpt_truncated": false,
+        "role": "core",
+        "reasons": [
+          "core:register_row:ADR-0003"
         ]
       },
-      "excerpt": "| 2026-10-19 | ADR-0003 MemoryClaim authority; ADR-0004 governed retrieval and exact-plan disclosure (V0 decisions 1–6) | `store.py`, `claims.py`, `context.py` |",
-      "excerpt_truncated": false,
-      "status_text": "**Status:** record of decisions, not a roadmap (sequence lives in `ROADMAP.md` §H; detail in `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`). Entries are short. A decision is binding only when listed under *Approved*. Writing a reviewer recommendation here does not approve it.",
-      "reasons": [
-        "must_include:register_row:ADR-0003"
-      ]
-    },
-    {
-      "id": "S5",
-      "class": "binding_decision",
-      "citation": {
-        "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
-        "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
+      {
+        "id": "S4",
+        "source": "R3",
+        "class": "binding_decision",
         "lines": [
           21,
           21
+        ],
+        "symbol": null,
+        "span": [
+          21,
+          21
+        ],
+        "excerpt": "| 2026-10-22 | **D-A** (A1, refined): claims made before schema 5, whose original evidence-set completeness cannot be proven, stay historically preserved but non-authoritative pending explicit human revalidation; revalidation shows the surviving evidence and lets the owner confirm or reconstruct through a governed process (no blind confirmation); future claims carry a write-once commitment to their complete evidence set; a separate integrity state, not new ordinary statuses; ADR-0003 amendments proposed explicitly | PR #20, the replacement for #10 (ADR-0006) |",
+        "excerpt_truncated": false,
+        "role": "core",
+        "reasons": [
+          "core:register_row:ADR-0003"
         ]
       },
-      "excerpt": "| 2026-10-22 | **D-A** (A1, refined): claims made before schema 5, whose original evidence-set completeness cannot be proven, stay historically preserved but non-authoritative pending explicit human revalidation; revalidation shows the surviving evidence and lets the owner confirm or reconstruct through a governed process (no blind confirmation); future claims carry a write-once commitment to their complete evidence set; a separate integrity state, not new ordinary statuses; ADR-0003 amendments proposed explicitly | PR #20, the replacement for #10 (ADR-0006) |",
-      "excerpt_truncated": false,
-      "status_text": "**Status:** record of decisions, not a roadmap (sequence lives in `ROADMAP.md` §H; detail in `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`). Entries are short. A decision is binding only when listed under *Approved*. Writing a reviewer recommendation here does not approve it.",
-      "reasons": [
-        "must_include:register_row:ADR-0003"
-      ]
-    },
-    {
-      "id": "S6",
-      "class": "binding_decision",
-      "citation": {
-        "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
-        "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
+      {
+        "id": "S5",
+        "source": "R3",
+        "class": "binding_decision",
         "lines": [
           27,
           27
+        ],
+        "symbol": null,
+        "span": [
+          27,
+          27
+        ],
+        "excerpt": "| 2026-10-31 | **Ratification of ADR-0006** (schema 5), its ADR-0003 evidence-integrity amendments and backup format 3, consistent with D-A, D-B and D-C: a claim has authority only if it is `approved`, `supported` and its evidence-set integrity is `committed`; claims approved before schema 5 without proof of complete evidence stay historically preserved but non-authoritative until governed revalidation; invalid migration and export states fail closed; embedded-NUL restrictions and legacy exceptions as implemented (ADR-0006 decision 6). No automatic unmanaged plaintext backup; no mandatory programmatic pre-upgrade export in PR #20; a verified backup and recovery procedure is required before any future non-disposable vault is deployed or migrated. Issue #17 is accepted as a separately tracked availability risk for this synthetic-only prototype, not for personal-data production use; Issues #14\u2013#17 remain open. The Security Gate remains NOT PASSED; no real personal-data migration or production SB-2 deployment is authorized. Given after the independent Codex Tier 2 audit of `ab51bae` returned PASS (2026-10-31) | ADR-0006, ADR-0003 (PR #20, the replacement for #10); `docs/SECURITY-GATE.md` |",
+        "excerpt_truncated": false,
+        "role": "core",
+        "reasons": [
+          "core:register_row:ADR-0003"
         ]
       },
-      "excerpt": "| 2026-10-31 | **Ratification of ADR-0006** (schema 5), its ADR-0003 evidence-integrity amendments and backup format 3, consistent with D-A, D-B and D-C: a claim has authority only if it is `approved`, `supported` and its evidence-set integrity is `committed`; claims approved before schema 5 without proof of complete evidence stay historically preserved but non-authoritative until governed revalidation; invalid migration and export states fail closed; embedded-NUL restrictions and legacy exceptions as implemented (ADR-0006 decision 6). No automatic unmanaged plaintext backup; no mandatory programmatic pre-upgrade export in PR #20; a verified backup and recovery procedure is required before any future non-disposable vault is deployed or migrated. Issue #17 is accepted as a separately tracked availability risk for this synthetic-only prototype, not for personal-data production use; Issues #14–#17 remain open. The Security Gate remains NOT PASSED; no real personal-data migration or production SB-2 deployment is authorized. Given after the independent Codex Tier 2 audit of `ab51bae` returned PASS (2026-10-31) | ADR-0006, ADR-0003 (PR #20, the replacement for #10); `docs/SECURITY-GATE.md` |",
-      "excerpt_truncated": false,
-      "status_text": "**Status:** record of decisions, not a roadmap (sequence lives in `ROADMAP.md` §H; detail in `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`). Entries are short. A decision is binding only when listed under *Approved*. Writing a reviewer recommendation here does not approve it.",
-      "reasons": [
-        "must_include:register_row:ADR-0003"
-      ]
-    },
-    {
-      "id": "S7",
-      "class": "adr",
-      "citation": {
-        "path": "sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md",
-        "blob": "94aabdbc6eb94db9d65f6aa76df1ca7caa8e0d58",
+      {
+        "id": "S6",
+        "source": "R4",
+        "class": "other",
+        "lines": [
+          12,
+          12
+        ],
+        "symbol": null,
+        "span": [
+          12,
+          12
+        ],
+        "excerpt": "*                                                           @solnoctua",
+        "excerpt_truncated": false,
+        "role": "core",
+        "reasons": [
+          "core:codeowners:src/sovereign/store.py"
+        ]
+      },
+      {
+        "id": "S7",
+        "source": "R4",
+        "class": "other",
+        "lines": [
+          15,
+          15
+        ],
+        "symbol": null,
+        "span": [
+          15,
+          15
+        ],
+        "excerpt": "/sovereign-os/sovereign-os\\ 3/src/sovereign/store.py        @solnoctua",
+        "excerpt_truncated": false,
+        "role": "core",
+        "reasons": [
+          "core:codeowners:src/sovereign/store.py"
+        ]
+      },
+      {
+        "id": "S8",
+        "source": "R5",
+        "class": "source",
+        "lines": [
+          651,
+          678
+        ],
+        "symbol": "Vault._forget_plan",
+        "span": [
+          651,
+          679
+        ],
+        "excerpt": "    def _forget_plan(self, db: sqlite3.Connection, record_id: str) -> dict | None:\n        \"\"\"The exact effect of forgetting `record_id` in the current state; None if it does not exist.\n\n        This is the single source of truth for Forget: the preview returns it and `delete` executes\n        it, so what the user confirms and what the vault does cannot drift apart. Forget covers the\n        record, every earlier revision still present (lineage walks backward), and every claim that\n        cites any of them (the storage trigger forgets exactly those claims).\n        \"\"\"\n        if not self._exists(db, \"SELECT 1 FROM records WHERE id=?\", record_id):\n            return None\n        ids = [record_id]\n        while True:\n            previous = db.execute(\"SELECT r.id FROM records r JOIN records s ON s.supersedes_id = r.id WHERE s.id=?\",\n                                  (ids[-1],)).fetchone()\n            if previous is None or previous[\"id\"] in ids:\n                break\n            ids.append(previous[\"id\"])\n        marks = \",\".join(\"?\" * len(ids))\n        claim_rows = db.execute(f\"\"\"SELECT * FROM claims WHERE id IN (SELECT claim_id FROM claim_sources WHERE record_id IN ({marks}))\n                                    ORDER BY created_at DESC, id DESC\"\"\", ids).fetchall()\n        claims = [self._claim(db, row) for row in claim_rows]\n        # The token covers what is removed *and* its authority: a decision taken after the preview\n        # (e.g. approving a listed claim) also invalidates the confirmation.\n        impact = hashlib.sha256(json.dumps([sorted(ids), sorted([c[\"id\"], c[\"status\"], c[\"authoritative\"]] for c in claims)])\n                                .encode()).hexdigest()\n        return {\"record_id\": record_id, \"impact_token\": impact,\n                \"records_forgotten\": len(ids), \"claims_forgotten\": len(claims),\n                \"records\": [self._record(db.execute(\"SELECT * FROM records WHERE id=?\", (rid,)).fetchone()) for rid in ids],",
+        "excerpt_truncated": false,
+        "role": "required",
+        "reasons": [
+          "anchor:Vault._forget_plan",
+          "terms:delete,forget,plan,preview,vault"
+        ]
+      },
+      {
+        "id": "S9",
+        "source": "R5",
+        "class": "source",
+        "lines": [
+          679,
+          679
+        ],
+        "symbol": "Vault._forget_plan",
+        "span": [
+          651,
+          679
+        ],
+        "excerpt": "                \"claims\": [{k: c[k] for k in (\"id\", \"text\", \"status\", \"origin\", \"authoritative\", \"source_ids\")} for c in claims]}",
+        "excerpt_truncated": false,
+        "role": "required",
+        "reasons": [
+          "anchor:Vault._forget_plan",
+          "terms:text"
+        ]
+      },
+      {
+        "id": "S10",
+        "source": "R5",
+        "class": "source",
+        "lines": [
+          681,
+          684
+        ],
+        "symbol": "Vault.forget_preview",
+        "span": [
+          681,
+          684
+        ],
+        "excerpt": "    def forget_preview(self, record_id: str) -> dict | None:\n        \"\"\"What Forget would remove right now (read-only).\"\"\"\n        with self.connection() as db:\n            return self._forget_plan(db, record_id)",
+        "excerpt_truncated": false,
+        "role": "required",
+        "reasons": [
+          "anchor:Vault.forget_preview",
+          "terms:forget,plan,preview"
+        ]
+      },
+      {
+        "id": "S11",
+        "source": "R5",
+        "class": "source",
+        "lines": [
+          686,
+          708
+        ],
+        "symbol": "Vault.delete",
+        "span": [
+          686,
+          708
+        ],
+        "excerpt": "    def delete(self, record_id: str, expected_impact: str | None = None) -> dict | None:\n        \"\"\"Forget a source record, its earlier revisions and all dependent claims.\n\n        With `expected_impact` (the preview's token) the operation refuses to run if its effect has\n        changed since the preview, so a confirmation can never understate what is removed.\n        \"\"\"\n        with self.connection(write=True) as db:\n            plan = self._forget_plan(db, record_id)\n            if plan is None:\n                return None\n            if expected_impact is not None and expected_impact != plan[\"impact_token\"]:\n                raise ForgetImpactChanged(\"What Forget would remove changed since the preview; review it again.\")\n            claims_before = db.execute(\"SELECT count(*) FROM claims\").fetchone()[0]\n            ids = [r[\"id\"] for r in plan[\"records\"]]\n            # The storage trigger removes each record and forgets every claim citing it.\n            db.executemany(\"INSERT INTO tombstones (id,deleted_at) VALUES (?,?)\", [(rid, stamp()) for rid in ids])\n            removed = claims_before - db.execute(\"SELECT count(*) FROM claims\").fetchone()[0]\n            survivors = [c[\"id\"] for c in plan[\"claims\"] if self._exists(db, \"SELECT 1 FROM claims WHERE id=?\", c[\"id\"])]\n            if removed != plan[\"claims_forgotten\"] or survivors:\n                raise RuntimeError(\"Forget effect diverged from its plan; nothing was changed.\")   # rolls back\n            # Do not claim backup/WAL/forensic secure deletion here.\n            return {\"records_forgotten\": len(ids), \"claims_forgotten\": removed,\n                    \"record_ids\": ids, \"claim_ids\": [c[\"id\"] for c in plan[\"claims\"]]}",
+        "excerpt_truncated": false,
+        "role": "required",
+        "reasons": [
+          "anchor:Vault.delete",
+          "terms:delete,forget,plan,preview"
+        ]
+      },
+      {
+        "id": "S12",
+        "source": "R6",
+        "class": "adr",
         "lines": [
           84,
           98
+        ],
+        "symbol": "Forget (the default meaning of Delete)",
+        "span": [
+          84,
+          98
+        ],
+        "excerpt": "### Forget (the default meaning of Delete)\n- **Forgetting is a storage-level operation:** writing a record's tombstone.\n  - A trigger removes the record and tombstones every claim citing it.\n  - The claim tombstones remove each claim's text, links, history and notes.\n  - A raw `DELETE FROM records` is refused, so Forget cannot be bypassed.\n  - Tombstones are permanent, content-free and idempotent; `REPLACE` cannot rewrite them.\n  - Claims can never cite forgotten evidence.\n- **`DELETE /api/memories/{id}`** forgets that record and every earlier revision still present (lineage walks backward). A newer revision survives if only an older one is forgotten.\n- **The preview is the plan.** `GET /api/memories/{id}/forget-preview` returns exactly what Forget would remove now: every affected revision, every dependent claim (across all those revisions, counted once, including claims that also cite other evidence), and an `impact_token`.\n  - `DELETE` computes the same plan with the same function inside its write transaction, executes it, and verifies the removed set equals the plan (otherwise it rolls back).\n  - Given `?expected_impact=<token>`, it refuses with 409 if the effect changed since the preview. The UI always sends the token, so a confirmation never understates what is removed. API callers that skip the preview get no such guarantee.\n- **`DELETE /api/claims/{id}`** forgets one claim.\n- **Not claimed:** WAL, backup and forensic erasure. API forgets run with `secure_delete`; raw-SQL connections may not.\n- **Deferred:** a separate future operation, *remove evidence, retain derived memory* (orphaning), is deliberately not offered in V0.\n",
+        "excerpt_truncated": false,
+        "role": "ranked",
+        "reasons": [
+          "terms:delete,forget,plan,preview,text"
         ]
       },
-      "excerpt": "### Forget (the default meaning of Delete)\n- **Forgetting is a storage-level operation:** writing a record's tombstone.\n  - A trigger removes the record and tombstones every claim citing it.\n  - The claim tombstones remove each claim's text, links, history and notes.\n  - A raw `DELETE FROM records` is refused, so Forget cannot be bypassed.\n  - Tombstones are permanent, content-free and idempotent; `REPLACE` cannot rewrite them.\n  - Claims can never cite forgotten evidence.\n- **`DELETE /api/memories/{id}`** forgets that record and every earlier revision still present (lineage walks backward). A newer revision survives if only an older one is forgotten.\n- **The preview is the plan.** `GET /api/memories/{id}/forget-preview` returns exactly what Forget would remove now: every affected revision, every dependent claim (across all those revisions, counted once, including claims that also cite other evidence), and an `impact_token`.\n  - `DELETE` computes the same plan with the same function inside its write transaction, executes it, and verifies the removed set equals the plan (otherwise it rolls back).\n  - Given `?expected_impact=<token>`, it refuses with 409 if the effect changed since the preview. The UI always sends the token, so a confirmation never understates what is removed. API callers that skip the preview get no such guarantee.\n- **`DELETE /api/claims/{id}`** forgets one claim.\n- **Not claimed:** WAL, backup and forensic erasure. API forgets run with `secure_delete`; raw-SQL connections may not.\n- **Deferred:** a separate future operation, *remove evidence, retain derived memory* (orphaning), is deliberately not offered in V0.\n",
-      "excerpt_truncated": false,
-      "status_text": "- Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)",
-      "reasons": [
-        "terms:forget,text"
-      ]
-    },
-    {
-      "id": "S8",
-      "class": "registry_fact",
-      "citation": {
-        "path": "sovereign-os/sovereign-os 3/docs/architecture/systems-registry.toml",
-        "blob": "53c423cf1940ac2a94278cb4c0058496ee522ec0",
+      {
+        "id": "S13",
+        "source": "R7",
+        "class": "registry_fact",
         "lines": [
           42,
           59
+        ],
+        "symbol": "[[system]]",
+        "span": [
+          42,
+          59
+        ],
+        "excerpt": "[[system]]\nid = \"canonical-store\"\nrole = \"K1: canonical personal state, lifecycle transitions, tombstones, Forget, export/restore, migration\"\nstatus = \"implemented\"\ntrust_class = \"authority-core\"\ncanonical_write = true\npersonal_data = \"content\"\ncredentials = \"none\"\negress = \"none\"\npersistent_state = \"vault SQLite file (SOVEREIGN_DB_PATH; default ./data/sovereign.db): tables records, tombstones; SQLite's rollback journal beside it while a write is in progress\"\nupstream = \"native: src/sovereign/store.py on stdlib sqlite3\"\ncode = [\"src/sovereign/store.py\"]\nversion_or_commit = \"schema user_version: code_facts.schema_user_version (5 from PR #20, the replacement for #10)\"\nlicense = \"project\"\nboundary = \"Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Canonical tables are WITHOUT ROWID; an embedded NUL is refused in the columns ADR-0006 decision 6 lists (not in legacy records, record tombstones or claim tombstones' deleted_at).\"\nexit_test = \"export -> restore into a fresh vault round-trips (format 3; tests/test_memory_claims.py, tests/adversarial). A vault the validity scan refuses stays unchanged at its version: a refused schema-4 vault does not open in schema-5 software and opens in v4 only with its defect; a refused schema-5 vault opens but cannot be exported; text that is not valid UTF-8 also blocks listing and forgetting the affected record (Issue #15). No recovery tool exists yet (ADR-0006 decision 7)\"\ndocumentation = \"docs/adr/0003-memory-claim-authority.md; ARCHITECTURE.md #14\"\n",
+        "excerpt_truncated": false,
+        "role": "ranked",
+        "reasons": [
+          "anchor:#15",
+          "terms:0003,adr,forget,issue,sovereign,src,store,text,utf,valid,vault"
         ]
       },
-      "excerpt": "[[system]]\nid = \"canonical-store\"\nrole = \"K1: canonical personal state, lifecycle transitions, tombstones, Forget, export/restore, migration\"\nstatus = \"implemented\"\ntrust_class = \"authority-core\"\ncanonical_write = true\npersonal_data = \"content\"\ncredentials = \"none\"\negress = \"none\"\npersistent_state = \"vault SQLite file (SOVEREIGN_DB_PATH; default ./data/sovereign.db): tables records, tombstones; SQLite's rollback journal beside it while a write is in progress\"\nupstream = \"native: src/sovereign/store.py on stdlib sqlite3\"\ncode = [\"src/sovereign/store.py\"]\nversion_or_commit = \"schema user_version: code_facts.schema_user_version (5 from PR #20, the replacement for #10)\"\nlicense = \"project\"\nboundary = \"Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Canonical tables are WITHOUT ROWID; an embedded NUL is refused in the columns ADR-0006 decision 6 lists (not in legacy records, record tombstones or claim tombstones' deleted_at).\"\nexit_test = \"export -> restore into a fresh vault round-trips (format 3; tests/test_memory_claims.py, tests/adversarial). A vault the validity scan refuses stays unchanged at its version: a refused schema-4 vault does not open in schema-5 software and opens in v4 only with its defect; a refused schema-5 vault opens but cannot be exported; text that is not valid UTF-8 also blocks listing and forgetting the affected record (Issue #15). No recovery tool exists yet (ADR-0006 decision 7)\"\ndocumentation = \"docs/adr/0003-memory-claim-authority.md; ARCHITECTURE.md #14\"\n",
-      "excerpt_truncated": false,
-      "status_text": null,
-      "reasons": [
-        "anchor:#15",
-        "terms:0003,adr,forget,issue,text,utf,valid"
-      ]
-    }
-  ],
-  "findings": [],
-  "tests": [
-    {
-      "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_pr10_audit_regressions.py",
-      "blob": "075f8ab1895aeeaca902143e9418be7aa7eab330",
-      "names": [
-        "test_review_text_that_is_not_utf8_is_refused_without_disclosing_it",
-        "test_review_a_schema_4_vault_with_text_that_is_not_utf8_is_refused_unchanged"
-      ],
-      "command": "pytest -q tests/adversarial/test_pr10_audit_regressions.py -k utf8"
-    }
-  ],
-  "conflicts": [
-    {
-      "kind": "decision_status",
-      "summary": "ADR-0003's status line has the keyword `proposed`, while rows of the founder-decision register's Approved table name ADR-0003 (first on 2026-10-19).",
-      "sides": [
+      {
+        "id": "S14",
+        "source": "R8",
+        "class": "test",
+        "lines": [
+          245,
+          252
+        ],
+        "symbol": "test_review_text_that_is_not_utf8_is_refused_without_disclosing_it",
+        "span": [
+          245,
+          252
+        ],
+        "excerpt": "def test_review_text_that_is_not_utf8_is_refused_without_disclosing_it(tmp_path):\n    vault = invalid_utf8_vault(tmp_path)\n    with pytest.raises(store.VaultStateInvalid) as refused:\n        vault.export()\n    assert refused.value.findings == {\"unreadable_rows\": 1}\n    assert SECRET not in str(refused.value) and refused.value.__cause__ is None and refused.value.__suppress_context__\n    response = TestClient(create_app(vault.path)).get(\"/api/export\")\n    assert response.status_code == 409 and SECRET not in response.text",
+        "excerpt_truncated": false,
+        "role": "ranked",
+        "reasons": [
+          "quota:test",
+          "terms:store,text,vault"
+        ]
+      }
+    ],
+    "findings": [],
+    "tests": [
+      {
+        "source": "R8",
+        "names": [
+          "test_f2_vault_holding_states_no_backup_could_restore_is_not_migrated",
+          "test_f2_every_vault_that_migrates_backs_up_and_restores_losslessly",
+          "test_f4_every_text_value_in_a_migrated_clean_vault_measures_the_same_in_sqlite_and_python",
+          "test_f4_storage_itself_refuses_text_whose_true_length_exceeds_its_bound",
+          "test_review_text_that_is_not_utf8_is_refused_without_disclosing_it",
+          "test_review_a_schema_4_vault_with_text_that_is_not_utf8_is_refused_unchanged",
+          "test_review_a_schema_5_vault_relabelled_as_schema_4_is_refused_clearly"
+        ],
+        "command": "pytest -q tests/adversarial/test_pr10_audit_regressions.py"
+      }
+    ],
+    "conflicts": [
+      {
+        "kind": "decision_status",
+        "summary": "ADR-0003's status line has the keyword `proposed`, while rows in the register's `Approved` table name ADR-0003. The rows' own text states what each decided.",
+        "sides": [
+          {
+            "source": "R6",
+            "lines": [
+              3,
+              3
+            ]
+          },
+          {
+            "source": "R3",
+            "lines": [
+              10,
+              10
+            ]
+          },
+          {
+            "source": "R3",
+            "lines": [
+              21,
+              21
+            ]
+          },
+          {
+            "source": "R3",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        ],
+        "resolution": "not reconciled"
+      }
+    ],
+    "coverage": {
+      "complete": true,
+      "required": [
         {
-          "path": "sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md",
-          "blob": "94aabdbc6eb94db9d65f6aa76df1ca7caa8e0d58",
-          "lines": [
-            3,
-            3
-          ]
-        },
-        {
-          "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
-          "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
-          "lines": [
-            10,
-            10
-          ]
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "symbols": [
+            "Vault._forget_plan",
+            "Vault.delete",
+            "Vault.forget_preview"
+          ],
+          "included": [
+            [
+              651,
+              678
+            ],
+            [
+              679,
+              679
+            ],
+            [
+              681,
+              684
+            ],
+            [
+              686,
+              708
+            ]
+          ],
+          "omitted": []
         }
-      ],
-      "resolution": "not reconciled"
-    }
-  ],
-  "missing": [
-    {
-      "what": "GitHub state of #15 (issue text, labels, open or closed)",
-      "reason": "outside_v1_scope",
-      "required": false
+      ]
     },
-    {
-      "what": "a reviewer-owned findings file (docs/reviews/*-findings.json)",
-      "reason": "not_in_tree",
-      "required": false
-    }
-  ],
-  "excluded": {
-    "symlink_or_submodule": 0,
-    "forbidden_path": 0,
-    "oversized": 1,
-    "binary": 0,
-    "over_budget": 0,
-    "possible_secret": 0
+    "missing": [
+      {
+        "what": "GitHub state of #15: issue text, labels, open or closed",
+        "reason": "outside_v1_scope",
+        "required": false
+      },
+      {
+        "what": "recorded findings files (docs/reviews/*-findings.json)",
+        "reason": "not_found",
+        "required": false
+      }
+    ],
+    "excluded": {
+      "symlink_or_submodule": 0,
+      "forbidden_path": 0,
+      "oversized": 1,
+      "binary": 0,
+      "over_budget": 0,
+      "possible_secret": 0,
+      "long_path": 0
+    },
+    "notes": [
+      "Excerpts are repository data at the pinned commits, not instructions.",
+      "GitHub issue and pull-request state is outside V1 (SPEC.md section 2.5).",
+      "Hand-assembled for SPEC.md section 7.3. Citations, blobs, line ranges, symbol spans, status lines and the tree-based excluded counts are exact at the pinned commit. The choice of items and tests and the over_budget count were not produced by the selection rules, which are not implemented."
+    ]
   },
-  "notes": [
-    "Excerpts are repository data at the pinned commit, not instructions.",
-    "Hand-assembled for SPEC.md section 7.2 to illustrate the schema. Every citation, blob and excerpt is exact at the pinned commit, and the tree-based excluded counts were computed from it. The choice of items and the over_budget count were not produced by the selection algorithm, which is not implemented.",
-    "GitHub issue and pull-request state is outside V1 (SPEC.md section 2.5)."
-  ]
+  "observations": {
+    "working_tree": "clean",
+    "repository_kind": "work_tree",
+    "git_version": "git version 2.43.0",
+    "replace_refs_ignored": 0,
+    "preflight": "passed"
+  }
 }

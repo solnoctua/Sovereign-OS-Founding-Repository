@@ -1,0 +1,260 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sovereign-os:devcontext:benchmark-run:v1",
+  "title": "Builder 1 benchmark record, version 1 (PROPOSED, builder-authored collection format)",
+  "description": "One record per scored context (record_kind context_score, BENCHMARK-PLAN.md section 6) or per agent run (record_kind task_run, section 7). Counts are raw; ratios are derived in the analysis, never stored. A value that was not measured is null, with the reason in notes; nothing is estimated. Subscription billing is never apportioned to a run. This format is builder-authored: it does not reproduce the reviewer-owned benchmark-run template named in the Codex audit of ed7776d, which is not in this repository (BENCHMARK-PLAN.md section 11, decision 8). PROPOSED: no record exists.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "record_kind", "record_id", "task", "arm", "environment", "context", "gold_sheet_sha256",
+               "context_scores", "run", "notes"],
+  "properties": {
+    "schema": {"const": "sovereign.devcontext.benchmark-run.v1"},
+    "record_kind": {"enum": ["context_score", "task_run"]},
+    "record_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "set", "held_out", "manifest_sha256"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[A-Z][A-Za-z0-9-]{0,31}$"},
+        "set": {"enum": ["calibration", "pilot", "main"]},
+        "held_out": {"type": "boolean"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256_or_null"}
+      }
+    },
+    "arm": {"enum": ["A", "B", "C", "N"]},
+    "environment": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["bundle_sha256", "object_sets_equal", "must_be_absent_verified", "preflight_passed"],
+      "properties": {
+        "bundle_sha256": {"$ref": "#/$defs/sha256_or_null"},
+        "object_sets_equal": {"type": ["boolean", "null"]},
+        "must_be_absent_verified": {"type": ["boolean", "null"]},
+        "preflight_passed": {"type": ["boolean", "null"]}
+      }
+    },
+    "context": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["sha256", "bytes", "fingerprint", "tool_commit", "selection_version", "preparation_minutes",
+                   "edited"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/sha256_or_null"},
+        "bytes": {"$ref": "#/$defs/count_or_null"},
+        "fingerprint": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+        "tool_commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "selection_version": {"type": ["string", "null"], "maxLength": 64},
+        "preparation_minutes": {"$ref": "#/$defs/number_or_null"},
+        "edited": {"type": ["boolean", "null"]}
+      }
+    },
+    "gold_sheet_sha256": {"$ref": "#/$defs/sha256_or_null"},
+    "context_scores": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["scorer", "critical", "security_authority", "statements", "quotations", "asserted_authority_errors",
+                   "negative_fact_violations", "contradictions", "freshness", "irrelevant_bytes", "context_bytes",
+                   "input_tokens_reported", "reproducible", "security_failures"],
+      "properties": {
+        "scorer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "independent_of_builder", "second_scorer"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1, "maxLength": 128},
+            "independent_of_builder": {"const": true},
+            "second_scorer": {"type": ["string", "null"], "maxLength": 128}
+          }
+        },
+        "critical": {"$ref": "#/$defs/recall"},
+        "security_authority": {"$ref": "#/$defs/recall"},
+        "statements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["supported", "contradicted", "unverifiable"],
+          "properties": {
+            "supported": {"$ref": "#/$defs/count_or_null"},
+            "contradicted": {"$ref": "#/$defs/count_or_null"},
+            "unverifiable": {"$ref": "#/$defs/count_or_null"}
+          }
+        },
+        "quotations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exact", "cited"],
+          "properties": {
+            "exact": {"$ref": "#/$defs/count_or_null"},
+            "cited": {"$ref": "#/$defs/count_or_null"}
+          }
+        },
+        "asserted_authority_errors": {"$ref": "#/$defs/count_or_null"},
+        "negative_fact_violations": {"$ref": "#/$defs/count_or_null"},
+        "contradictions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["surfaced", "gold"],
+          "properties": {
+            "surfaced": {"$ref": "#/$defs/count_or_null"},
+            "gold": {"$ref": "#/$defs/count_or_null"}
+          }
+        },
+        "freshness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["correct", "stale", "absent"],
+          "properties": {
+            "correct": {"$ref": "#/$defs/count_or_null"},
+            "stale": {"$ref": "#/$defs/count_or_null"},
+            "absent": {"$ref": "#/$defs/count_or_null"}
+          }
+        },
+        "irrelevant_bytes": {"$ref": "#/$defs/count_or_null"},
+        "context_bytes": {"$ref": "#/$defs/count_or_null"},
+        "input_tokens_reported": {"$ref": "#/$defs/count_or_null"},
+        "reproducible": {"type": ["boolean", "null"]},
+        "security_failures": {"type": "array", "maxItems": 6, "items": {"$ref": "#/$defs/security_failure"}}
+      }
+    },
+    "run": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["agent", "order", "replicate", "budget", "stages", "outcome", "usage", "costs", "review",
+                   "security_failures", "failure"],
+      "properties": {
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "model", "version", "settings", "fresh_session", "memory_disabled", "network"],
+          "properties": {
+            "name": {"enum": ["claude-code", "codex", "other"]},
+            "model": {"type": "string", "minLength": 1, "maxLength": 128},
+            "version": {"type": "string", "minLength": 1, "maxLength": 128},
+            "settings": {"type": "string", "maxLength": 512},
+            "fresh_session": {"const": true},
+            "memory_disabled": {"const": true},
+            "network": {"enum": ["provider_only", "standard"]}
+          }
+        },
+        "order": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["position", "seed"],
+          "properties": {
+            "position": {"type": "integer", "minimum": 1, "maximum": 8},
+            "seed": {"type": "string", "minLength": 1, "maxLength": 64}
+          }
+        },
+        "replicate": {"type": "integer", "minimum": 1, "maximum": 100},
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_tokens", "max_minutes", "max_cost_usd", "max_revision_loops"],
+          "properties": {
+            "max_tokens": {"$ref": "#/$defs/count_or_null"},
+            "max_minutes": {"$ref": "#/$defs/number_or_null"},
+            "max_cost_usd": {"$ref": "#/$defs/number_or_null"},
+            "max_revision_loops": {"type": "integer", "minimum": 0, "maximum": 20}
+          }
+        },
+        "stages": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/stage"}},
+        "outcome": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["accepted", "within_budget", "elapsed_minutes", "ci_first_submission", "hidden_tests",
+                       "revision_loops", "p1_p2_defects", "security_defects", "post_merge_defects",
+                       "founder_review_minutes", "diff", "attributable_findings"],
+          "properties": {
+            "accepted": {"type": "boolean"},
+            "within_budget": {"type": "boolean"},
+            "elapsed_minutes": {"$ref": "#/$defs/number_or_null"},
+            "ci_first_submission": {"enum": ["pass", "fail", "not_run"]},
+            "hidden_tests": {"enum": ["pass", "fail", "not_run"]},
+            "revision_loops": {"type": "integer", "minimum": 0},
+            "p1_p2_defects": {"$ref": "#/$defs/count_or_null"},
+            "security_defects": {"$ref": "#/$defs/count_or_null"},
+            "post_merge_defects": {"$ref": "#/$defs/count_or_null"},
+            "founder_review_minutes": {"$ref": "#/$defs/number_or_null"},
+            "diff": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["lines_added", "lines_removed", "churn", "necessary_lines"],
+              "properties": {
+                "lines_added": {"$ref": "#/$defs/count_or_null"},
+                "lines_removed": {"$ref": "#/$defs/count_or_null"},
+                "churn": {"$ref": "#/$defs/count_or_null"},
+                "necessary_lines": {"$ref": "#/$defs/count_or_null"}
+              }
+            },
+            "attributable_findings": {"$ref": "#/$defs/count_or_null"}
+          }
+        },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens", "source"],
+          "properties": {
+            "input_tokens": {"$ref": "#/$defs/count_or_null"},
+            "output_tokens": {"$ref": "#/$defs/count_or_null"},
+            "cache_read_tokens": {"$ref": "#/$defs/count_or_null"},
+            "cache_write_tokens": {"$ref": "#/$defs/count_or_null"},
+            "source": {"enum": ["provider_reported", "tool_reported", "unavailable"]}
+          }
+        },
+        "costs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metered_provider_usd", "tool_charges_usd", "subscription_billing"],
+          "properties": {
+            "metered_provider_usd": {"$ref": "#/$defs/number_or_null"},
+            "tool_charges_usd": {"$ref": "#/$defs/number_or_null"},
+            "subscription_billing": {"const": "reported separately, never apportioned to runs"}
+          }
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reviewer", "independent", "blind_to_arm", "verdict", "findings_artifact"],
+          "properties": {
+            "reviewer": {"type": "string", "minLength": 1, "maxLength": 128},
+            "independent": {"const": true},
+            "blind_to_arm": {"type": "boolean"},
+            "verdict": {"enum": ["PASS", "CONDITIONAL PASS", "FAIL", "INCOMPLETE", "NOT REVIEWED"]},
+            "findings_artifact": {"type": ["string", "null"], "maxLength": 512}
+          }
+        },
+        "security_failures": {"type": "array", "maxItems": 6, "items": {"$ref": "#/$defs/security_failure"}},
+        "failure": {"type": ["string", "null"], "maxLength": 1024}
+      }
+    },
+    "notes": {"type": "array", "maxItems": 32, "items": {"type": "string", "minLength": 1, "maxLength": 1024}}
+  },
+  "$defs": {
+    "sha256_or_null": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "count_or_null": {"type": ["integer", "null"], "minimum": 0},
+    "number_or_null": {"type": ["number", "null"], "minimum": 0},
+    "recall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["present_correct", "gold"],
+      "properties": {
+        "present_correct": {"$ref": "#/$defs/count_or_null"},
+        "gold": {"$ref": "#/$defs/count_or_null"}
+      }
+    },
+    "security_failure": {"enum": ["personal_data_read", "credential_output", "injection_compliance", "uncontrolled_network",
+                                  "canonical_write", "reviewer_closure_claimed"]},
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "started", "ended", "minutes"],
+      "properties": {
+        "stage": {"enum": ["context_preparation", "environment_setup", "agent_work", "ci_and_hidden_tests",
+                           "independent_review", "defect_triage", "revision_loop", "founder_review"]},
+        "started": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+        "ended": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+        "minutes": {"$ref": "#/$defs/number_or_null"}
+      }
+    }
+  }
+}
