@@ -49,5 +49,5 @@ Forking Linux now; a graph database; a managed Obsidian projection with registry
 
 1. WP-0 (this consolidation): done (PR #19, which replaced #8, merged 2026-10-31). PR #7 is closed.
 2. WP-1 Builder 0 documents and the GitHub settings checklist: done (PR #18, merged 2026-10-27; D-F settings applied).
-3. WP-2 migration approach (ADR-0006): ratified 2026-10-31, after the independent Codex Tier 2 audit of `ab51bae` returned PASS (as reported by the founder; the reviewer's report and findings artifact are not in the repository). Merging PR #20 still needs an independent review of the exact head with a reviewer-owned findings artifact (`docs/DEVELOPMENT.md`, Tier 2), then the founder's Code Owner approval and explicit merge authorization.
+3. WP-2 migration approach (ADR-0006): ratified 2026-10-31, after the independent Codex Tier 2 audit of `ab51bae` returned PASS (as reported by the founder; the reviewer's report and findings artifact are not in the repository). PR #20 merged on 2026-11-02 (`99f3026`) with the founder's Code Owner approval and explicit authorization. The audit report and a reviewer-owned findings artifact are still not in the repository.
 4. WP-3 SB-2a after independent audit.

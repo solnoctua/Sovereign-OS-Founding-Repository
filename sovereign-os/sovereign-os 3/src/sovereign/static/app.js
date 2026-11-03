@@ -66,7 +66,8 @@ function drawClaims(){
     for(const action of CLAIM_ACTIONS[c.status]){const btn=el("button","",action[0].toUpperCase()+action.slice(1));btn.addEventListener("click",()=>claimAction(c,action));actions.append(btn)}
     if(c.integrity==="unconfirmed"&&CLAIM_ACTIONS[c.status].length){const btn=el("button","","Revalidate");btn.addEventListener("click",()=>openRevalidation(c));actions.append(btn)}
     const del=el("button","","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this claim and its history? Its evidence is not affected."))return;try{await api(`/api/claims/${encodeURIComponent(c.id)}`,{method:"DELETE"});await refreshClaims()}catch(e){alert(e.message)}});
-    actions.append(del);foot.append(el("span","",displayDate(c.created_at)),actions);wrapper.append(foot);container.append(wrapper)
+    const why=el("button","","Provenance");why.addEventListener("click",()=>openProvenance("claim",c.id));
+    actions.append(why,del);foot.append(el("span","",displayDate(c.created_at)),actions);wrapper.append(foot);container.append(wrapper)
   }
 }
 // Governed revalidation of a claim made before schema 5 (ADR-0006, D-A): every surviving source is shown in full and
@@ -116,7 +117,8 @@ function drawRecords(){
         setStatus(`Forgot ${r.records_forgotten} record revision(s) and ${r.claims_forgotten} derived claim(s). Backups not covered.`);
       }catch(e){setStatus(e.message,true)}
     });
-    actions.append(edit,remove);foot.append(t,created,actions);wrapper.append(foot);container.append(wrapper)
+    const why=el("button","","Provenance");why.addEventListener("click",()=>openProvenance("record",record.id));
+    actions.append(why,edit,remove);foot.append(t,created,actions);wrapper.append(foot);container.append(wrapper)
   }
 }
 function selectedRecords(){return state.records.filter(r=>state.selected.has(r.id))}
@@ -144,7 +146,8 @@ function itemNode(x,label){
  const node=el("div","context-item"+(x.role?"":" excluded"));
  const meta=[x.label?`${label} [${x.label}]`:label,x.type==="claim"?`claim ${x.id.slice(0,8)} · ${x.status} · evidence ${x.source_ids.map(i=>i.slice(0,8)).join(", ")}`:`source ${x.id.slice(0,8)} · ${displayDate(x.created_at)}`,x.sensitivity.toUpperCase()];
  if(x.relevance.pinned)meta.push("PINNED");
- node.append(el("small","",meta.join(" · ")),document.createTextNode(x.content.length>280?x.content.slice(0,280)+"…":x.content));return node;
+ node.append(el("small","",meta.join(" · ")),document.createTextNode(x.content.length>280?x.content.slice(0,280)+"…":x.content));
+ const why=el("button","text-button","Provenance ↗");why.type="button";why.addEventListener("click",()=>openProvenance(x.type==="claim"?"claim":"record",x.id));node.append(why);return node;
 }
 function renderPlan(plan){
  const memory=plan.included.filter(x=>x.role==="approved_memory"),evidence=plan.included.filter(x=>x.role==="evidence");
@@ -197,6 +200,8 @@ async function init(){
  $("search").addEventListener("keydown",e=>{if(e.key==="Enter")refresh().catch(err=>alert(err.message))});
  $("edit-form").addEventListener("submit",async e=>{e.preventDefault();try{const original=state.records.find(r=>r.id===state.editId);await api(`/api/memories/${encodeURIComponent(state.editId)}/correct`,{method:"POST",body:JSON.stringify({content:$("edit-text").value,sensitivity:original.sensitivity})});state.selected.delete(state.editId);$("edit-dialog").close();$("search").value="";await refresh();setStatus("Correction saved as new active revision.")}catch(err){alert(err.message)}});
  $("cancel-edit").addEventListener("click",()=>$("edit-dialog").close());
+ $("prov-close").addEventListener("click",()=>$("prov-dialog").close());
+ $("prov-hops").addEventListener("change",()=>{if(state.provFocus)openProvenance(state.provFocus.kind,state.provFocus.id)});
  $("reval-cancel").addEventListener("click",()=>$("reval-dialog").close());
  $("reval-confirm").addEventListener("click",confirmRevalidation);
  $("reval-reconstruct").addEventListener("click",()=>{const c=state.reval;$("reval-dialog").close();claimAction(c,"correct")});
@@ -217,5 +222,54 @@ function renderAnswer(message,sources=[],disclosure="",memories=[]){
  if(disclosure)container.append(el("div","source-label",disclosure));
  if(memories.length){container.append(el("div","source-label",`APPROVED MEMORY (${memories.length})`));for(const m of memories)container.append(el("div","context-item",`${m.id.slice(0,8)} · ${m.content}`))}
  if(sources?.length){container.append(el("div","source-label",`SOURCE RECORDS (${sources.length})`));for(const s of sources)container.append(el("div","context-item",`${s.id.slice(0,8)} · ${s.content}`))}
+}
+// --- SB-2a provenance navigation (read-only; never changes what a model may see) ---
+// Identity is (kind, id): a record and a claim may share an id, so nodes and edge endpoints are keyed by both.
+const EDGE_STATE={active:"evidence intact",superseded:"evidence since corrected"};
+const provKey=x=>`${x.kind}:${x.id}`;
+function claimStatusLabel(c){return c.authoritative?"APPROVED MEMORY":c.status==="approved"?"APPROVED · NO LONGER AUTHORITATIVE":c.status.toUpperCase()+" · NOT AUTHORITATIVE"}
+function provItem(graph,node,note){
+ const row=el("div","prov-item");const body=el("div","prov-text");
+ const kind=node.kind==="claim"?[`claim · ${claimStatusLabel(node)} · ${SUPPORT_LABEL[node.support]}`,node.integrity!=="committed"?INTEGRITY_LABEL[node.integrity]||"EVIDENCE SET UNKNOWN":""].filter(Boolean).join(" · "):`source record · ${node.status.toUpperCase()} · ${node.sensitivity.toUpperCase()}`;
+ body.append(el("small","",[kind,displayDate(node.created_at),note].filter(Boolean).join(" · ")),document.createTextNode(node.text_truncated?node.text+"…":node.text));
+ const actions=el("div","record-actions");
+ if(provKey(node)!==provKey(graph.focus)){const go=el("button","","Open");go.type="button";go.addEventListener("click",()=>openProvenance(node.kind,node.id));actions.append(go)}
+ if(node.kind==="record"&&node.status==="active"){const pin=el("button","",state.selected.has(node.id)?"Pinned":"Pin for context");pin.type="button";pin.addEventListener("click",()=>pinFromProvenance(node.id,pin));actions.append(pin)}
+ row.append(body,actions);return row;
+}
+function provSection(container,title,items,empty="None stored."){container.append(el("div","source-label",title));if(!items.length){container.append(el("p","empty",empty));return}for(const i of items)container.append(i)}
+function renderProvenance(graph){
+ const body=$("prov-body");body.replaceChildren();
+ const byKey=new Map(graph.nodes.map(n=>[provKey(n),n]));const focusKey=provKey(graph.focus);const focus=byKey.get(focusKey);
+ const out=type=>graph.edges.filter(e=>e.type===type&&provKey(e.from)===focusKey);const into=type=>graph.edges.filter(e=>e.type===type&&provKey(e.to)===focusKey);
+ const near=new Set([focusKey]);const item=(end,note)=>{near.add(provKey(end));return provItem(graph,byKey.get(provKey(end)),note)};
+ const head=el("div","prov-focus");head.append(provItem(graph,focus,"selected"));body.append(head);
+ if(focus.kind==="claim"){
+  const why=focus.authoritative?"Approved by you, and every piece of evidence it cites is present and unchanged.":focus.status!=="approved"?`Not approved memory: its status is ${focus.status}.`:focus.support!=="supported"?{stale:"You approved it, but evidence it cites has since been corrected; it no longer counts as approved memory.",orphaned:"You approved it, but evidence it cites is missing or has changed; it no longer counts as approved memory."}[focus.support]:{unconfirmed:"You approved it before schema 5, and Sovereign cannot prove its evidence set is complete; it counts as approved memory again once you revalidate it in the claims list.",mismatch:"You approved it, but its evidence links no longer match the set committed when it was made; it no longer counts as approved memory."}[focus.integrity]||"It does not count as approved memory.";
+  body.append(el("p","micro",why));
+  provSection(body,"SUPPORTED BY (evidence this claim cites)",out("SUPPORTED_BY").map(e=>item(e.to,EDGE_STATE[e.evidence_state])),focus.support==="orphaned"?"No verified evidence: what it cited is missing or has changed since the claim was made.":"None stored.");
+  provSection(body,"SUPERSEDES (the earlier claim it replaced)",out("SUPERSEDES").map(e=>item(e.to)));
+  provSection(body,"SUPERSEDED BY (the claim that replaced it)",into("SUPERSEDES").map(e=>item(e.from)));
+  provSection(body,"DECISION HISTORY",focus.history.map(h=>el("p","",`${displayDate(h.at)} · ${h.from_status?h.from_status+" → ":""}${h.to_status} · by ${h.actor}${h.note?` · “${h.note}”`:""}`)));
+  if(!focus.history_complete)body.append(el("p","micro",`Showing the ${focus.history.length} most recent decisions. The full history is kept in your vault and in exports.`));
+ }else{
+  provSection(body,"CITED BY (claims resting on this record)",into("SUPPORTED_BY").map(e=>item(e.from,EDGE_STATE[e.evidence_state])));
+  provSection(body,"CORRECTS (the earlier revision)",out("CORRECTS").map(e=>item(e.to)));
+  provSection(body,"CORRECTED BY (the newer revision)",into("CORRECTS").map(e=>item(e.from)));
+ }
+ const further=graph.nodes.filter(n=>!near.has(provKey(n)));
+ if(graph.hops>1)provSection(body,"FURTHER LINKS (two steps away)",further.map(n=>provItem(graph,n,"")));
+ if(graph.truncated)body.append(el("p","micro","More linked items exist than this view shows; open one of them to continue."));
+}
+async function openProvenance(kind,id){
+ state.provFocus={kind,id};const dialog=$("prov-dialog");
+ try{const graph=await api(`/api/provenance/${encodeURIComponent(kind)}/${encodeURIComponent(id)}?hops=${$("prov-hops").value}`);renderProvenance(graph)}
+ catch(e){$("prov-body").replaceChildren(el("p","empty",e.status===404?"This item is no longer in your vault.":`Could not load provenance: ${e.message}`))}
+ if(!dialog.open)dialog.showModal();
+}
+function pinFromProvenance(id,button){
+ if(!state.records.some(r=>r.id===id)){button.textContent="Not in the current library view";return}
+ if(!state.selected.has(id)&&state.selected.size>=8){button.textContent="Up to eight sources";return}
+ state.selected.add(id);drawRecords();drawContext();button.textContent="Pinned";
 }
 init().catch(err=>renderAnswer("Initialization failed: "+err.message));
