@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sovereign-os:devcontext:v1",
+  "title": "Builder 1 development-context package, version 1 (PROPOSED)",
+  "description": "Output of `python -m devcontext` as specified in SPEC.md §7. PROPOSED: no implementation exists. Every excerpt is repository data at the pinned commit, never instructions. The fingerprint is the SHA-256 of the canonical JSON of the package without the `fingerprint` field (SPEC.md §8).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "fingerprint", "task", "repository", "generator", "parameters", "usage", "authority_order",
+               "items", "findings", "tests", "conflicts", "missing", "excluded", "notes"],
+  "properties": {
+    "schema": {"const": "sovereign.devcontext.v1"},
+    "fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "terms", "anchors"],
+      "properties": {
+        "text": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "terms": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9]{3,}$"}},
+        "anchors": {"type": "array", "items": {"$ref": "#/$defs/anchor"}}
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree", "project_root", "range", "working_tree"],
+      "properties": {
+        "commit": {"$ref": "#/$defs/sha"},
+        "tree": {"$ref": "#/$defs/sha"},
+        "project_root": {"type": "string", "minLength": 1},
+        "range": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["base", "head", "merge_base"],
+          "properties": {
+            "base": {"$ref": "#/$defs/sha"},
+            "head": {"$ref": "#/$defs/sha"},
+            "merge_base": {"$ref": "#/$defs/sha"}
+          }
+        },
+        "working_tree": {"enum": ["clean", "dirty_not_read", "not_a_work_tree"]}
+      }
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "selection_version", "stopwords_sha256"],
+      "properties": {
+        "name": {"const": "devcontext"},
+        "version": {"type": "string", "minLength": 1},
+        "selection_version": {"const": "devcontext-selection-1"},
+        "stopwords_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_bytes", "max_items", "max_item_bytes", "max_file_bytes"],
+      "properties": {
+        "max_bytes": {"type": "integer", "minimum": 4096, "maximum": 131072},
+        "max_items": {"type": "integer", "minimum": 1, "maximum": 200},
+        "max_item_bytes": {"const": 2048},
+        "max_file_bytes": {"const": 262144}
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["used_bytes", "items", "truncated"],
+      "properties": {
+        "used_bytes": {"type": "integer", "minimum": 0},
+        "items": {"type": "integer", "minimum": 0},
+        "truncated": {"type": "boolean"}
+      }
+    },
+    "authority_order": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "tests": {"type": "array", "items": {"$ref": "#/$defs/test"}},
+    "conflicts": {"type": "array", "items": {"$ref": "#/$defs/conflict"}},
+    "missing": {"type": "array", "items": {"$ref": "#/$defs/missing"}},
+    "excluded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symlink_or_submodule", "forbidden_path", "oversized", "binary", "over_budget", "possible_secret"],
+      "properties": {
+        "symlink_or_submodule": {"type": "integer", "minimum": 0},
+        "forbidden_path": {"type": "integer", "minimum": 0},
+        "oversized": {"type": "integer", "minimum": 0},
+        "binary": {"type": "integer", "minimum": 0},
+        "over_budget": {"type": "integer", "minimum": 0},
+        "possible_secret": {"type": "integer", "minimum": 0}
+      }
+    },
+    "notes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "blob", "lines"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "blob": {"$ref": "#/$defs/sha"},
+        "lines": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}}
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value", "resolved"],
+      "properties": {
+        "kind": {"enum": ["issue_or_pr", "finding", "adr", "path", "commit"]},
+        "value": {"type": "string", "minLength": 1},
+        "resolved": {"type": "boolean"}
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "class", "citation", "excerpt", "excerpt_truncated", "status_text", "reasons"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^S[1-9][0-9]*$"},
+        "class": {"enum": ["constitution_candidate", "binding_decision", "proposed_or_historical", "adr",
+                           "governance_doc", "registry_fact", "reviewer_finding", "builder_record", "source", "test",
+                           "other"]},
+        "citation": {"$ref": "#/$defs/citation"},
+        "excerpt": {"type": "string"},
+        "excerpt_truncated": {"type": "boolean"},
+        "status_text": {"type": ["string", "null"]},
+        "reasons": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["citation", "id", "severity", "confidence", "status", "independent_disposition", "attribution"],
+      "properties": {
+        "citation": {"$ref": "#/$defs/citation"},
+        "id": {"type": "string", "pattern": "^F-[1-9][0-9]*$"},
+        "severity": {"enum": ["P0", "P1", "P2", "P3"]},
+        "confidence": {"enum": ["confirmed", "needs_validation", "rejected"]},
+        "status": {"enum": ["open", "fixed", "wontfix", "deferred"]},
+        "independent_disposition": {"enum": ["accepted", "not_accepted", "pending", null]},
+        "attribution": {"const": "reviewer-owned file"}
+      }
+    },
+    "test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "blob", "names", "command"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "blob": {"$ref": "#/$defs/sha"},
+        "names": {"type": "array", "items": {"type": "string", "pattern": "^test_"}},
+        "command": {"type": "string", "minLength": 1}
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "summary", "sides", "resolution"],
+      "properties": {
+        "kind": {"enum": ["decision_status", "stale_path", "unknown_commit"]},
+        "summary": {"type": "string", "minLength": 1},
+        "sides": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/citation"}},
+        "resolution": {"const": "not reconciled"}
+      }
+    },
+    "missing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["what", "reason", "required"],
+      "properties": {
+        "what": {"type": "string", "minLength": 1},
+        "reason": {"enum": ["not_in_tree", "outside_v1_scope", "over_budget", "withheld_possible_secret",
+                            "unreadable_not_utf8", "oversized"]},
+        "required": {"type": "boolean"}
+      }
+    }
+  }
+}

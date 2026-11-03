@@ -1,0 +1,61 @@
+{
+  "schema": "sovereign.devcontext.benchmark-tasks.v1",
+  "status": "planned: no run executed, no input frozen, no gold set exists",
+  "plan": "docs/engineering/builder-1/BENCHMARK-PLAN.md",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Issue #6: schema-v5 repair of the hidden-rowid REPLACE bypass and of zero-source authority",
+      "kind": "retrospective implementation",
+      "start_commit": "eeed753311382047fb2042515a5d2d0f68e94b04",
+      "pin_when": null,
+      "range": null,
+      "task_statement": "GitHub Issue #6 title and body, snapshotted with their retrieval time when the inputs are frozen",
+      "reference_outcome": {
+        "commits": {
+          "pr10_head": "8ea54b5e52a19e86b1239d83ee86416ece71c99d",
+          "main_after_pr20": "99f302637d95f3d78cdd26a9f75d7a8ca336be99"
+        },
+        "reviews": "Codex audits of 04ba75c (CHANGES REQUIRED: F-1 to F-4, F-8) and 8ea54b5 (PASS), as recorded in docs/reviews/2026-10-22-f9-f10-reconciliation.md; no reviewer-owned findings file is in the repository"
+      },
+      "manual_handoff": null,
+      "gold_set_sha256": null
+    },
+    {
+      "id": "T2",
+      "title": "SB-2a integration: PR #11 into main",
+      "kind": "retrospective integration",
+      "start_commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+      "pin_when": null,
+      "range": {
+        "base": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "head": "59272b882dfe7b9c7d5ac0027c199aaa95e9effb"
+      },
+      "other_inputs": {
+        "rehearsed_r11": "e6391784c3ef556cf4de74f9071d2a3fa48f0d9e"
+      },
+      "task_statement": "the founder's SB-2a integration instruction, frozen verbatim if the founder provides it",
+      "reference_outcome": {
+        "commits": {
+          "pr21_audited_head": "4c34317c402bac2cdef8a2b9381b02ce760e9b63",
+          "pr21_f9_correction": "b00a5b39dbca9673b273799c1e5e63b2912680e5"
+        },
+        "reviews": "Codex Tier 2 audit of 4c34317: CONDITIONAL PASS with an F-9 registry-boundary condition and F-12 (Issue #23), as handed off by the founder on PR #21"
+      },
+      "manual_handoff": null,
+      "gold_set_sha256": null
+    },
+    {
+      "id": "T3",
+      "title": "SB-2b: plan the minimal snapshot exporter",
+      "kind": "prospective planning",
+      "start_commit": null,
+      "pin_when": "main after PR #21 merges",
+      "range": null,
+      "task_statement": "a short planning request written by the founder when the inputs are frozen",
+      "reference_outcome": null,
+      "manual_handoff": null,
+      "gold_set_sha256": null
+    }
+  ]
+}

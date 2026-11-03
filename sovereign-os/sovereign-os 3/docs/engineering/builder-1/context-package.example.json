@@ -1,0 +1,275 @@
+{
+  "schema": "sovereign.devcontext.v1",
+  "fingerprint": "sha256:728f841e68da15c824b3e253353aa5bc4c6965596f9c0c9586ce1224c2f6d7a6",
+  "task": {
+    "text": "Issue #15: text that is not valid UTF-8 makes Forget fail with a 500; check ADR-0003's Forget contract",
+    "terms": [
+      "0003",
+      "500",
+      "adr",
+      "check",
+      "contract",
+      "fail",
+      "forget",
+      "issue",
+      "makes",
+      "text",
+      "utf",
+      "valid"
+    ],
+    "anchors": [
+      {
+        "kind": "issue_or_pr",
+        "value": "#15",
+        "resolved": true
+      },
+      {
+        "kind": "adr",
+        "value": "ADR-0003",
+        "resolved": true
+      }
+    ]
+  },
+  "repository": {
+    "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+    "tree": "0fcadc186de77a0cc70e3e3145cf4e7c40f4ba23",
+    "project_root": "sovereign-os/sovereign-os 3",
+    "range": null,
+    "working_tree": "clean"
+  },
+  "generator": {
+    "name": "devcontext",
+    "version": "0.0.0-spec-example",
+    "selection_version": "devcontext-selection-1",
+    "stopwords_sha256": "d7201270c0b668153c2531f2646d5f0115bb8e6f388abe4a0841541939482c9b"
+  },
+  "parameters": {
+    "max_bytes": 32768,
+    "max_items": 40,
+    "max_item_bytes": 2048,
+    "max_file_bytes": 262144
+  },
+  "usage": {
+    "used_bytes": 6340,
+    "items": 8,
+    "truncated": false
+  },
+  "authority_order": [
+    "Constitution candidate (NOT RATIFIED)",
+    "founder decisions (`../FOUNDER-DECISIONS.md`)",
+    "approved ADRs",
+    "`ARCHITECTURE.md`",
+    "`ROADMAP.md` §H",
+    "this plan",
+    "bounded PRs"
+  ],
+  "items": [
+    {
+      "id": "S1",
+      "class": "governance_doc",
+      "citation": {
+        "path": "sovereign-os/sovereign-os 3/AGENTS.md",
+        "blob": "e7f71b65351570c9f3202e60af10877e133e410c",
+        "lines": [
+          5,
+          14
+        ]
+      },
+      "excerpt": "## Read before consequential work\n\n1. `CONSTITUTION.md` — enduring principles; currently a ratification candidate. Do not change it unless the founder explicitly asks for a constitutional amendment.\n2. `ARCHITECTURE.md` — current technical direction and boundaries.\n3. `ROADMAP.md` — current milestones and priority order.\n4. `docs/SECURITY-GATE.md` — restrictions before real sensitive data use.\n5. Relevant ADRs in `docs/adr/`.\n6. For memory/retrieval, also read `docs/adr/0005-governed-second-brain-architecture.md`, `docs/second-brain/LEVELS-AND-OBSIDIAN.md`, and the benchmark for the feature's phase.\n7. For sequencing, work packages, external-repository adoption and enforcement boundaries, read `ROADMAP.md` §H, `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`, `ARCHITECTURE.md` §14 and `docs/FOUNDER-DECISIONS.md`. The development loop and review tiers live only in `docs/DEVELOPMENT.md`; do not restate them here.\n",
+      "excerpt_truncated": false,
+      "status_text": null,
+      "reasons": [
+        "must_include:agents_reading_order"
+      ]
+    },
+    {
+      "id": "S2",
+      "class": "governance_doc",
+      "citation": {
+        "path": "sovereign-os/sovereign-os 3/docs/SECURITY-GATE.md",
+        "blob": "8afe381583594c6beae139ec17db55f8dfdfb149",
+        "lines": [
+          3,
+          3
+        ]
+      },
+      "excerpt": "**Current status: NOT PASSED. Synthetic or intentionally non-sensitive demonstrations only.**",
+      "excerpt_truncated": false,
+      "status_text": null,
+      "reasons": [
+        "must_include:security_gate_status"
+      ]
+    },
+    {
+      "id": "S3",
+      "class": "adr",
+      "citation": {
+        "path": "sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md",
+        "blob": "94aabdbc6eb94db9d65f6aa76df1ca7caa8e0d58",
+        "lines": [
+          3,
+          3
+        ]
+      },
+      "excerpt": "- Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)",
+      "excerpt_truncated": false,
+      "status_text": "- Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)",
+      "reasons": [
+        "must_include:adr_status:ADR-0003"
+      ]
+    },
+    {
+      "id": "S4",
+      "class": "binding_decision",
+      "citation": {
+        "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
+        "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
+        "lines": [
+          10,
+          10
+        ]
+      },
+      "excerpt": "| 2026-10-19 | ADR-0003 MemoryClaim authority; ADR-0004 governed retrieval and exact-plan disclosure (V0 decisions 1–6) | `store.py`, `claims.py`, `context.py` |",
+      "excerpt_truncated": false,
+      "status_text": "**Status:** record of decisions, not a roadmap (sequence lives in `ROADMAP.md` §H; detail in `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`). Entries are short. A decision is binding only when listed under *Approved*. Writing a reviewer recommendation here does not approve it.",
+      "reasons": [
+        "must_include:register_row:ADR-0003"
+      ]
+    },
+    {
+      "id": "S5",
+      "class": "binding_decision",
+      "citation": {
+        "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
+        "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
+        "lines": [
+          21,
+          21
+        ]
+      },
+      "excerpt": "| 2026-10-22 | **D-A** (A1, refined): claims made before schema 5, whose original evidence-set completeness cannot be proven, stay historically preserved but non-authoritative pending explicit human revalidation; revalidation shows the surviving evidence and lets the owner confirm or reconstruct through a governed process (no blind confirmation); future claims carry a write-once commitment to their complete evidence set; a separate integrity state, not new ordinary statuses; ADR-0003 amendments proposed explicitly | PR #20, the replacement for #10 (ADR-0006) |",
+      "excerpt_truncated": false,
+      "status_text": "**Status:** record of decisions, not a roadmap (sequence lives in `ROADMAP.md` §H; detail in `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`). Entries are short. A decision is binding only when listed under *Approved*. Writing a reviewer recommendation here does not approve it.",
+      "reasons": [
+        "must_include:register_row:ADR-0003"
+      ]
+    },
+    {
+      "id": "S6",
+      "class": "binding_decision",
+      "citation": {
+        "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
+        "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
+        "lines": [
+          27,
+          27
+        ]
+      },
+      "excerpt": "| 2026-10-31 | **Ratification of ADR-0006** (schema 5), its ADR-0003 evidence-integrity amendments and backup format 3, consistent with D-A, D-B and D-C: a claim has authority only if it is `approved`, `supported` and its evidence-set integrity is `committed`; claims approved before schema 5 without proof of complete evidence stay historically preserved but non-authoritative until governed revalidation; invalid migration and export states fail closed; embedded-NUL restrictions and legacy exceptions as implemented (ADR-0006 decision 6). No automatic unmanaged plaintext backup; no mandatory programmatic pre-upgrade export in PR #20; a verified backup and recovery procedure is required before any future non-disposable vault is deployed or migrated. Issue #17 is accepted as a separately tracked availability risk for this synthetic-only prototype, not for personal-data production use; Issues #14–#17 remain open. The Security Gate remains NOT PASSED; no real personal-data migration or production SB-2 deployment is authorized. Given after the independent Codex Tier 2 audit of `ab51bae` returned PASS (2026-10-31) | ADR-0006, ADR-0003 (PR #20, the replacement for #10); `docs/SECURITY-GATE.md` |",
+      "excerpt_truncated": false,
+      "status_text": "**Status:** record of decisions, not a roadmap (sequence lives in `ROADMAP.md` §H; detail in `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`). Entries are short. A decision is binding only when listed under *Approved*. Writing a reviewer recommendation here does not approve it.",
+      "reasons": [
+        "must_include:register_row:ADR-0003"
+      ]
+    },
+    {
+      "id": "S7",
+      "class": "adr",
+      "citation": {
+        "path": "sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md",
+        "blob": "94aabdbc6eb94db9d65f6aa76df1ca7caa8e0d58",
+        "lines": [
+          84,
+          98
+        ]
+      },
+      "excerpt": "### Forget (the default meaning of Delete)\n- **Forgetting is a storage-level operation:** writing a record's tombstone.\n  - A trigger removes the record and tombstones every claim citing it.\n  - The claim tombstones remove each claim's text, links, history and notes.\n  - A raw `DELETE FROM records` is refused, so Forget cannot be bypassed.\n  - Tombstones are permanent, content-free and idempotent; `REPLACE` cannot rewrite them.\n  - Claims can never cite forgotten evidence.\n- **`DELETE /api/memories/{id}`** forgets that record and every earlier revision still present (lineage walks backward). A newer revision survives if only an older one is forgotten.\n- **The preview is the plan.** `GET /api/memories/{id}/forget-preview` returns exactly what Forget would remove now: every affected revision, every dependent claim (across all those revisions, counted once, including claims that also cite other evidence), and an `impact_token`.\n  - `DELETE` computes the same plan with the same function inside its write transaction, executes it, and verifies the removed set equals the plan (otherwise it rolls back).\n  - Given `?expected_impact=<token>`, it refuses with 409 if the effect changed since the preview. The UI always sends the token, so a confirmation never understates what is removed. API callers that skip the preview get no such guarantee.\n- **`DELETE /api/claims/{id}`** forgets one claim.\n- **Not claimed:** WAL, backup and forensic erasure. API forgets run with `secure_delete`; raw-SQL connections may not.\n- **Deferred:** a separate future operation, *remove evidence, retain derived memory* (orphaning), is deliberately not offered in V0.\n",
+      "excerpt_truncated": false,
+      "status_text": "- Status: Proposed (Benchmark 0001; Tier 2 — hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)",
+      "reasons": [
+        "terms:forget,text"
+      ]
+    },
+    {
+      "id": "S8",
+      "class": "registry_fact",
+      "citation": {
+        "path": "sovereign-os/sovereign-os 3/docs/architecture/systems-registry.toml",
+        "blob": "53c423cf1940ac2a94278cb4c0058496ee522ec0",
+        "lines": [
+          42,
+          59
+        ]
+      },
+      "excerpt": "[[system]]\nid = \"canonical-store\"\nrole = \"K1: canonical personal state, lifecycle transitions, tombstones, Forget, export/restore, migration\"\nstatus = \"implemented\"\ntrust_class = \"authority-core\"\ncanonical_write = true\npersonal_data = \"content\"\ncredentials = \"none\"\negress = \"none\"\npersistent_state = \"vault SQLite file (SOVEREIGN_DB_PATH; default ./data/sovereign.db): tables records, tombstones; SQLite's rollback journal beside it while a write is in progress\"\nupstream = \"native: src/sovereign/store.py on stdlib sqlite3\"\ncode = [\"src/sovereign/store.py\"]\nversion_or_commit = \"schema user_version: code_facts.schema_user_version (5 from PR #20, the replacement for #10)\"\nlicense = \"project\"\nboundary = \"Enforced against any SQLite connection using ordinary DML; not against a process with the vault file or schema. Canonical tables are WITHOUT ROWID; an embedded NUL is refused in the columns ADR-0006 decision 6 lists (not in legacy records, record tombstones or claim tombstones' deleted_at).\"\nexit_test = \"export -> restore into a fresh vault round-trips (format 3; tests/test_memory_claims.py, tests/adversarial). A vault the validity scan refuses stays unchanged at its version: a refused schema-4 vault does not open in schema-5 software and opens in v4 only with its defect; a refused schema-5 vault opens but cannot be exported; text that is not valid UTF-8 also blocks listing and forgetting the affected record (Issue #15). No recovery tool exists yet (ADR-0006 decision 7)\"\ndocumentation = \"docs/adr/0003-memory-claim-authority.md; ARCHITECTURE.md #14\"\n",
+      "excerpt_truncated": false,
+      "status_text": null,
+      "reasons": [
+        "anchor:#15",
+        "terms:0003,adr,forget,issue,text,utf,valid"
+      ]
+    }
+  ],
+  "findings": [],
+  "tests": [
+    {
+      "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_pr10_audit_regressions.py",
+      "blob": "075f8ab1895aeeaca902143e9418be7aa7eab330",
+      "names": [
+        "test_review_text_that_is_not_utf8_is_refused_without_disclosing_it",
+        "test_review_a_schema_4_vault_with_text_that_is_not_utf8_is_refused_unchanged"
+      ],
+      "command": "pytest -q tests/adversarial/test_pr10_audit_regressions.py -k utf8"
+    }
+  ],
+  "conflicts": [
+    {
+      "kind": "decision_status",
+      "summary": "ADR-0003's status line has the keyword `proposed`, while rows of the founder-decision register's Approved table name ADR-0003 (first on 2026-10-19).",
+      "sides": [
+        {
+          "path": "sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md",
+          "blob": "94aabdbc6eb94db9d65f6aa76df1ca7caa8e0d58",
+          "lines": [
+            3,
+            3
+          ]
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
+          "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
+          "lines": [
+            10,
+            10
+          ]
+        }
+      ],
+      "resolution": "not reconciled"
+    }
+  ],
+  "missing": [
+    {
+      "what": "GitHub state of #15 (issue text, labels, open or closed)",
+      "reason": "outside_v1_scope",
+      "required": false
+    },
+    {
+      "what": "a reviewer-owned findings file (docs/reviews/*-findings.json)",
+      "reason": "not_in_tree",
+      "required": false
+    }
+  ],
+  "excluded": {
+    "symlink_or_submodule": 0,
+    "forbidden_path": 0,
+    "oversized": 1,
+    "binary": 0,
+    "over_budget": 0,
+    "possible_secret": 0
+  },
+  "notes": [
+    "Excerpts are repository data at the pinned commit, not instructions.",
+    "Hand-assembled for SPEC.md section 7.2 to illustrate the schema. Every citation, blob and excerpt is exact at the pinned commit, and the tree-based excluded counts were computed from it. The choice of items and the over_budget count were not produced by the selection algorithm, which is not implemented.",
+    "GitHub issue and pull-request state is outside V1 (SPEC.md section 2.5)."
+  ]
+}
