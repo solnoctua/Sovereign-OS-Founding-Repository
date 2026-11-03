@@ -1,13 +1,14 @@
-# Builder 1 benchmark plan: manual handoffs against generated context (PLAN, revision 2, no results)
+# Builder 1 benchmark plan: manual handoffs against generated context (PLAN, revision 3, no results)
 
-**Status:** PLAN for [Issue #22](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/22), revision 2 (2026-11-03).
+**Status:** PLAN for [Issue #22](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/22), revision 3 (2026-11-03).
 
 - **No results.** No run has been executed. No gold sheet, hidden test, frozen handoff or Builder 1 implementation exists.
 - **No claims.** Gains are not presumed. The targets in §9 are hypotheses for the founder to adopt or reject, not expected results.
-- **What revision 2 changes.**
-  - It answers F-8 and F-9 of the independent Codex Tier 2 audit of `ed7776d`, as relayed by the founder on PR #24.
-  - It adopts the founder's benchmark protocol addendum to Issue #22 (2026-11-02). Revision 1 missed that addendum.
-  - The builder's reproductions are in [`docs/reviews/2026-11-03-pr24-builder-response.md`](../../reviews/2026-11-03-pr24-builder-response.md).
+- **What revision 3 changes.** It answers F-11 of the second independent Codex review (of `a03c524`), as relayed in the founder's directive of 2026-11-03: revision 2's freeze order and hash fields were cyclic and could not be executed.
+  - Inputs and the metadata that commits to them are now separate. The task plan in this repository holds no hashes (§3.2), and the hashes go into a **detached freeze manifest** that no bundle, input or source commit contains (§5).
+  - [`scripts/benchmark_freeze.py`](../../../scripts/benchmark_freeze.py) builds the bundles, writes the manifest and verifies the whole commitment. `tests/test_benchmark_freeze.py` runs the freeze sequence end to end on synthetic artifacts.
+  - A qualification stage now precedes any trusted use of the tool (§7.1).
+  - The builder records are [`docs/reviews/2026-11-03-pr24-builder-response.md`](../../reviews/2026-11-03-pr24-builder-response.md) (round 1) and [`docs/reviews/2026-11-03-pr24-round2-builder-response.md`](../../reviews/2026-11-03-pr24-round2-builder-response.md) (round 2).
 - **Independence.** No builder marks its own performance as verified. Gold sheets, hidden tests, held-out tasks, scoring and reviews belong to the founder or an independent reviewer. They never belong to the Builder 1 implementer, or to the builder of the run being judged.
 - **The reviewer's benchmark-run template.** The founder's relay lists one among the reviewer-owned artifacts of the audit. It is not in this repository, and the builder has not seen it.
   - [`benchmark-run.schema.json`](benchmark-run.schema.json) is builder-authored and does not reproduce it.
@@ -47,19 +48,16 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
 - **Held-out tasks** are written by the founder after the tool freeze (§5, step 2). They are never shown to the Builder 1 implementer and are not used in tool design.
 - **Only their manifest hashes are committed** before the runs. Their statements are published with the results.
 
-### 3.2 Executable manifests (F-8)
+### 3.2 The task plan and the freeze manifest (F-8, F-11)
 
-[`benchmark-tasks.json`](benchmark-tasks.json) holds one manifest per task. A manifest records:
+**Two different files, so that nothing commits to itself:**
 
-- the role, kind and stage;
-- the target commit, the candidate commit and the expected merge base;
-- the paths that must exist in each tree, and the inputs expected to be absent;
-- the statement's SHA-256 and length, at most 2,000 characters (`SPEC.md` §3);
-- the SHA-256 of the hidden tests, the gold sheet and the arm A handoff;
-- the run environment: the bundle's refs and the commits that must be absent;
-- the budget and, for calibration tasks, the reference outcome.
+| File | Holds | Where it lives |
+| --- | --- | --- |
+| [`benchmark-tasks.json`](benchmark-tasks.json), the **task plan** | for each task: its set, kind and stage; the target, candidate and expected merge base; the paths present and absent at each commit; the commits that must be absent from its run environment; where its frozen statement comes from; the reference outcome of calibration tasks. **No hashes** | this repository. It may change until the freeze |
+| the **freeze manifest** (shape: [`benchmark-freeze.schema.json`](benchmark-freeze.schema.json)) | the SHA-256 and size of every frozen input file, each bundle's SHA-256, size and refs, the tool commit and selection version, the protocol commit, the agents, and the arm assignment derived from the inputs | outside every bundle and every source commit (§5, step 8). Only its own SHA-256 is published, at step 9 |
 
-**A manifest is frozen** when every hash is set and the founder commits it. Until then its hashes are null. `tests/test_builder1_spec.py` checks the pinned facts that already exist, against Git.
+`tests/test_builder1_spec.py` checks the task plan's pinned facts against Git. `scripts/benchmark_freeze.py verify` checks a freeze manifest against its inputs and bundles.
 
 ### 3.3 Calibration tasks
 
@@ -106,42 +104,71 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
 
 ## 4. Run environments and leakage control (F-9)
 
-**Revision 1's control leaked.** It used a fresh clone at the start commit, with the remote removed and every other ref deleted. In a reproduction at T1's start, the later commits `8ea54b5` and `99f3026` were still readable as objects, and so was the outcome's `store.py` (builder record, F-9).
+**Revision 1's control leaked.** It used a fresh clone at the start commit, with the remote removed and every other ref deleted. In a reproduction at T1's start, the later commits `8ea54b5` and `99f3026` were still readable as objects, and so was the outcome's `store.py` (round-1 builder record, F-9).
 
-**Revision 2 builds each run environment from a bundle:**
+**Each run environment is built from a bundle,** with `scripts/benchmark_freeze.py`:
 
-1. **Create the bundle.** In a trusted clone, create a temporary ref for each pinned input commit (the target, and the candidate if any). Run `git bundle create task.bundle <those refs>`, then delete the temporary refs. Record the bundle's SHA-256 in the manifest.
-2. **Clone it.** For each run, `git clone task.bundle` into a new directory, then remove the `origin` remote.
-3. **Verify before any run.** A failed check voids the run.
-   - **No unreachable objects:** `git rev-list --objects --all` and `git cat-file --batch-all-objects --batch-check` count the same objects.
-   - **No later commits:** every commit in the manifest's `must_be_absent` fails `git cat-file -e`.
-   - **No untrusted states:** no alternates, grafts, replace refs or promisor configuration, as in `SPEC.md` §4.2.
-   - In the reproduction, a bundle holding only T1's start ref passed: `8ea54b5` and `99f3026` were absent, and the two object counts were equal.
+1. **The bundle** (§5, step 5). `bundle --repo <trusted clone> --out <task>.bundle <target> [<candidate>]` creates `refs/heads/devcontext-freeze/<sha>` for each pinned commit, bundles exactly those refs, and deletes them again.
+   - **The refs must be branches.** A plain `git clone` fetches only `refs/heads` and `refs/tags`. A bundle whose refs are elsewhere clones **empty**, and then every absence check passes vacuously.
+   - The round-1 reproduction made exactly that mistake: its clone held 0 objects. Repeated correctly on the real repository, the bundle of T1's start holds 849 objects, all reachable from the start commit, and `8ea54b5` and `99f3026` are absent (round-2 builder record).
+2. **The workspace.** For each run:
+   - `git clone --no-checkout <task>.bundle <dir>`;
+   - `git -C <dir> checkout --detach <target>`;
+   - `git -C <dir> remote remove origin`.
+3. **Verify before the run** with `verify --manifest … --workspace <dir> --task <id>`. Any failure invalidates the run, and the run record says so (`environment.preflight_passed: false`). The checks are:
+   - **untrusted Git state:** shallow, alternates, grafts, promisor packs or configuration, replace refs, or any remote;
+   - **objects:** every object in the workspace, unreachable ones included, must be in the task's bundle;
+   - **later commits:** each commit in the task plan's `must_be_absent` must be missing;
+   - **private files:** no working-tree file may have the bytes of a frozen gold sheet, hidden test or evaluator instruction.
 4. **Isolate the agent.**
    - Every run starts a fresh session. No memory or instruction file outside the repository may be read: Claude Code's user memory and auto-memory, and Codex's memory and global instructions, are disabled or empty, and this is recorded.
-   - The workspace is reset between runs. Patches, transcripts and reviewer answers never cross runs.
+   - The workspace is rebuilt between runs. Patches, transcripts and reviewer answers never cross runs.
    - For calibration tasks, the network allows only the model provider. GitHub and the web would reveal the outcome.
-5. **Keep scoring material out.** Hidden tests and gold sheets are never inside a run environment.
+5. **What the checks cannot see.**
+   - A private file whose bytes were changed (for example, a pasted fragment of a gold sheet) is not detected by hash.
+   - A model's training data may contain the repository's later history.
+   - Both are reasons to keep held-out tasks private and to report calibration apart (§12).
 
-## 5. Freeze order
+## 5. Freeze order (F-11)
 
-1. **Founder decisions** (§11) are recorded.
-2. **Freeze the tool.** The implementation commit and `selection_version` are fixed. A change to either after this point restarts every affected run.
-3. **Freeze the inputs**, per task:
-   - the manifest;
-   - the statement's hash;
-   - the arm A handoff, its hash and its preparation minutes;
-   - the gold sheet's hash;
-   - the hidden tests' hash;
-   - the bundle's hash;
-   - the agent configuration, the budgets and the randomization seed.
+**Revision 2's order could not be executed.** Its gold sheet committed to the manifest's hash while the manifest committed to the gold sheet's. And it committed the manifest, holding the bundle's hash, into the repository whose commits a forward task's bundle contains. A manifest committed inside the bundle it describes never converges: in a reproduction, each attempt changed the bundle's hash (round-2 builder record, F-11).
 
-   Held-out tasks commit hashes only.
-4. **Benchmark 1:**
-   - generate the B packages, and check their fingerprints on two clones built from the bundle, one of them bare (`SPEC.md` AT-1);
-   - then reveal the gold sheets to the scorers, and score A and B.
-5. **Benchmark 2:** run the agents (§7).
-6. **Report** every record in a results PR (§8).
+**Revision 3's order is a dependency graph in which every arrow points from a later artifact to earlier bytes:**
+
+| Step | Who | What | Commits to |
+| --- | --- | --- | --- |
+| 1 | Founder | Approves this plan (protocol, outcome criteria, cost ceiling, roles) and decides §11 | — |
+| 2 | Builder 1 implementer | Freezes the tool: the implementation commit and `selection_version` | — |
+| 3 | Independent party | Writes, per task, the statement, the arm A handoff, the gold sheet, the hidden tests and the evaluator instructions, as files outside the repository. Held-out tasks are written now, after step 2 | the pinned source commits, by SHA only |
+| 4 | Independent party | Finalizes those files. From here their bytes never change | — |
+| 5 | Independent party | Builds each task's bundle from its pinned commits only (§4) | the pinned commits |
+| 6 | Independent party | Verifies each bundle: exactly the pinned refs, complete history with no prerequisites, no later commit, no unreachable object, no input file and no freeze manifest stored as a Git object | — |
+| 7 | Independent party | Computes each bundle's SHA-256 | the bundle bytes |
+| 8 | Independent party | Writes the **freeze manifest** with `scripts/benchmark_freeze.py manifest`: the input hashes, bundle hashes, tool commit, protocol commit and agents, and the arm assignment derived from the input hashes | the inputs (step 4), the bundles (step 7), the tool (step 2), the protocol (step 1) |
+| 9 | Founder | Publishes the manifest's SHA-256: a comment on Issue #22 or a commit on an orphan branch `bench/devcontext-freeze`, which no task's bundle contains. The manifest file stays outside every bundle | the manifest bytes |
+| 10 | Runner | Generates arm B contexts with the frozen tool, inside verified workspaces | the bundles and the tool |
+| 11 | Runner | Runs the matched sessions, in the assigned order (§7) | the manifest's assignment |
+| 12 | Independent scorers | Score Benchmark 1, and the reviewers judge Benchmark 2 | the gold sheets, the hidden tests |
+| 13 | Founder | Publishes the results PR with every input file, the manifest and every record. `verify` must pass on the published files | everything above |
+
+**What makes it acyclic.**
+
+- **Inputs commit to nothing downstream.** They name source commits only by SHA.
+- **Bundles hold source history only.** Step 6 rejects a bundle that stores an input file or any freeze manifest as a Git object.
+- **The manifest commits to inputs and bundles.** Its own hash appears only in the publication of step 9, and in run records written after it.
+- **The arm assignment cannot be chosen after the inputs are seen.** It follows from them: for each task and agent, A goes first when the first byte of `sha256(inputs_digest + ":" + task + ":" + agent)` is even. `verify` recomputes it.
+
+**What `verify` refuses** (each refusal has a test in `tests/test_benchmark_freeze.py`):
+
+- a missing input, or an input whose bytes no longer match its frozen hash;
+- an input that contains the manifest's hash or the inputs digest;
+- a bundle that changed, holds prerequisite commits, has refs other than the pinned commits, holds an unreachable object or a later commit, or stores an input or a freeze manifest;
+- a manifest whose digest or assignment does not follow from its inputs;
+- a workspace that fails §4, step 3.
+
+**Held-out tasks stay held out.** Their files exist only with the independent party until step 13. Before that, only the manifest's hash is public. A held-out task must not have been used in tool design. The implementer attests this at step 2, and the founder may reject a task whose statement resembles one shown to the implementer.
+
+**Re-freezing.** If the tool changes after step 2, steps 2 to 9 are repeated with a new manifest. Every run made under the old manifest is reported as such, and is not pooled with the new one.
 
 ## 6. Benchmark 1: context correctness
 
@@ -159,11 +186,7 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
 - known contradictions;
 - **negative facts:** statements that must not be asserted, each cited to its refutation. Examples are "ADR-0003 is approved as a whole" and "F-7 is closed".
 
-**When they are frozen.**
-
-1. The SHA-256 is committed in the manifest before any B package for the task exists.
-2. The file stays outside the repository and every run environment until scoring.
-3. It is committed with the results.
+**When they are frozen.** At step 4 of §5: before any arm B context for the task exists (step 10), and before the manifest commits to their hashes (step 8). A gold sheet holds no hash of the manifest or of any bundle. It stays outside the repository and every run environment until scoring, and is published with the results.
 
 ### 6.2 Statements and scoring
 
@@ -179,6 +202,8 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
 
 **A second scorer** scores a sample of the tasks, if the founder decides so (§11). Disagreements are recorded, not averaged away.
 
+**Denominators.** Every ratio is reported with its numerator and denominator, per task and pooled. A task whose denominator is zero (for example, no critical security fact) is reported as not applicable, never as 100%.
+
 | ID | Measure | Definition |
 | --- | --- | --- |
 | C1 | Critical requirement recall | critical gold facts present and correct ÷ critical gold facts, per task |
@@ -193,6 +218,8 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
 | C10 | Footprint | UTF-8 bytes, and input tokens only as each agent's tooling reports them, never estimated |
 | C11 | Preparation effort | human minutes until a context is ready to hand over. For A, writing it; for B, running and reading it |
 | C12 | Reproducibility | B: the same fingerprint on two bundle-built clones, one of them bare. A: the frozen handoff's hash |
+| C13 | Required-span coverage | gold `relevant_source` and `relevant_test` facts whose cited lines all appear in the context ÷ those facts. A path alone does not count |
+| C14 | Refusal and failure rate | B runs that exit non-zero ÷ B runs, by exit code. A refusal is reported, never retried with other parameters unless the protocol says so |
 
 **Absent or contradictory inputs.** A manifest lists the inputs expected to be absent or contradictory, such as T1's missing register and BUILD plan. B must report each one in `missing` or `conflicts`, and must never improvise. A is scored on whether it states them.
 
@@ -222,6 +249,20 @@ The controls use synthetic fixture repositories, never this repository's history
 - a claim of reviewer closure.
 
 ## 7. Benchmark 2: end-to-end outcomes
+
+### 7.1 Qualification before trusted use
+
+**Before Builder 1's output is used as trusted development assistance** (including for SB-2b), it passes a qualification on the calibration and pilot tasks and on the adversarial controls of §6.3, scored as in Benchmark 1. It qualifies only if:
+
+- **C2 is 100%:** no critical security or authority fact is missed;
+- **C5 and C6 are 0:** no asserted-authority error and no negative-fact violation;
+- **C4 is 100%:** every quotation is exact;
+- **no security failure of §6.3** occurs;
+- **every refusal (C14)** is explained by its documented condition.
+
+**Until it qualifies, and afterwards whenever the founder chooses, Builder 0's manual handoff remains the fallback.** Qualification is not evidence of engineering value, and it does not wait for the full main set (§10.5 of the founder's directive of 2026-11-03).
+
+### 7.2 Runs
 
 **Unit:** one task, arm, agent and replicate.
 
@@ -282,6 +323,7 @@ The controls use synthetic fixture repositories, never this repository's history
 | E8 | Tokens (input, output, cache read and write) as the provider or the tooling reports them |
 | E9 | Metered provider and tool charges per run. Subscription billing is reported separately and never apportioned to runs |
 | E10 | Findings attributable to the context |
+| E11 | Maintenance burden: the reviewer's count of maintenance concerns in the accepted diff (duplicated logic, dead code, missing tests, unclear contracts), each with a one-line reason |
 
 ## 8. Analysis and reporting
 
@@ -318,6 +360,8 @@ The controls use synthetic fixture repositories, never this repository's history
 - C2 is 100% on held-out tasks.
 - Both are measured on the context, before any code runs.
 
+**Minimum counts before any claim.** No engineering-value claim is made unless both arms have at least 10 accepted-or-censored main runs per agent, and at least 4 held-out tasks were run. The founder fixes these numbers at step 1 of §5 (§11, decision 6).
+
 **Engineering value target (a hypothesis).** Either of:
 
 - a median E1 at least 15–20% lower;
@@ -336,6 +380,7 @@ Either one counts only if the other dimension is not materially worse (proposal:
 - **Records.** There is one JSON record for each scored context (`context_score`) and for each run (`task_run`), in the shape of [`benchmark-run.schema.json`](benchmark-run.schema.json).
   - A value that was not measured is `null`, with the reason in `notes`. It is never estimated.
 - **Gold sheets** follow [`gold-sheet.schema.json`](gold-sheet.schema.json).
+- **The freeze manifest** follows [`benchmark-freeze.schema.json`](benchmark-freeze.schema.json). [`scripts/benchmark_freeze.py`](../../../scripts/benchmark_freeze.py) writes and verifies it. Every run record carries the manifest's SHA-256 (`freeze.manifest_sha256`), and a record whose workspace failed verification is kept and marked invalid.
 - **Locations, a proposal (§11):**
   - the report in `docs/benchmarks/0004-builder1-development-context.md`;
   - the frozen manifests, records and, after scoring, the gold sheets under `evaluation/devcontext/`.
@@ -349,14 +394,16 @@ Either one counts only if the other dimension is not materially worse (proposal:
    - Whether T4 runs in both arms, with the founder choosing which accepted result becomes the real PR. Recommended, because an unpaired run cannot be compared.
    - Whether SB-2b waits for Builder 1, so that T3 and T4 can be run, or proceeds and is replaced by other forward tasks.
 3. **Agents.** Which agents and models, their settings, and replicates per cell. Minimum: Claude Code and Codex, one replicate each, with nondeterministic tasks replicated when the budget allows.
-4. **Budgets per run:** tokens, wall-clock time, a cost cap, and `max_revision_loops` (proposal: 3).
+4. **Budgets:** per run, tokens, wall-clock time, a cost cap, and `max_revision_loops` (proposal: 3); and the **total cost ceiling** of the benchmark, after which it stops and reports what it has.
 5. **People.** The independent reviewers and scorers, and whether a second scorer is used.
-6. **Thresholds** of §9: H4's threshold and the value target's tolerance.
+6. **Thresholds** of §9: H4's threshold, the value target's tolerance, and the minimum counts before any claim (proposal: 10 runs per arm and agent, 4 held-out tasks).
 7. **Optional arms.** Whether to run the no-context floor N, and whether and when to authorize the Graphify ablation C.
 8. **Format and locations.**
    - Which run format governs, if the reviewer's benchmark-run template differs from this one.
    - The artifact locations, and the number `0004`.
 9. **T1's statement:** a frozen statement of at most 2,000 characters (recommended), or a higher task limit in `SPEC.md` §3.
+10. **The publication channel of step 9 of §5:** a comment on Issue #22 (recommended: simple and timestamped), or an orphan branch `bench/devcontext-freeze`.
+11. **Qualification (§7.1):** whether its conditions are the right bar for trusted use, and who scores it.
 
 ## 12. Threats to validity
 

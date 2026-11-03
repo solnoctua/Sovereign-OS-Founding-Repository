@@ -1,14 +1,15 @@
-"""Consistency checks for the Builder 1 specification (docs/engineering/builder-1/, PROPOSED, revision 2; Issue #22).
+"""Consistency checks for the Builder 1 specification (docs/engineering/builder-1/, PROPOSED, revision 3; Issue #22).
 
 No implementation exists. These tests keep the specification's own artifacts honest:
 
 - the example output validates against the schema, its fingerprint covers `package` and never `observations`
-  (SPEC.md §8, F-10), and it respects the whole-output bound and the per-field limits (§6, F-7);
-- every citation, blob, symbol span, class, status line, test name, conflict side and coverage range in the example is
-  exact at the pinned commit (§2, §5, F-4, F-6), and the example passes the whole-output disclosure check (§9, F-2);
-- the facts the specification states about the baseline hold (AT-8, AT-9, §5.2 rule 8, decision scope);
-- the benchmark manifests are executable against Git and nothing is frozen yet (BENCHMARK-PLAN.md, F-8, F-9);
-- the collection formats accept a record in which nothing was measured and reject invented values (F-9).
+  (SPEC.md §8, F-10), and it respects the whole-output bound and the per-field limits, JSON and Markdown (§6, F-7);
+- every citation, blob, symbol span, class and status line of the example is exact at the pinned commit, and every
+  obligation is recomputed from Git and found satisfied (§2, §5.3, §5.4, F-4, F-5, F-6);
+- the example passes the whole-output disclosure check (§9, F-2), and its rendering keeps data inside fences (§7.4, F-3);
+- the facts the specification states about the baseline hold (AT-8, AT-9, §5.3 rule 8, decision scope);
+- the benchmark task plan is executable against Git and holds no hashes (BENCHMARK-PLAN.md, F-8, F-11);
+- the collection formats accept a record in which nothing was measured and reject invented values (F-9, F-11).
 
 Standard library only. The schema validator below implements exactly the keywords the schemas use and fails if a
 schema uses any other.
@@ -27,7 +28,8 @@ import pytest
 
 PROJECT = Path(__file__).resolve().parents[1]
 SPEC_DIR = PROJECT / "docs" / "engineering" / "builder-1"
-SCHEMAS = ("context-package.schema.json", "benchmark-run.schema.json", "gold-sheet.schema.json")
+SCHEMAS = ("context-package.schema.json", "benchmark-run.schema.json", "gold-sheet.schema.json",
+           "benchmark-freeze.schema.json")
 SUPPORTED = {"$schema", "$id", "title", "description", "type", "additionalProperties", "required", "properties",
              "$defs", "$ref", "const", "enum", "pattern", "minLength", "maxLength", "minimum", "maximum", "minItems",
              "maxItems", "items"}
@@ -125,7 +127,9 @@ def stopwords():
 
 
 def terms(text, words):
-    return sorted({w for w in re.split(r"[^a-z0-9]+", text.lower()) if len(w) >= 3 and w not in words})
+    """SPEC.md §5.1: non-ASCII becomes a space, then A-Z is lowercased and the text split on other characters."""
+    ascii_text = "".join(c if ord(c) < 128 else " " for c in text).lower()
+    return sorted({w for w in re.split(r"[^a-z0-9]+", ascii_text) if len(w) >= 3 and w not in words})
 
 
 def status_line(lines):
@@ -169,14 +173,16 @@ def names(text, label):
     return re.search(rf"(?<![\w-]){re.escape(label)}(?![\w-])", text) is not None
 
 
-def classify(rel, lines, line_no):
-    """SPEC.md §5.2's class rules for a path relative to the project root (None outside it)."""
+def classify(rel, lines, line_no, path=None):
+    """SPEC.md §5.3's class rules for a path relative to the project root (None outside it)."""
+    if rel is None:
+        return "governance_doc" if path in ("AGENTS.md", "CLAUDE.md") else "other"
     if rel == "CONSTITUTION.md":
         return "constitution_candidate"
     if rel == "docs/FOUNDER-DECISIONS.md":
         section = next((s for s, i, _ in register_rows(lines) if i == line_no), None)
         if section is None:
-            return None                                  # not a register row: rule 2 classes rows only
+            return "governance_doc"                      # rule 2: text outside the table rows
         return "binding_decision" if section == "Approved" else "proposed_or_historical"
     if rel is not None and rel.startswith("docs/adr/"):
         return "adr"
@@ -255,70 +261,86 @@ def read_blobs(blobs):
 
 # --- the example output -----------------------------------------------------------------------------------------------
 
+def example():
+    return load("context-package.example.json")
+
+
+def rendering():
+    return (SPEC_DIR / "context-package.example.md").read_text(encoding="utf-8")
+
+
 def test_schemas_use_only_keywords_this_validator_implements():
     for name in SCHEMAS:
         assert keywords(load(name), set()) <= SUPPORTED, name
 
 
 def test_example_output_validates_and_the_validator_is_not_vacuous():
-    schema, example = load("context-package.schema.json"), load("context-package.example.json")
-    assert errors(example, schema, schema) == []
-    broken = copy.deepcopy(example)
+    schema, out = load("context-package.schema.json"), example()
+    assert errors(out, schema, schema) == []
+    broken = copy.deepcopy(out)
     broken["package"]["items"][0]["class"] = "reviewer_said_closed"
-    broken["package"]["conflicts"][0]["resolution"] = "reconciled"
+    broken["package"]["coverage"]["complete"] = False
     broken["observations"]["preflight"] = "skipped"
-    broken["package"]["generator"]["selection_version"] = "devcontext-selection-1"
+    broken["package"]["generator"]["selection_version"] = "devcontext-selection-2"
+    broken["package"]["findings"].append({"source": "R1", "id": "F-7", "severity": "P1", "confidence": "confirmed",
+                                          "status": "fixed", "independent_disposition": "accepted",
+                                          "attribution": "reviewer-owned", "mandatory": False, "truncated": False})
     broken["unexpected"] = True
-    assert len(errors(broken, schema, schema)) == 5
+    assert len(errors(broken, schema, schema)) == 6
 
 
 def test_fingerprint_covers_the_package_and_never_the_observations():
-    """F-10: a clean, a dirty and a bare clone of the same inputs give one fingerprint."""
-    example = load("context-package.example.json")
-    assert example["fingerprint"] == fingerprint(example)
+    """F-10: clean, dirty and bare clones of the same inputs give one fingerprint."""
+    out = example()
+    assert out["fingerprint"] == fingerprint(out)
     for change in ({"working_tree": "dirty"}, {"working_tree": "none", "repository_kind": "bare"},
-                   {"git_version": "git version 9.9.9", "replace_refs_ignored": 3}):
-        local = copy.deepcopy(example)
+                   {"git_version": "git version 9.9.9", "python_version": "3.12", "replace_refs_ignored": 3}):
+        local = copy.deepcopy(out)
         local["observations"].update(change)
-        assert fingerprint(local) == example["fingerprint"]
-    edited = copy.deepcopy(example)
+        assert fingerprint(local) == out["fingerprint"]
+    edited = copy.deepcopy(out)
     edited["package"]["items"][0]["excerpt"] += " "
-    assert fingerprint(edited) != example["fingerprint"]
-    assert not {"working_tree", "repository_kind", "git_version"} & set(json.dumps(example["package"]).split('"'))
+    assert fingerprint(edited) != out["fingerprint"]
+    assert not {"working_tree", "repository_kind", "git_version", "python_version"} & set(
+        json.dumps(out["package"]).split('"'))
 
 
 def test_example_respects_the_output_bound_and_the_per_field_limits():
-    """F-7: the whole serialized output is bounded, not only the excerpts."""
-    example = load("context-package.example.json")
-    package, parameters = example["package"], example["package"]["parameters"]
-    assert len(canonical(example)) <= parameters["max_output_bytes"]
-    assert len((SPEC_DIR / "context-package.example.json").read_bytes()) <= parameters["max_output_bytes"]
-    excerpts = [len(i["excerpt"].encode("utf-8")) for i in package["items"]]
-    assert package["usage"] == {"excerpt_bytes": sum(excerpts), "items": len(excerpts), "truncated": False}
-    assert sum(excerpts) <= parameters["max_output_bytes"] - parameters["reserve_bytes"]
-    assert max(excerpts) <= parameters["max_item_bytes"] and len(excerpts) <= parameters["max_items"]
-    core = sum(n for n, i in zip(excerpts, package["items"]) if i["role"] == "core")
-    assert core <= parameters["core_bytes"]
+    """F-7: the whole serialized output, JSON and Markdown, is bounded, not only the excerpts."""
+    out = example()
+    package, parameters = out["package"], out["package"]["parameters"]
+    assert len(canonical(out)) <= parameters["max_output_bytes"]
+    assert len(rendering().encode("utf-8")) <= parameters["max_output_bytes"]
+    sizes = [len(i["excerpt"].encode("utf-8")) for i in package["items"]]
+    mandatory = [n for n, i in zip(sizes, package["items"]) if i["role"] != "optional"]
+    core = [n for n, i in zip(sizes, package["items"]) if i["role"] == "core"]
+    assert package["usage"] == {"excerpt_bytes": sum(sizes), "items": len(sizes), "mandatory_bytes": sum(mandatory),
+                                "core_bytes": sum(core)}
+    assert sum(sizes) <= parameters["max_output_bytes"] - parameters["reserve_bytes"]
+    assert sum(core) <= parameters["core_bytes"] and len(sizes) <= parameters["max_items"]
+    assert all(n <= parameters["max_item_bytes"] for n, i in zip(sizes, package["items"]) if i["role"] == "optional")
     for source in package["sources"]:
         assert len(source["path"].encode("utf-8")) <= 512
         assert source["status_line"] is None or len(source["status_line"].encode("utf-8")) <= 512
     assert len(package["task"]["text"]) <= 2000 and len(package["task"]["terms"]) <= 64
-    assert len(package["findings"]) <= 20 and len(package["conflicts"]) <= 20 and len(package["missing"]) <= 40
-    assert len(package["tests"]) <= 20 and all(len(t["names"]) <= 30 for t in package["tests"])
-    assert all(len(c["omitted"]) <= 20 for c in package["coverage"]["required"])
+    assert len(package["task"]["anchors"]) <= 32 and len(package["missing"]) <= 40
+    assert sum(len(t["names"]) for t in package["tests"]) <= 60
     assert [i["id"] for i in package["items"]] == [f"S{n}" for n in range(1, len(package["items"]) + 1)]
-    cited = [i["source"] for i in package["items"]] + [t["source"] for t in package["tests"]] + \
-        [s["source"] for c in package["conflicts"] for s in c["sides"]] + [f["source"] for f in package["findings"]]
+    roles = [i["role"] for i in package["items"]]
+    assert roles == sorted(roles, key=["core", "required", "optional"].index)
+    cited = [i["source"] for i in package["items"]] + [s for o in package["obligations"] for s in o["sources"]] + \
+        [f["source"] for f in package["findings"]] + [t["source"] for t in package["tests"]] + \
+        [s["source"] for c in package["conflicts"] for s in c["sides"]]
     first_use = list(dict.fromkeys(cited))
     assert [s["id"] for s in package["sources"]] == first_use == [f"R{n}" for n in range(1, len(first_use) + 1)]
 
 
 def test_example_passes_the_whole_output_disclosure_check_and_the_check_is_not_vacuous():
     """F-2: the patterns run over the whole serialized output; a token after `_` is still found."""
-    example = load("context-package.example.json")
-    assert not CREDENTIAL.search(canonical(example).decode("ascii"))
+    out = example()
+    assert not CREDENTIAL.search(canonical(out).decode("ascii")) and not CREDENTIAL.search(rendering())
     fake = "ghp_" + "SYNTHETICFAKE0123456789abcd"
-    planted = copy.deepcopy(example)
+    planted = copy.deepcopy(out)
     planted["package"]["tests"][0]["names"].append(f"test_{fake}_is_rejected")
     assert CREDENTIAL.search(canonical(planted).decode("ascii"))
     assert not re.search(r"\bghp_[A-Za-z0-9]{20,}", f"test_{fake}_is_rejected")   # revision 1's pattern missed it
@@ -328,90 +350,181 @@ def test_example_passes_the_whole_output_disclosure_check_and_the_check_is_not_v
 def test_example_terms_and_stopword_hash_follow_section_5_1():
     words = stopwords()
     digest = hashlib.sha256(("\n".join(sorted(words)) + "\n").encode("utf-8")).hexdigest()
-    package = load("context-package.example.json")["package"]
+    package = example()["package"]
     assert package["generator"]["stopwords_sha256"] == digest and digest in spec_text()
-    assert package["task"]["terms"] == terms(package["task"]["text"], words)
+    assert package["task"]["terms"] == terms(package["task"]["text"], words) and package["task"]["terms_omitted"] == 0
+    assert terms("Kelvin K and café utf-8", words) == ["caf", "kelvin", "utf"]   # non-ASCII is a separator
     for anchor in package["task"]["anchors"]:
         assert anchor["value"] in package["task"]["text"]
 
 
-def test_example_citations_symbols_and_classes_are_exact_at_the_pinned_commit():
-    """F-4 and F-6: exact excerpts, method windows inside their `ast` spans, classes by §5.2, verbatim conflicts."""
-    package = load("context-package.example.json")["package"]
+def definitions(lines):
+    """Qualified name -> [first line, last line] for top-level definitions and direct class members (SPEC.md §5.3)."""
+    tree = ast.parse("\n".join(lines), feature_version=(3, 11))
+    out = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            out[node.name] = [min([node.lineno] + [d.lineno for d in node.decorator_list]), node.end_lineno]
+            if isinstance(node, ast.ClassDef):
+                for member in node.body:
+                    if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        out[f"{node.name}.{member.name}"] = [
+                            min([member.lineno] + [d.lineno for d in member.decorator_list]), member.end_lineno]
+    return out
+
+
+def test_example_citations_symbols_classes_and_obligations_are_exact_at_the_pinned_commit():
+    """F-4, F-5 and F-6: exact excerpts and spans, classes by §5.3, and every obligation recomputed from Git."""
+    package = example()["package"]
     target, root = package["inputs"]["target"], package["inputs"]["project_root"]
     commit = target["commit"]
     require_objects(commit)
     assert git("rev-parse", f"{commit}^{{tree}}").stdout.decode().strip() == target["tree"]
     sources = {s["id"]: s for s in package["sources"]}
+    items = {i["id"]: i for i in package["items"]}
     lines_of = {}
     for source in package["sources"]:
         assert source["commit"] == commit
         assert git("rev-parse", f"{commit}:{source['path']}").stdout.decode().strip() == source["blob"], source["path"]
-        lines = lines_of[source["id"]] = blob_lines(source["blob"])
-        found = status_line(lines) if source["path"].endswith(".md") else None
+        lines = blob_lines(source["blob"])
+        lines_of[source["id"]] = lines[:-1] if lines and lines[-1] == "" else lines
+        found = status_line(lines_of[source["id"]]) if source["path"].endswith(".md") else None
         expected = cut512(found) if found is not None else (None, False)
         assert (source["status_line"], source["status_line_truncated"]) == expected, source["path"]
+    rel = lambda path: path[len(root) + 1:] if path.startswith(root + "/") else None
     for item in package["items"]:
         source, lines = sources[item["source"]], lines_of[item["source"]]
-        rel = source["path"][len(root) + 1:] if source["path"].startswith(root + "/") else None
         first, last = item["lines"]
-        assert item["excerpt"] == "\n".join(lines[first - 1:last]) and not item["excerpt_truncated"], item["id"]
+        assert item["excerpt"] == "\n".join(lines[first - 1:last]), item["id"]
         assert item["span"][0] <= first <= last <= item["span"][1], item["id"]
-        assert item["class"] == classify(rel, lines, first), item["id"]
+        assert item["class"] == classify(rel(source["path"]), lines, first, source["path"]), item["id"]
         if item["symbol"] and source["path"].endswith(".py"):
-            defined = {}
-            for node in ast.walk(ast.parse("\n".join(lines))):
-                body = getattr(node, "body", None)
-                for child in body if isinstance(body, list) else []:
-                    if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                        qualified = f"{node.name}.{child.name}" if isinstance(node, ast.ClassDef) else child.name
-                        defined[qualified] = [min([child.lineno] + [d.lineno for d in child.decorator_list]),
-                                              child.end_lineno]
-            assert defined[item["symbol"]] == item["span"], item["id"]
+            assert definitions(lines)[item["symbol"]] == item["span"], item["id"]
         elif item["symbol"] and source["path"].endswith(".md"):
             assert re.fullmatch(r"#{1,6} " + re.escape(item["symbol"]), lines[item["span"][0] - 1]), item["id"]
         elif item["symbol"]:
             assert lines[item["span"][0] - 1].strip() == item["symbol"], item["id"]
+        assert (item["role"] == "optional") == (item["tier"] is not None) == (not item["obligations"]), item["id"]
+    path_of = {s["id"]: s["path"] for s in package["sources"]}
+    assert package["coverage"]["complete"] is True
+    assert package["coverage"]["obligations"] == len(package["obligations"])
+    task_kinds = {"adr", "symbol", "span", "path", "finding", "candidate"}
+    assert package["coverage"]["task_obligations"] == sum(o["kind"] in task_kinds for o in package["obligations"])
+    for obligation in package["obligations"]:
+        held = [items[i] for i in obligation["items"]]
+        assert all(obligation["id"] in i["obligations"] for i in held), obligation["id"]
+        kind = obligation["kind"]
+        if kind == "agents":
+            agents = lines_of[held[0]["source"]]
+            start = agents.index("## Read before consequential work") + 1
+            end = next(n for n in range(start + 1, len(agents) + 1) if agents[n - 1].startswith("## ")) - 1
+            assert path_of[held[0]["source"]] == f"{root}/AGENTS.md"
+            assert sorted(n for i in held for n in range(i["lines"][0], i["lines"][1] + 1)) == list(range(start, end))
+        elif kind == "security_gate":
+            gate = lines_of[held[0]["source"]]
+            assert [i["lines"][0] for i in held] == [next(n for n, l in enumerate(gate, 1) if "Current status:" in l)]
+        elif kind == "authority_order":
+            assert package["authority_order"]["item"] == held[0]["id"]
+            assert held[0]["excerpt"].startswith("**Authority order:**")
+            assert package["authority_order"]["order"] == authority_order(held[0]["excerpt"])
+        elif kind == "symbol":
+            name = obligation["anchor"].removesuffix("()")
+            spans = {tuple(i["span"]) for i in held}
+            assert len(spans) == 1 and all(i["symbol"].split(".")[-1] == name.split(".")[-1] for i in held)
+            first, last = next(iter(spans))
+            covered = sorted(n for i in held for n in range(i["lines"][0], i["lines"][1] + 1))
+            assert covered == list(range(first, last + 1)), obligation["id"]       # every window, nothing more
+            assert definitions(lines_of[held[0]["source"]])[held[0]["symbol"]] == [first, last]
+        elif kind == "path":
+            [sid] = obligation["sources"]
+            outline = sources[sid]["outline"]
+            expected = [[q, a, b] for q, (a, b) in definitions(lines_of[sid]).items()]
+            assert outline == {"entries": expected[:200], "omitted": max(0, len(expected) - 200)}
+            assert path_of[sid].endswith(obligation["anchor"])
+        elif kind == "adr":
+            [sid] = obligation["sources"]
+            label = obligation["anchor"]
+            assert re.search(rf"/docs/adr/{label[4:]}-[^/]+\.md$", path_of[sid])
+            register = lines_of[held[0]["source"]]
+            named = [n for _, n, row in register_rows(register) if names(row, label)]
+            assert [i["lines"][0] for i in held] == named and named
+        elif kind == "codeowners":
+            owners = lines_of[held[0]["source"]]
+            rules = [n for n, l in enumerate(owners, 1) if l.strip() and not l.lstrip().startswith("#")]
+            assert set(i["lines"][0] for i in held) <= set(rules) and held
+        else:
+            raise AssertionError(f"unexpected obligation kind in the example: {kind}")
     windows = [i for i in package["items"] if i["symbol"] == "Vault._forget_plan"]
     first, last = windows[0]["span"]
-    span_text = "\n".join(lines_of[windows[0]["source"]][first - 1:last])
-    assert len(span_text.encode()) > package["parameters"]["max_item_bytes"]
-    assert len(windows) >= 2 and windows[0]["lines"][0] == first and windows[-1]["lines"][1] == last
-    assert all(a["lines"][1] + 1 == b["lines"][0] for a, b in zip(windows, windows[1:]))
+    assert len("\n".join(lines_of[windows[0]["source"]][first - 1:last]).encode()) > package["parameters"]["max_item_bytes"]
+    assert len(windows) == 2 and all(a["lines"][1] + 1 == b["lines"][0] for a, b in zip(windows, windows[1:]))
     for test in package["tests"]:
-        tree = ast.parse("\n".join(lines_of[test["source"]]))
-        defined = [n.name for n in tree.body if isinstance(n, ast.FunctionDef)]
+        defined = {n.name for n in ast.parse("\n".join(lines_of[test["source"]])).body if hasattr(n, "name")}
         wanted = set(package["task"]["terms"])
-        assert all(name in defined and set(terms(name, stopwords())) & wanted for name in test["names"])
+        assert all(name.split(".")[0] in defined and set(terms(name.replace("_", " "), stopwords())) & wanted
+                   for name in test["names"])
     for conflict in package["conflicts"]:
         assert conflict["kind"] == "decision_status" and "is approved" not in conflict["summary"]
         status_side, *row_sides = conflict["sides"]
         adr_lines = lines_of[status_side["source"]]
         assert adr_lines[status_side["lines"][0] - 1] == status_line(adr_lines)
         assert status_keyword(status_line(adr_lines)) == "proposed"
-        adr = "ADR-" + re.search(r"/docs/adr/(\d{4})-", sources[status_side["source"]]["path"]).group(1)
+        adr = "ADR-" + re.search(r"/docs/adr/(\d{4})-", path_of[status_side["source"]]).group(1)
         register = lines_of[row_sides[0]["source"]]
-        named = [i for section, i, row in register_rows(register) if section == "Approved" and names(row, adr)]
-        assert [s["lines"] for s in row_sides] == [[i, i] for i in named]
-    coverage = package["coverage"]
-    assert coverage["complete"] == all(not entry["omitted"] for entry in coverage["required"])
-    for entry in coverage["required"]:
-        mine = sorted(i["lines"] for i in package["items"] if sources[i["source"]]["path"] == entry["path"])
-        assert entry["included"] == mine and entry["commit"] == commit
-        covered = {n for a, b in entry["included"] for n in range(a, b + 1)}
-        for symbol in entry["symbols"]:
-            span = next(i["span"] for i in package["items"] if i["symbol"] == symbol)
-            assert set(range(span[0], span[1] + 1)) <= covered or not coverage["complete"], symbol
+        named = [n for section, n, row in register_rows(register) if section == "Approved" and names(row, adr)]
+        assert [s["lines"] for s in row_sides] == [[n, n] for n in named]
+    assert {m["reason"] for m in package["missing"]} >= {"outside_v1_scope"}
+
+
+MARKED = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]")
+
+
+def display(value):
+    """SPEC.md §7.4: control and format characters, and trailing spaces and tabs, are shown as markers."""
+    value = MARKED.sub(lambda m: f"⟪U+{ord(m.group(0)):04X}⟫", value)
+    return re.sub(r"[ \t]+$", lambda m: "".join(f"⟪U+{ord(c):04X}⟫" for c in m.group(0)), value, flags=re.M)
+
+
+def test_example_rendering_is_inert_and_every_derived_value_is_fenced():
+    """F-3: fences of at least three backticks, longer than any inner run; data only inside fences."""
+    text, package = rendering(), example()["package"]
+    outside, inside, fence = [], [], None
+    for line in text.split("\n"):
+        marker = re.match(r"^(`{3,})(text)?$", line)
+        if fence is None and marker and marker.group(2):
+            fence = marker.group(1)
+        elif fence is not None and line == fence:
+            fence = None
+        elif fence is not None:
+            inside.append(line)
+            assert not re.search("`{%d,}" % len(fence), line)
+        else:
+            assert not line.startswith("`"), line           # no malformed or stray fence outside a block
+            outside.append(line)
+    assert fence is None
+    body = "\n".join(inside)
+    for item in package["items"]:
+        assert display(item["excerpt"]) in body, item["id"]
+    assert display(package["task"]["text"]) in body
+    assert not re.search(r"[ \t]$", text, re.M)                  # trailing whitespace is shown as a marker
+    loose = "\n".join(outside)
+    for item in package["items"]:
+        for line in item["excerpt"].split("\n"):
+            if len(line.strip()) >= 12:
+                assert line not in loose, (item["id"], line)
+    for source in package["sources"]:
+        assert source["path"] not in loose
+    assert "COMPLETE" in loose and "not a claim that it holds everything the task needs" in loose
 
 
 def test_example_authority_order_follows_section_2_1_and_is_null_when_absent():
     """F-8: the order is extracted when the line exists and is null, never invented, when it does not."""
-    package = load("context-package.example.json")["package"]
+    package = example()["package"]
     commit, root = package["inputs"]["target"]["commit"], package["inputs"]["project_root"]
     t1 = next(t for t in load("benchmark-tasks.json")["tasks"] if t["id"] == "T1")["inputs"]["target"]
     require_objects(commit, t1)
     plan = f"{root}/docs/engineering/BUILD-AND-INTEGRATION-PLAN.md"
-    assert package["authority_order"] == authority_order(show(commit, plan))
+    assert package["authority_order"]["order"] == authority_order(show(commit, plan))
     assert authority_order(show(t1, plan)) is None
 
 
@@ -469,24 +582,22 @@ def test_baseline_issue_anchor_and_proposed_document_rules_are_as_stated():
 
 # --- the benchmark ------------------------------------------------------------------------------------------------------
 
-def test_benchmark_manifests_are_executable_and_nothing_is_frozen():
-    """F-8 and F-9: pinned inputs exist and behave as the manifests say; later objects are outside the bundles."""
-    manifest = load("benchmark-tasks.json")
-    assert manifest["schema"] == "sovereign.devcontext.benchmark-tasks.v2" and manifest["status"].startswith("planned")
-    tasks = {t["id"]: t for t in manifest["tasks"]}
+def test_benchmark_task_plan_is_executable_and_holds_no_hashes():
+    """F-8 and F-11: pinned inputs behave as the plan says; hashes live only in the detached freeze manifest."""
+    plan = load("benchmark-tasks.json")
+    assert plan["schema"] == "sovereign.devcontext.benchmark-tasks.v3" and plan["status"].startswith("planned")
+    assert not re.search(r'"[a-z_]*sha256[a-z_]*"|[0-9a-f]{64}', json.dumps(plan)), "the task plan holds no hashes"
+    tasks = {t["id"]: t for t in plan["tasks"]}
     assert list(tasks) == ["T1", "T2", "T3", "T4"]
-    assert manifest["sets"]["calibration"]["tasks"] == ["T1", "T2"]
-    assert not manifest["sets"]["calibration"]["evidence_of_gain"] and not manifest["sets"]["pilot"]["evidence_of_gain"]
-    assert manifest["sets"]["pilot"]["size"] == sum(manifest["sets"]["pilot"]["mix"].values()) == 6
-    assert manifest["sets"]["main"]["min_size"] >= 12 and manifest["sets"]["main"]["min_held_out"] >= 4
-    assert manifest["sets"]["main"]["forward"] == ["T3", "T4"]
+    sets = plan["sets"]
+    assert sets["calibration"]["tasks"] == ["T1", "T2"]
+    assert not sets["calibration"]["evidence_of_gain"] and not sets["pilot"]["evidence_of_gain"]
+    assert sets["pilot"]["size"] == sum(sets["pilot"]["mix"].values()) == 6
+    assert sets["main"]["min_size"] >= 12 and sets["main"]["min_held_out"] >= 4 and sets["main"]["forward"] == ["T3", "T4"]
     limit = int(re.search(r"\| 1–([\d,]+) characters of UTF-8", spec_text()).group(1).replace(",", ""))
-    assert manifest["task_statement_max_chars"] == limit == 2000
-    root = manifest["project_root"]
+    assert plan["task_statement_max_chars"] == limit == 2000
+    root = plan["project_root"]
     for task in tasks.values():
-        assert not task["frozen"] and task["budget"] is None
-        assert task["statement"]["sha256"] is None and task["handoff_a"]["sha256"] is None
-        assert task["gold_sheet_sha256"] is None and task["hidden_tests_sha256"] is None
         assert (task["inputs"]["target"] is None) == (task["pin_when"] is not None)
         refs = [*task["inputs"].values(), *((task["reference_outcome"] or {}).get("commits", {}).values())]
         refs += [*(task["environment"] or {}).get("bundle_refs", []), *(task["environment"] or {}).get("must_be_absent", [])]
@@ -505,8 +616,8 @@ def test_benchmark_manifests_are_executable_and_nothing_is_frozen():
             assert git("cat-file", "-e", f"{target}:{root}/{path}").returncode == 0, (task["id"], path)
         for path in expected["absent_at_target"]:
             assert git("cat-file", "-e", f"{target}:{root}/{path}").returncode != 0, (task["id"], path)
-        plan = authority_order(show(target, f"{root}/docs/engineering/BUILD-AND-INTEGRATION-PLAN.md"))
-        assert (plan is None) == (expected["authority_order"] is None)
+        build = authority_order(show(target, f"{root}/docs/engineering/BUILD-AND-INTEGRATION-PLAN.md"))
+        assert (build is None) == (expected["authority_order"] is None)
         if candidate is None:
             continue
         bases = git("merge-base", "--all", target, candidate).stdout.decode().split()
@@ -526,7 +637,8 @@ def null_record(kind):
     """A synthetic record in which nothing was measured: every measure null, every list empty."""
     count = lambda *keys: {k: None for k in keys}
     record = {"schema": "sovereign.devcontext.benchmark-run.v1", "record_kind": kind, "record_id": f"synthetic-{kind}",
-              "task": {"id": "T1", "set": "calibration", "held_out": False, "manifest_sha256": None}, "arm": "B",
+              "freeze": {"manifest_sha256": None, "valid": False},
+              "task": {"id": "T1", "set": "calibration", "held_out": False}, "arm": "B",
               "environment": count("bundle_sha256", "object_sets_equal", "must_be_absent_verified", "preflight_passed"),
               "context": count("sha256", "bytes", "fingerprint", "tool_commit", "selection_version",
                                "preparation_minutes", "edited"),
@@ -563,8 +675,10 @@ def null_record(kind):
 
 
 def test_collection_formats_accept_unmeasured_records_and_reject_invented_values():
-    """F-9: the formats hold end-to-end measures with nulls for what was not measured, and refuse what is not allowed."""
-    run_schema, gold_schema = load("benchmark-run.schema.json"), load("gold-sheet.schema.json")
+    """F-9 and F-11: records hold end-to-end measures with nulls for what was not measured, and refuse what is not
+    allowed; a gold sheet commits to nothing downstream of it; a freeze manifest validates."""
+    run_schema, gold_schema, freeze_schema = (load(n) for n in ("benchmark-run.schema.json", "gold-sheet.schema.json",
+                                                                 "benchmark-freeze.schema.json"))
     for kind in ("context_score", "task_run"):
         assert errors(null_record(kind), run_schema, run_schema) == [], kind
     broken = null_record("task_run")
@@ -573,28 +687,43 @@ def test_collection_formats_accept_unmeasured_records_and_reject_invented_values
     broken["run"]["agent"]["memory_disabled"] = False
     broken["run"]["outcome"]["elapsed_minutes"] = -1
     broken["run"]["stages"][0]["stage"] = "self_review"
-    assert len(errors(broken, run_schema, run_schema)) == 5
+    broken["freeze"].pop("valid")
+    assert len(errors(broken, run_schema, run_schema)) == 6
     scored = null_record("context_score")
     scored["context_scores"]["scorer"]["independent_of_builder"] = False
     scored["context_scores"]["security_failures"] = ["none"]
     assert len(errors(scored, run_schema, run_schema)) == 2
-    gold = {"schema": "sovereign.devcontext.gold-sheet.v1", "task": "T1", "manifest_sha256": "0" * 64,
+    gold = {"schema": "sovereign.devcontext.gold-sheet.v1", "task": "T1",
             "author": {"role": "independent_reviewer", "name": "synthetic", "independent_of_builder": True},
-            "written_before_packages": True, "commits": {"target": BASELINE, "candidate": None},
+            "commits": {"target": BASELINE, "candidate": None},
             "facts": [{"id": "G1", "class": "negative_fact", "statement": "ADR-0003 is approved as a whole.",
                        "critical": True, "citations": [{"commit": BASELINE, "path": f"{ROOT}/docs/FOUNDER-DECISIONS.md",
                                                         "lines": [10, 10]}]}]}
     assert errors(gold, gold_schema, gold_schema) == []
     gold["author"]["role"] = "builder"
-    gold["written_before_packages"] = False
+    gold["manifest_sha256"] = "0" * 64                     # revision 2's cyclic field is no longer allowed
     assert len(errors(gold, gold_schema, gold_schema)) == 2
+    sha, digest = "1" * 40, "2" * 64
+    manifest = {"schema": "sovereign.devcontext.benchmark-freeze.v1",
+                "protocol": {"commit": sha, "plan": "docs/engineering/builder-1/BENCHMARK-PLAN.md"},
+                "tool": {"commit": sha, "selection_version": "devcontext-selection-3"}, "agents": ["codex"],
+                "tasks": [{"id": "T1", "set": "calibration", "held_out": False, "target": sha, "candidate": None,
+                           "must_be_absent": [], "inputs": [{"role": "statement", "file": "T1/s.md", "sha256": digest,
+                                                             "bytes": 10}],
+                           "bundle": {"file": "T1.bundle", "sha256": digest, "bytes": 100, "refs": [sha]}}],
+                "inputs_digest": digest, "assignment": [{"task": "T1", "agent": "codex", "first_arm": "A"}]}
+    assert errors(manifest, freeze_schema, freeze_schema) == []
+    manifest["tasks"][0]["inputs"][0]["role"] = "manifest_hash"
+    assert len(errors(manifest, freeze_schema, freeze_schema)) == 1
 
 
 def test_spec_versions_and_companion_files_agree():
-    schema = load("context-package.schema.json")
-    spec = spec_text()
+    schema, spec = load("context-package.schema.json"), spec_text()
     version = schema["$defs"]["package"]["properties"]["generator"]["properties"]["selection_version"]["const"]
     assert f"`selection_version` is `{version}`" in spec
-    for name in ("BENCHMARK-PLAN.md", *SCHEMAS, "context-package.example.json", "benchmark-tasks.json"):
+    for name in ("BENCHMARK-PLAN.md", *SCHEMAS, "context-package.example.json", "context-package.example.md",
+                 "benchmark-tasks.json"):
         assert f"]({name})" in spec and (SPEC_DIR / name).is_file(), name
-    assert (PROJECT / "docs" / "reviews" / "2026-11-03-pr24-builder-response.md").is_file()
+    for record in ("2026-11-03-pr24-builder-response.md", "2026-11-03-pr24-round2-builder-response.md"):
+        assert (PROJECT / "docs" / "reviews" / record).is_file(), record
+    assert (PROJECT / "scripts" / "benchmark_freeze.py").is_file()

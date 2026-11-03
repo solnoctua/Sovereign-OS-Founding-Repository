@@ -358,3 +358,9 @@ The commands and their observed output are summarized under each finding.
 - It does not close, accept or disposition any finding.
 - It does not reproduce or replace any reviewer-owned artifact.
 - It does not implement Builder 1, change `src/`, or touch PR #21.
+
+## Erratum (added in round 2, 2026-11-03)
+
+**The F-9 reproduction above that "a bundle holding only the start ref did not leak" was vacuous.** It bundled `refs/tmp/bench-start`. A plain clone fetches only `refs/heads` and `refs/tags`, so the clone held 0 objects, and every absence check passed trivially.
+
+Repeated correctly, the conclusion holds: the clone of T1's start holds 849 objects, all reachable from the start commit, which is present, and `8ea54b5` and `99f3026` are absent. The details are in [`2026-11-03-pr24-round2-builder-response.md`](2026-11-03-pr24-round2-builder-response.md) (F-11). Nothing else in this record is changed.

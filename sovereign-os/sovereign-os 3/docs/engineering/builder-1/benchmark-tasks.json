@@ -1,17 +1,25 @@
 {
-  "schema": "sovereign.devcontext.benchmark-tasks.v2",
-  "status": "planned: no run executed, no input frozen, no gold sheet exists",
+  "schema": "sovereign.devcontext.benchmark-tasks.v3",
+  "status": "planned: no run executed, nothing frozen, no gold sheet exists",
   "plan": "docs/engineering/builder-1/BENCHMARK-PLAN.md",
+  "hashes": "none: input and bundle hashes belong only to the detached freeze manifest (BENCHMARK-PLAN.md section 5)",
   "project_root": "sovereign-os/sovereign-os 3",
   "task_statement_max_chars": 2000,
   "sets": {
     "calibration": {
-      "tasks": ["T1", "T2"],
+      "tasks": [
+        "T1",
+        "T2"
+      ],
       "evidence_of_gain": false
     },
     "pilot": {
       "size": 6,
-      "mix": {"feature": 2, "bug_or_security": 2, "docs_or_reconciliation": 2},
+      "mix": {
+        "feature": 2,
+        "bug_or_security": 2,
+        "docs_or_reconciliation": 2
+      },
       "tasks": [],
       "evidence_of_gain": false
     },
@@ -19,9 +27,12 @@
       "min_size": 12,
       "min_held_out": 4,
       "min_per_kind": 3,
-      "forward": ["T3", "T4"],
-      "held_out_manifest_sha256": [],
-      "evidence_of_gain": true
+      "forward": [
+        "T3",
+        "T4"
+      ],
+      "evidence_of_gain": true,
+      "held_out": "written after the tool freeze; listed only in the freeze manifest"
     }
   },
   "tasks": [
@@ -31,7 +42,6 @@
       "kind": "bug_or_security",
       "stage": "implementation",
       "title": "Issue #6: schema-v5 repair of the hidden-rowid REPLACE bypass and of zero-source authority",
-      "frozen": false,
       "pin_when": null,
       "inputs": {
         "target": "eeed753311382047fb2042515a5d2d0f68e94b04",
@@ -57,28 +67,21 @@
         "both_changed_paths": []
       },
       "statement": {
-        "source": "a founder-written statement of at most 2,000 characters for GitHub Issue #6, whose title (65 characters) and body (2,103 characters) exceed the limit verbatim",
-        "sha256": null,
-        "chars": null
+        "source": "a founder-written statement of at most 2,000 characters for GitHub Issue #6, whose title (65 characters) and body (2,103 characters) exceed the limit verbatim"
       },
       "handoff_a": {
-        "source": "the founder's historical handoff for Issue #6 if provided, otherwise a new one limited to 49,152 bytes",
-        "sha256": null,
-        "bytes": null,
-        "preparation_minutes": null
+        "source": "the founder's historical handoff for Issue #6 if provided, otherwise a new one limited to 49,152 bytes"
       },
-      "gold_sheet_sha256": null,
-      "hidden_tests_sha256": null,
       "environment": {
-        "bundle_refs": ["eeed753311382047fb2042515a5d2d0f68e94b04"],
-        "bundle_sha256": null,
+        "bundle_refs": [
+          "eeed753311382047fb2042515a5d2d0f68e94b04"
+        ],
         "must_be_absent": [
           "04ba75ce7d59e62f7e2d021ac54cfa92e4303be1",
           "8ea54b5e52a19e86b1239d83ee86416ece71c99d",
           "99f302637d95f3d78cdd26a9f75d7a8ca336be99"
         ]
       },
-      "budget": null,
       "acceptance": "BENCHMARK-PLAN.md section 7, step 7",
       "reference_outcome": {
         "commits": {
@@ -95,7 +98,6 @@
       "kind": "feature",
       "stage": "integration",
       "title": "SB-2a integration: PR #11 into main",
-      "frozen": false,
       "pin_when": null,
       "inputs": {
         "target": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
@@ -136,24 +138,16 @@
         ]
       },
       "statement": {
-        "source": "the founder's SB-2a integration instruction, frozen verbatim if the founder provides it, at most 2,000 characters",
-        "sha256": null,
-        "chars": null
+        "source": "the founder's SB-2a integration instruction, frozen verbatim if the founder provides it, at most 2,000 characters"
       },
       "handoff_a": {
-        "source": "the founder's historical handoff for the SB-2a integration if provided, otherwise a new one limited to 49,152 bytes",
-        "sha256": null,
-        "bytes": null,
-        "preparation_minutes": null
+        "source": "the founder's historical handoff for the SB-2a integration if provided, otherwise a new one limited to 49,152 bytes"
       },
-      "gold_sheet_sha256": null,
-      "hidden_tests_sha256": null,
       "environment": {
         "bundle_refs": [
           "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
           "59272b882dfe7b9c7d5ac0027c199aaa95e9effb"
         ],
-        "bundle_sha256": null,
         "must_be_absent": [
           "4c34317c402bac2cdef8a2b9381b02ce760e9b63",
           "b00a5b39dbca9673b273799c1e5e63b2912680e5",
@@ -161,7 +155,6 @@
           "374011976b210f8624d1155e13e5e244bba2c0b6"
         ]
       },
-      "budget": null,
       "acceptance": "BENCHMARK-PLAN.md section 7, step 7",
       "reference_outcome": {
         "commits": {
@@ -179,7 +172,6 @@
       "kind": "feature",
       "stage": "planning",
       "title": "SB-2b: plan the minimal snapshot exporter",
-      "frozen": false,
       "pin_when": "main at or after 3740119 (PR #21 merged on 2026-11-03), pinned by the founder at the freeze",
       "inputs": {
         "target": null,
@@ -188,20 +180,12 @@
       },
       "expected": null,
       "statement": {
-        "source": "a planning request written by the founder at the freeze, at most 2,000 characters",
-        "sha256": null,
-        "chars": null
+        "source": "a planning request written by the founder at the freeze, at most 2,000 characters"
       },
       "handoff_a": {
-        "source": "a new handoff, limited to 49,152 bytes",
-        "sha256": null,
-        "bytes": null,
-        "preparation_minutes": null
+        "source": "a new handoff, limited to 49,152 bytes"
       },
-      "gold_sheet_sha256": null,
-      "hidden_tests_sha256": null,
       "environment": null,
-      "budget": null,
       "acceptance": "the independent reviewer accepts the plan (BENCHMARK-PLAN.md section 3.4)",
       "reference_outcome": null
     },
@@ -211,7 +195,6 @@
       "kind": "feature",
       "stage": "implementation",
       "title": "SB-2b: implement the approved plan",
-      "frozen": false,
       "pin_when": "the commit at which the founder approves the SB-2b plan",
       "inputs": {
         "target": null,
@@ -220,20 +203,12 @@
       },
       "expected": null,
       "statement": {
-        "source": "the implementation request for the approved SB-2b plan, written by the founder, at most 2,000 characters",
-        "sha256": null,
-        "chars": null
+        "source": "the implementation request for the approved SB-2b plan, written by the founder, at most 2,000 characters"
       },
       "handoff_a": {
-        "source": "a new handoff, limited to 49,152 bytes",
-        "sha256": null,
-        "bytes": null,
-        "preparation_minutes": null
+        "source": "a new handoff, limited to 49,152 bytes"
       },
-      "gold_sheet_sha256": null,
-      "hidden_tests_sha256": null,
       "environment": null,
-      "budget": null,
       "acceptance": "an independent Tier 2 audit passes and the hidden tests pass (BENCHMARK-PLAN.md section 3.4)",
       "reference_outcome": null
     }

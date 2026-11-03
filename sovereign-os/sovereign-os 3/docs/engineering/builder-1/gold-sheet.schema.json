@@ -2,63 +2,175 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:sovereign-os:devcontext:gold-sheet:v1",
   "title": "Builder 1 benchmark gold sheet, version 1 (PROPOSED)",
-  "description": "The reviewer-owned gold fact and constraint sheet of BENCHMARK-PLAN.md section 6.1. Written by the founder or an independent reviewer, never by the builder or the Builder 1 implementer. Its SHA-256 is committed in the task manifest before any arm B package for the task exists; the file stays outside the repository and every run environment until scoring. Every fact cites the task's pinned commits. A negative_fact states what must NOT be asserted and cites its refutation. PROPOSED: no gold sheet exists.",
+  "description": "The reviewer-owned gold fact and constraint sheet of BENCHMARK-PLAN.md section 6.1. Written by the founder or an independent reviewer, never by the builder or the Builder 1 implementer. It is an input of the freeze (section 5, steps 3-4): it names source commits by SHA and holds no hash of the freeze manifest or of any bundle, so the commitment graph stays acyclic. The freeze manifest commits to its SHA-256; the file stays outside the repository and every run environment until scoring. Every fact cites the task's pinned commits. A negative_fact states what must NOT be asserted and cites its refutation. PROPOSED: no gold sheet exists.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "task", "manifest_sha256", "author", "written_before_packages", "commits", "facts"],
+  "required": [
+    "schema",
+    "task",
+    "author",
+    "commits",
+    "facts"
+  ],
   "properties": {
-    "schema": {"const": "sovereign.devcontext.gold-sheet.v1"},
-    "task": {"type": "string", "pattern": "^[A-Z][A-Za-z0-9-]{0,31}$"},
-    "manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "schema": {
+      "const": "sovereign.devcontext.gold-sheet.v1"
+    },
+    "task": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9-]{0,31}$"
+    },
     "author": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["role", "name", "independent_of_builder"],
+      "required": [
+        "role",
+        "name",
+        "independent_of_builder"
+      ],
       "properties": {
-        "role": {"enum": ["founder", "independent_reviewer"]},
-        "name": {"type": "string", "minLength": 1, "maxLength": 128},
-        "independent_of_builder": {"const": true}
+        "role": {
+          "enum": [
+            "founder",
+            "independent_reviewer"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "independent_of_builder": {
+          "const": true
+        }
       }
     },
-    "written_before_packages": {"const": true},
     "commits": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["target", "candidate"],
+      "required": [
+        "target",
+        "candidate"
+      ],
       "properties": {
-        "target": {"$ref": "#/$defs/sha"},
-        "candidate": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"}
+        "target": {
+          "$ref": "#/$defs/sha"
+        },
+        "candidate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{40}$"
+        }
       }
     },
-    "facts": {"type": "array", "minItems": 1, "maxItems": 200, "items": {"$ref": "#/$defs/fact"}}
+    "facts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "$ref": "#/$defs/fact"
+      }
+    }
   },
   "$defs": {
-    "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "citation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["commit", "path", "lines"],
+      "required": [
+        "commit",
+        "path",
+        "lines"
+      ],
       "properties": {
-        "commit": {"$ref": "#/$defs/sha"},
-        "path": {"type": "string", "minLength": 1, "maxLength": 512},
-        "lines": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}}
+        "commit": {
+          "$ref": "#/$defs/sha"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
       }
     },
     "fact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "class", "statement", "critical", "citations"],
+      "required": [
+        "id",
+        "class",
+        "statement",
+        "critical",
+        "citations"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^G[1-9][0-9]*$"},
-        "class": {"enum": ["mandatory_requirement", "security_invariant", "decision_approved", "decision_proposed",
-                           "decision_deferred", "decision_rejected", "unresolved_finding", "relevant_source",
-                           "relevant_test", "contradiction", "negative_fact"]},
-        "statement": {"type": "string", "minLength": 1, "maxLength": 1024},
-        "critical": {"type": "boolean"},
-        "citations": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/citation"}},
-        "scope": {"type": ["string", "null"], "maxLength": 512},
-        "notes": {"type": ["string", "null"], "maxLength": 1024}
+        "id": {
+          "type": "string",
+          "pattern": "^G[1-9][0-9]*$"
+        },
+        "class": {
+          "enum": [
+            "mandatory_requirement",
+            "security_invariant",
+            "decision_approved",
+            "decision_proposed",
+            "decision_deferred",
+            "decision_rejected",
+            "unresolved_finding",
+            "relevant_source",
+            "relevant_test",
+            "contradiction",
+            "negative_fact"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "critical": {
+          "type": "boolean"
+        },
+        "citations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/citation"
+          }
+        },
+        "scope": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1024
+        }
       }
     }
   }
