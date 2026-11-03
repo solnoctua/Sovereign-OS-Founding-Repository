@@ -709,7 +709,9 @@ class Vault:
 
     # --- Memory claims -----------------------------------------------------
 
-    def _claim(self, db: sqlite3.Connection, row: sqlite3.Row) -> dict:
+    def _claim(self, db: sqlite3.Connection, row: sqlite3.Row, history_limit: int | None = None) -> dict:
+        """A claim with its live support and authority. With `history_limit`, only the most recent events are
+        read (a bounded view for navigation, with `history_complete`); the stored history is never limited."""
         claim = dict(row)
         links = db.execute("SELECT record_id, evidence_sha256 FROM claim_sources WHERE claim_id=? ORDER BY record_id",
                            (claim["id"],)).fetchall()
@@ -736,8 +738,14 @@ class Vault:
         claim["integrity"] = rules.integrity_of((committed["link_count"], committed["digest"]) if committed else None,
                                                 (len(links), evidence_set_digest(claim["id"], claim["source_hashes"])))
         claim["authoritative"] = rules.is_authoritative(claim["status"], claim["support"], claim["integrity"])
-        claim["history"] = [dict(e) for e in db.execute(
-            "SELECT from_status,to_status,actor,note,at FROM claim_events WHERE claim_id=? ORDER BY seq", (claim["id"],))]
+        if history_limit is None:
+            claim["history"] = [dict(e) for e in db.execute(
+                "SELECT from_status,to_status,actor,note,at FROM claim_events WHERE claim_id=? ORDER BY seq", (claim["id"],))]
+        else:
+            recent = db.execute("SELECT from_status,to_status,actor,note,at FROM claim_events WHERE claim_id=? "
+                                "ORDER BY seq DESC LIMIT ?", (claim["id"], history_limit + 1)).fetchall()
+            claim["history"] = [dict(e) for e in reversed(recent[:history_limit])]
+            claim["history_complete"] = len(recent) <= history_limit
         claim["superseded_by"] = next((r["id"] for r in db.execute(
             "SELECT id FROM claims WHERE supersedes_id=?", (claim["id"],))), None)
         return claim

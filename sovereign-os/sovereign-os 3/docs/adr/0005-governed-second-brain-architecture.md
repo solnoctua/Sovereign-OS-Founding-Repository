@@ -331,6 +331,8 @@ D8, D9 and D14 record the founder's 2026-10-20 direction. The founder's decision
 
 ## Revision notes
 
+**Status update** (2026-11-02; metadata only, no technical change): the storage-integrity repair (Issue #6, ADR-0006) merged to `main` as PR #20 (`99f3026`). The 2026-10-22 note below, which calls it unmerged, and §12.4, dated 2026-10-20, describe earlier states. SB-2a provenance navigation (validation spec §3) is implemented by PR #21, the replacement for #11, a candidate until the founder merges it.
+
 **Status update** (2026-10-22; metadata only, no technical change): PR #4 (Benchmark 0003) was merged to `main` as `eeed753` as evaluation infrastructure only; the "not merged" statements above are updated accordingly. The founder's 2026-10-22 directive splits delivery of SB-2 into SB-2a (provenance navigation in the UI, validation spec §3) and SB-2b (snapshot export, validation spec §4) inside this ADR's approved scope; this is a sequencing decision recorded in ROADMAP §H, not an amendment of D1–D14. The storage-integrity repair (Issue #6) is in progress as a separate Tier 2 PR and remains unmerged.
 
 **Founder approval** (2026-10-21; status and decision metadata only, no technical change): the Status line, §11 SB-0, §12.2 and §15 record the approval of D1–D14 and R1–R7 and the deferral of D15; §15.1 is the decision record.
