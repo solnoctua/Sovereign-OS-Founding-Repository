@@ -101,6 +101,7 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
   - **Target:** the commit at which the founder approves the SB-2b plan.
   - **Accepted when:** an independent Tier 2 audit passes and the hidden tests pass.
   - **Which result becomes the real PR:** the founder chooses which arm's accepted result, if either, goes through the normal Builder 0 route (§11, decision 2).
+- **SB-2b does not wait for Builder 1.** If SB-2b has to start before Builder 1 is implemented and frozen, it proceeds from a manual handoff. The founder then replaces T3 and T4 with other forward tasks (§11, decision 2).
 
 ## 4. Run environments and leakage control (F-9)
 
@@ -238,12 +239,9 @@ The controls use synthetic fixture repositories, never this repository's history
 1. **Order.** A and B are counterbalanced for each task and agent, with a recorded seed. With replicates, the order is ABBA.
 2. **Start.** A fresh bundle-built environment (§4) and a fresh session receive the frozen statement, the arm's context and one standard instruction, the same in every arm.
 3. **Work.** The agent works until it submits a diff with its report, or until the budget runs out.
-4. **CI.** The harness applies the diff in a clean environment and runs the required checks of `.github/workflows/sovereign-ci.yml` as they are at the pinned commit:
-   - repository hygiene;
-   - `pytest -q`;
-   - `compileall`;
-   - `git diff --check`;
-   - the adversarial suite.
+4. **CI.** The harness applies the diff in a clean environment and runs the required checks of `.github/workflows/sovereign-ci.yml` as that file stands at the pinned commit:
+   - at `99f3026`: repository hygiene, `pytest -q`, `compileall`, `git diff --check` and the adversarial suite;
+   - at `eeed753`, T1's start, the same checks except repository hygiene, which the workflow did not yet run.
 
    It then runs the hidden tests. Forward tasks also get real GitHub CI on their eventual PR.
 5. **Independent review.** The reviewer is independent of the builder, of the Builder 1 implementer and of the run's agent session.
@@ -348,6 +346,7 @@ Either one counts only if the other dimension is not materially worse (proposal:
 2. **Task selection.**
    - The pilot and main tasks, and the kind mix. Proposal: at least 12 main tasks, at least 4 of them held out, and at least 3 of each kind.
    - Whether T4 runs in both arms, with the founder choosing which accepted result becomes the real PR. Recommended, because an unpaired run cannot be compared.
+   - Whether SB-2b waits for Builder 1, so that T3 and T4 can be run, or proceeds and is replaced by other forward tasks.
 3. **Agents.** Which agents and models, their settings, and replicates per cell. Minimum: Claude Code and Codex, one replicate each, with nondeterministic tasks replicated when the budget allows.
 4. **Budgets per run:** tokens, wall-clock time, a cost cap, and `max_revision_loops` (proposal: 3).
 5. **People.** The independent reviewers and scorers, and whether a second scorer is used.
