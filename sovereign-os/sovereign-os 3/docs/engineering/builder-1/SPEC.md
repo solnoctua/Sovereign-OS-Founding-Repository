@@ -7,6 +7,8 @@
   - The builder's reproductions and responses are in [`docs/reviews/2026-11-03-pr24-builder-response.md`](../../reviews/2026-11-03-pr24-builder-response.md).
   - The reviewer-owned findings are not in this repository. Nothing here closes them.
 - **Baseline:** `main` at `99f302637d95f3d78cdd26a9f75d7a8ca336be99`, with schema 5. At that commit SB-2a was unmerged, in PR #21.
+  - **SB-2a has since merged.** PR #21 merged into `main` as `374011976b210f8624d1155e13e5e244bba2c0b6` on 2026-11-03, and this branch includes it by a merge.
+  - Every fact below that names a commit stays pinned to that commit, so the baseline facts and the benchmark fixtures are unchanged.
 - **Not authority:** this is not an ADR, not a security certification, and not authority over anything it describes. Git and the founder's decisions win (§2).
 
 **Companion files:**
@@ -664,9 +666,9 @@ This is for a separate PR, after the decisions in §15:
 
 ## 16. Follow-up reconciliation
 
-To avoid conflicting with PR #21, this branch changes no shared governance document. After PR #21 merges, and with the founder's decisions, one documentation change should:
+This branch changes no shared governance document. PR #21 merged on 2026-11-03 (`3740119`), so these edits no longer conflict with it. They wait for the founder's decisions. Then one documentation change should:
 
 - **BUILD §5.6:** replace the reuse sentence (D-2), and state V1's scope and the deferred development vault.
-- **ROADMAP §H, Builder 1 row:** the founder relaxed the SB-2a dependency for the specification only (Issue #22). Implementation waits for SB-2a's merge and the benchmark freeze.
+- **ROADMAP §H, Builder 1 row:** on `main` at `3740119` the row still lists "SB-2a demonstrated useful; first-use trial" as its dependency. The founder relaxed the SB-2a dependency for the specification only (Issue #22). SB-2a has merged, and implementation waits for the founder's decisions and the benchmark freeze.
 - **The registry:** a `builder-1-devcontext` entry, with status `approved` on approval and `implemented` with the implementation.
 - **`docs/DEVELOPMENT.md`:** mention the package in *Canonical context and handoff*, after the benchmark.

@@ -89,13 +89,14 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
 - **Changed on both sides since the merge base:** exactly `docs/second-brain/SECOND-BRAIN-VALIDATION.md`.
 - **Reference outcome:**
   - PR #21's audited head `4c34317` (Codex Tier 2 CONDITIONAL PASS, as handed off by the founder) and the F-9 correction `b00a5b3`;
+  - PR #21's merge into `main` as `3740119` on 2026-11-03, after the founder's Code Owner approval of `b00a5b3`;
   - the rehearsed R11 `e639178`.
   - All of these are outcomes. They are never inputs, and they must be absent from the run environment.
 
 ### 3.4 Forward tasks
 
 - **T3. SB-2b planning.**
-  - **Target:** `main` after PR #21 merges, pinned by the founder at the freeze.
+  - **Target:** `main` at or after `3740119`, where PR #21 merged on 2026-11-03. The founder pins the exact commit at the freeze.
   - **Accepted when:** the independent reviewer accepts the plan.
 - **T4. SB-2b implementation.**
   - **Target:** the commit at which the founder approves the SB-2b plan.

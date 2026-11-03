@@ -157,7 +157,8 @@
         "must_be_absent": [
           "4c34317c402bac2cdef8a2b9381b02ce760e9b63",
           "b00a5b39dbca9673b273799c1e5e63b2912680e5",
-          "e6391784c3ef556cf4de74f9071d2a3fa48f0d9e"
+          "e6391784c3ef556cf4de74f9071d2a3fa48f0d9e",
+          "374011976b210f8624d1155e13e5e244bba2c0b6"
         ]
       },
       "budget": null,
@@ -166,9 +167,10 @@
         "commits": {
           "pr21_audited_head": "4c34317c402bac2cdef8a2b9381b02ce760e9b63",
           "pr21_f9_correction": "b00a5b39dbca9673b273799c1e5e63b2912680e5",
-          "rehearsed_r11": "e6391784c3ef556cf4de74f9071d2a3fa48f0d9e"
+          "rehearsed_r11": "e6391784c3ef556cf4de74f9071d2a3fa48f0d9e",
+          "main_after_pr21": "374011976b210f8624d1155e13e5e244bba2c0b6"
         },
-        "reviews": "Codex Tier 2 audit of 4c34317: CONDITIONAL PASS with an F-9 registry-boundary condition and F-12 (Issue #23), as handed off by the founder on PR #21"
+        "reviews": "Codex Tier 2 audit of 4c34317: CONDITIONAL PASS with an F-9 registry-boundary condition and F-12 (Issue #23), as handed off by the founder on PR #21; merged into main as 3740119 on 2026-11-03 after the founder's Code Owner approval of b00a5b3"
       }
     },
     {
@@ -178,7 +180,7 @@
       "stage": "planning",
       "title": "SB-2b: plan the minimal snapshot exporter",
       "frozen": false,
-      "pin_when": "main after PR #21 merges, pinned by the founder at the freeze",
+      "pin_when": "main at or after 3740119 (PR #21 merged on 2026-11-03), pinned by the founder at the freeze",
       "inputs": {
         "target": null,
         "candidate": null,
