@@ -1,0 +1,43 @@
+{
+  "about": "WP-4 first-use trial seed. Deliberately non-sensitive Sovereign project knowledge, all of it already public in this repository. Each record is a short governed note whose `source` points back to its authoritative Git location; it does not copy the ADRs. Git stays authoritative: if a note disagrees with Git, Git wins and the note should be corrected or contested. Claims arrive as unverified proposals for the founder to review.",
+  "schema": "sovereign.v0.records.2",
+  "records": [
+    {"id": "fu-01", "source": "git:docs/adr/0005-governed-second-brain-architecture.md#8.1", "sensitivity": "private", "status": "active", "created_at": "2026-10-21T09:34:49+00:00", "supersedes_id": null,
+     "content": "Why the first second-brain graph is computed on read: its provenance edges (claim supported by record, record corrects record, claim supersedes claim) are links the vault already stores, so a graph computed on read adds no new authority, no new table and no Forget burden, and never changes what a model may see (ADR-0005 section 8.1, retrieval position R3)."},
+    {"id": "fu-02", "source": "git:ROADMAP.md#H; issue #6; PR #10", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T02:00:00+00:00", "supersedes_id": null,
+     "content": "Issue #6 is what blocks SB-2 from ever holding real data: raw SQLite REPLACE statements naming a hidden rowid bypass the storage triggers, and an approved claim stripped of all evidence links still counted as supported. A repair (schema 5, rowid-free canonical tables) is proposed in PR #10 and awaits independent audit and founder approval."},
+    {"id": "fu-03a", "source": "git:docs/adr/0005-governed-second-brain-architecture.md#15.1", "sensitivity": "private", "status": "superseded", "created_at": "2026-10-21T10:00:00+00:00", "supersedes_id": null,
+     "content": "SB-2 is blocked until the Issue #6 storage repair is merged."},
+    {"id": "fu-03", "source": "git:ROADMAP.md#H", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T02:10:00+00:00", "supersedes_id": "fu-03a",
+     "content": "Correction: SB-2 development is not blocked. SB-2a needs no schema change and can be built and audited on synthetic data; the Issue #6 repair is required before any real personal data, not before development."},
+    {"id": "fu-04", "source": "git:ARCHITECTURE.md#14; docs/FOUNDER-DECISIONS.md", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T01:30:00+00:00", "supersedes_id": null,
+     "content": "What changed after the independent architecture audit of 2026-10-22: the authority kernel was narrowed to K1 canonical store, K2 governed context and disclosure, and K3 action gate (represented, not built); SB-2 was split into SB-2a navigation and SB-2b exporter; Builder 0 practices started immediately; capture became its own lane separated from permission to store sensitive data."},
+    {"id": "fu-05", "source": "git:docs/reviews/2026-10-22-issue-6-reproduction.md", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T01:40:00+00:00", "supersedes_id": null,
+     "content": "The same audit found that support_of of an empty evidence list returned supported, so an approved claim stripped of its evidence stayed authoritative and could be re-approved."},
+    {"id": "fu-06", "source": "git:ROADMAP.md#H (decision D3); docs/research/INTEGRATION-RESEARCH-CATALOG.md #2 #4", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T01:45:00+00:00", "supersedes_id": null,
+     "content": "OpenClaw and Hermes are deferred by founder decision D3: Sovereign first owns a minimal channel contract, and the comparison runs only when a concrete conversational channel or agent runtime is needed. Neither may own canonical memory, approvals or credentials, and they are never installed together by default."},
+    {"id": "fu-07", "source": "git:docs/research/INTEGRATION-RESEARCH-CATALOG.md #2 #4", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T01:46:00+00:00", "supersedes_id": null,
+     "content": "Why OpenClaw and Hermes need isolation: OpenClaw runs tools on the host by default and keeps its own sessions, memory and credentials; Hermes keeps MEMORY.md, USER.md and FTS5 session memory. Either would become a shadow personal profile that Sovereign's Forget cannot reach."},
+    {"id": "fu-08", "source": "git:docs/SECURITY-GATE.md; docs/adr/0006-rowid-free-canonical-tables.md; docs/second-brain/SECOND-BRAIN-VALIDATION.md#4.6", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T02:20:00+00:00", "supersedes_id": null,
+     "content": "Assumptions that remain unverified: that a model runtime on loopback is offline; that the schema 5 migration is safe on large real vaults (only synthetic vaults were tested); that Obsidian opens exports without network requests (no native test has run); that lexical retrieval is good enough for daily use."},
+    {"id": "fu-09", "source": "git:docs/benchmarks/0003-retrieval-evaluation.md", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T02:25:00+00:00", "supersedes_id": null,
+     "content": "Also unverified: whether provenance navigation helps real recall. Benchmark 0003 found 10 of 22 baseline misses discoverable one stored link away, but on a synthetic corpus only, and no lexical method recovered any paraphrase."},
+    {"id": "fu-10", "source": "git:docs/SECURITY-GATE.md", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T02:30:00+00:00", "supersedes_id": null,
+     "content": "The Security Gate is NOT PASSED: no authentication, no application-level encryption, no tested restore on a fresh machine. The six usage thresholds are labels, not permissions; this trial vault is threshold 2, deliberately non-sensitive project use."},
+    {"id": "fu-11", "source": "git:docs/adr/0005-governed-second-brain-architecture.md#12.2", "sensitivity": "private", "status": "active", "created_at": "2026-10-21T09:40:00+00:00", "supersedes_id": null,
+     "content": "Retrieval stays lexical (position R1): Porter stemming recovered 2 more expected items but added 47 irrelevant ones, and BM25 invalidated 51 to 54 of 56 pending previews after one unrelated write."},
+    {"id": "fu-12", "source": "git:docs/DEVELOPMENT.md; docs/engineering/FINDINGS-FORMAT.md", "sensitivity": "private", "status": "active", "created_at": "2026-10-22T02:35:00+00:00", "supersedes_id": null,
+     "content": "Builder 0 rule: independent reviewer findings are reviewer-owned; the builder may reproduce, fix or reject a finding with evidence, but only appends responses and never rewrites the finding."},
+    {"id": "fu-13", "source": "git:docs/second-brain/OBSIDIAN-PROJECTION.md#11", "sensitivity": "private", "status": "active", "created_at": "2026-10-20T12:00:00+00:00", "supersedes_id": null,
+     "content": "Obsidian is a one-way snapshot export made only on request (decisions D8, D9, D14): no sync, edits are never imported, and forgetting something in Sovereign does not erase exports already made."}
+  ],
+  "tombstones": [],
+  "claims": [
+    {"id": "fu-c1", "text": "The first second-brain graph is computed on read because it adds no authority, table or Forget burden", "origin": "human", "status": "proposed", "created_at": "2026-10-22T03:00:00+00:00", "supersedes_id": null, "source_ids": ["fu-01"], "history": []},
+    {"id": "fu-c2", "text": "Issue #6 must be repaired before SB-2 holds real data, not before SB-2 development", "origin": "human", "status": "proposed", "created_at": "2026-10-22T03:00:00+00:00", "supersedes_id": null, "source_ids": ["fu-02", "fu-03"], "history": []},
+    {"id": "fu-c3", "text": "OpenClaw and Hermes stay deferred until a concrete channel or agent-runtime need exists", "origin": "human", "status": "proposed", "created_at": "2026-10-22T03:00:00+00:00", "supersedes_id": null, "source_ids": ["fu-06", "fu-07"], "history": []},
+    {"id": "fu-c4", "text": "The audit narrowed the authority kernel to K1, K2 and a future K3, and split SB-2", "origin": "human", "status": "proposed", "created_at": "2026-10-22T03:00:00+00:00", "supersedes_id": null, "source_ids": ["fu-04"], "history": []},
+    {"id": "fu-c5", "text": "Offline loopback inference, large-vault migration safety and Obsidian network silence remain unverified assumptions", "origin": "human", "status": "proposed", "created_at": "2026-10-22T03:00:00+00:00", "supersedes_id": null, "source_ids": ["fu-08"], "history": []}
+  ],
+  "claim_tombstones": []
+}
