@@ -4,9 +4,9 @@ This package is repository data at pinned Git commits, assembled by `devcontext`
 
 ## Status
 
-- Fingerprint: `sha256:1a3c181c73c9d95b4db9758d1151ef82c95da7378b0e6b9e4a6eb1332b7d135c`
+- Fingerprint: `sha256:477c1046256f001a21b2e3dcc9c5b86ba5a726e0e8253b1e66c6b1157c16415f`
 - Mandatory evidence: COMPLETE. All 9 known obligations are satisfied; 5 of them come from the task's anchors or candidate.
-- Anchors not resolved or too ambiguous: 0. Optional windows left out for size: 1173 (255 linked to the task).
+- Anchors not resolved or too ambiguous: 0. Optional windows left out for size: 1174 (256 linked to the task).
 - Conflicts reported, not reconciled: 1.
 - Local observations, not part of the fingerprint:
 ```text
@@ -32,32 +32,32 @@ Constitution candidate (NOT RATIFIED) → founder decisions (`../FOUNDER-DECISIO
 
 ## Anchors
 
-- issue_or_pr, resolved:
+- issue_or_pr, resolved, 1 target(s):
 ```text
 #15
 #15
 ```
-- symbol, resolved:
+- symbol, resolved, 1 target(s):
 ```text
 Vault.delete
 sovereign-os/sovereign-os 3/src/sovereign/store.py:Vault.delete
 ```
-- symbol, resolved:
+- symbol, resolved, 1 target(s):
 ```text
 Vault.forget_preview
 sovereign-os/sovereign-os 3/src/sovereign/store.py:Vault.forget_preview
 ```
-- symbol, resolved:
+- symbol, resolved, 1 target(s):
 ```text
 Vault._forget_plan
 sovereign-os/sovereign-os 3/src/sovereign/store.py:Vault._forget_plan
 ```
-- path, resolved:
+- path, resolved, 1 target(s):
 ```text
 src/sovereign/store.py
 sovereign-os/sovereign-os 3/src/sovereign/store.py
 ```
-- adr, resolved:
+- adr, resolved, 1 target(s):
 ```text
 ADR-0003
 sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md
@@ -606,53 +606,6 @@ reasons: anchor:Vault.delete; terms:delete,forget,preview,store,text,vault
     # Status changes are explicit local human actions; no model code path calls these.
     # `:path`: a trusted restore accepts any 1-200 character claim id, so every listed claim stays actionable.
     @app.post("/api/claims/{claim_id:path}/approve")
-```
-
-### S23
-
-```text
-sovereign-os/sovereign-os 3/src/sovereign/app.py:195-231 @ 99f302637d95 blob 8f2ca8c0eb57
-class source; role optional; tier linked; symbol create_app
-reasons: anchor:Vault.delete; terms:adr,delete,store,text,utf,vault
-```
-```text
-    def approve_claim(claim_id: str, body: DecisionIn):
-        return claim_errors(lambda: vault.transition_claim(claim_id, "approved", body.note, body.expected_status))
-
-    @app.post("/api/claims/{claim_id:path}/reject")
-    def reject_claim(claim_id: str, body: DecisionIn):
-        return claim_errors(lambda: vault.transition_claim(claim_id, "rejected", body.note, body.expected_status))
-
-    @app.post("/api/claims/{claim_id:path}/contest")
-    def contest_claim(claim_id: str, body: DecisionIn):
-        return claim_errors(lambda: vault.transition_claim(claim_id, "contested", body.note, body.expected_status))
-
-    @app.post("/api/claims/{claim_id:path}/supersede")
-    def supersede_claim(claim_id: str, body: SupersedeIn):
-        return claim_errors(lambda: vault.supersede_claim(claim_id, body.text, body.source_ids, body.note, body.expected_status))
-
-    @app.post("/api/claims/{claim_id:path}/revalidate")
-    def revalidate_claim(claim_id: str, body: RevalidateIn):
-        reviewed = [item.model_dump() for item in body.evidence]
-        return claim_errors(lambda: vault.revalidate_claim(claim_id, reviewed, body.note, body.expected_status))
-
-    @app.delete("/api/claims/{claim_id:path}")
-    def remove_claim(claim_id: str):
-        if not vault.delete_claim(claim_id):
-            raise HTTPException(status_code=404, detail="Claim not found")
-        return {"removed": True}
-
-    @app.get("/api/export")
-    def export():
-        from fastapi.responses import Response
-        try:
-            body = json.dumps(vault.export(), indent=2)
-        except store.VaultStateInvalid as exc:
-            # Never hand out a backup that a restore would reject or silently shorten (ADR-0006).
-            raise HTTPException(status_code=409, detail=str(exc))
-        if len(body.encode("utf-8")) > store.MAX_BACKUP_BYTES:
-            # Never hand out a backup that import/restore would refuse.
-            raise HTTPException(status_code=413, detail="Vault exceeds the V0 single-file backup limit; nothing was exported.")
 ```
 
 ## Outline of R6

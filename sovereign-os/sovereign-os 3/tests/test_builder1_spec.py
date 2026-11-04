@@ -1,4 +1,4 @@
-"""Consistency checks for the Builder 1 specification (docs/engineering/builder-1/, PROPOSED, revision 3; Issue #22).
+"""Consistency checks for the Builder 1 specification (docs/engineering/builder-1/, PROPOSED, revision 4; Issue #22).
 
 No implementation exists. These tests keep the specification's own artifacts honest:
 
@@ -29,7 +29,7 @@ import pytest
 PROJECT = Path(__file__).resolve().parents[1]
 SPEC_DIR = PROJECT / "docs" / "engineering" / "builder-1"
 SCHEMAS = ("context-package.schema.json", "benchmark-run.schema.json", "gold-sheet.schema.json",
-           "benchmark-freeze.schema.json")
+           "benchmark-freeze.schema.json", "freeze-plan.schema.json", "benchmark-tasks.schema.json")
 SUPPORTED = {"$schema", "$id", "title", "description", "type", "additionalProperties", "required", "properties",
              "$defs", "$ref", "const", "enum", "pattern", "minLength", "maxLength", "minimum", "maximum", "minItems",
              "maxItems", "items"}
@@ -157,6 +157,12 @@ def cut512(text):
     return (text, False) if len(data) <= 512 else (data[:512].decode("utf-8", errors="ignore"), True)
 
 
+def cut_name(name):
+    """SPEC.md §6.1: a symbol or outline name is cut to 256 UTF-8 bytes on a character boundary."""
+    data = name.encode("utf-8")
+    return (name, False) if len(data) <= 256 else (data[:256].decode("utf-8", errors="ignore"), True)
+
+
 def register_rows(lines):
     """(section, line number, text) for each body row of each table under a `## ` heading."""
     rows, section = [], None
@@ -269,6 +275,221 @@ def rendering():
     return (SPEC_DIR / "context-package.example.md").read_text(encoding="utf-8")
 
 
+OBSERVATION_LABEL = "- Local observations, not part of the fingerprint:"
+
+
+def canonical_rendering(text):
+    """SPEC.md §6.2 and §7.4: the rendering without its two observation lines (the label and its fenced block)."""
+    lines = text.split("\n")
+    at = lines.index(OBSERVATION_LABEL)
+    end = next(n for n in range(at + 2, len(lines)) if lines[n] == lines[at + 1].removesuffix("text"))
+    return "\n".join(lines[:at] + lines[end + 1:])
+
+
+# --- F-10: finalization never depends on observations -----------------------------------------------------------------
+
+OBSERVATIONS = {
+    "bare": {"working_tree": "none", "repository_kind": "bare", "git_version": "git version 2.43.0",
+             "python_version": "3.13", "replace_refs_ignored": 0, "preflight": "passed"},
+    "clean work tree": {"working_tree": "clean", "repository_kind": "work_tree", "git_version": "git version 2.43.0",
+                        "python_version": "3.13", "replace_refs_ignored": 0, "preflight": "passed"},
+    "dirty, longest Git version": {"working_tree": "dirty", "repository_kind": "work_tree", "git_version": "g" * 64,
+                                   "python_version": "3.11", "replace_refs_ignored": 999999, "preflight": "passed"},
+    "other Git, Python 3.12": {"working_tree": "clean", "repository_kind": "work_tree",
+                              "git_version": "git version 2.47.1 (Apple Git-154)", "python_version": "3.12",
+                              "replace_refs_ignored": 3, "preflight": "passed"},
+    # No observation names a path, an unrelated object or an ordinary ref (§7.2): another checkout path, with extra
+    # refs and a dangling commit, differs from the clean work tree only in the replace refs it ignored.
+    "other path, unrelated refs and objects": {"working_tree": "clean", "repository_kind": "work_tree",
+                                               "git_version": "git version 2.43.0", "python_version": "3.13",
+                                               "replace_refs_ignored": 2, "preflight": "passed"},
+}
+
+
+def spec_parameters():
+    """SPEC.md §6: the parameter table's defaults (the derived excerpt-budget row has no default of its own)."""
+    lines = spec_text().split("\n")
+    start = lines.index("## 6. Budgets, cardinality and finalization (F-7, F-10, F-15)")
+    defaults = {}
+    for line in lines[start + 1:]:
+        if line.startswith("#"):
+            break
+        row = re.match(r"^\| ((?:`[a-z_]+`(?:, )?)+) \| ([0-9][0-9, ]*) \|", line)
+        if row:
+            names, values = re.findall(r"`([a-z_]+)`", row[1]), row[2].strip().split(", ")
+            assert len(names) == len(values), line
+            defaults.update((n, int(v.replace(",", ""))) for n, v in zip(names, values))
+    return defaults
+
+
+def finalize(package, observations, rule):
+    """Prune optional items, last accepted first, by revision 3's rule or revision 4's (SPEC.md §6.2)."""
+    max_bytes, observation_bytes = spec_parameters()["max_output_bytes"], spec_parameters()["observation_bytes"]
+    package = copy.deepcopy(package)
+    while True:
+        if rule == "revision 3":           # the final output, observations included, against the whole bound
+            size, limit = len(canonical({"schema": "sovereign.devcontext.v1", "fingerprint": "sha256:" + "0" * 64,
+                                         "package": package, "observations": observations})), max_bytes
+        else:                              # canonical content only, against the bound less the fixed envelope
+            size, limit = len(canonical({"schema": "sovereign.devcontext.v1", "fingerprint": "sha256:" + "0" * 64,
+                                         "package": package})), max_bytes - observation_bytes
+        if size <= limit:
+            break
+        last = max(n for n, item in enumerate(package["items"]) if item["role"] == "optional")
+        package["items"].pop(last)
+    final = {"schema": "sovereign.devcontext.v1", "package": package, "observations": observations}
+    final["fingerprint"] = "sha256:" + hashlib.sha256(canonical(package)).hexdigest()
+    return package, len(canonical(final))
+
+
+def boundary_package():
+    """The example's package, padded so that its final JSON is exactly 49,152 bytes in a bare clone."""
+    out = example()
+    package = out["package"]
+    size = len(canonical({"schema": out["schema"], "fingerprint": out["fingerprint"], "package": package,
+                          "observations": OBSERVATIONS["bare"]}))
+    filler = {"what": "", "reason": "not_found"}
+    package["missing"].append(filler)
+    grown = len(canonical({"schema": out["schema"], "fingerprint": out["fingerprint"], "package": package,
+                           "observations": OBSERVATIONS["bare"]}))
+    filler["what"] = "x" * (49152 - grown)
+    return package, size
+
+
+def test_the_reviewers_counterexample_pruned_differently_under_revision_3():
+    """F-10 as reproduced: one canonical package, 49,152 bytes when bare and 49,158 in a work tree."""
+    package, _ = boundary_package()
+    sizes = {name: len(canonical({"schema": "sovereign.devcontext.v1", "fingerprint": "sha256:" + "0" * 64,
+                                  "package": package, "observations": OBSERVATIONS[name]}))
+             for name in ("bare", "clean work tree")}
+    assert sizes == {"bare": 49152, "clean work tree": 49158}
+    bare, _ = finalize(package, OBSERVATIONS["bare"], "revision 3")
+    work, _ = finalize(package, OBSERVATIONS["clean work tree"], "revision 3")
+    assert len(bare["items"]) == len(work["items"]) + 1          # the defect: one clone kept a window the other lost
+
+
+def test_finalization_is_identical_across_clones_and_fits_the_bound():
+    """F-10 corrected: identical packages, selections and fingerprints; every final output within the bound."""
+    package, _ = boundary_package()
+    for padding in (0, 300, 2000, 5000):                        # several boundary positions
+        padded = copy.deepcopy(package)
+        padded["missing"][-1]["what"] += "y" * padding
+        results = {name: finalize(padded, obs, "revision 4") for name, obs in OBSERVATIONS.items()}
+        packages = {canonical(p) for p, _ in results.values()}
+        assert len(packages) == 1, padding
+        kept = [[i["id"] for i in p["items"]] for p, _ in results.values()]
+        assert all(k == kept[0] for k in kept)
+        assert all(size <= spec_parameters()["max_output_bytes"] for _, size in results.values()), padding
+
+
+def test_the_observation_envelope_is_bounded_by_construction():
+    """SPEC.md §7.2 and §6.2: the worst-case observation member and block fit observation_bytes."""
+    schema = load("context-package.schema.json")
+    worst = {"working_tree": "clean", "repository_kind": "work_tree", "git_version": "g" * 64, "python_version": "3.13",
+             "replace_refs_ignored": 999999, "preflight": "passed"}
+    assert errors(worst, schema["$defs"]["observations"], schema) == []
+    member = len(',"observations":' + json.dumps(worst, sort_keys=True, separators=(",", ":"), ensure_ascii=True))
+    block = (f"{OBSERVATION_LABEL}\n```text\nworking tree clean; work_tree; {'g' * 64}; Python 3.13; "
+             f"replace refs ignored 999999\n```\n")
+    assert (member, len(block.encode())) == (226, 201)
+    assert "226 bytes" in spec_text() and "201 bytes" in spec_text()
+    assert max(member, len(block)) <= spec_parameters()["observation_bytes"]
+    reserve = schema["$defs"]["package"]["properties"]["parameters"]["properties"]["observation_bytes"]
+    assert reserve == {"const": spec_parameters()["observation_bytes"]}   # fixed, and large enough for the envelope
+    assert set(schema["$defs"]["observations"]["properties"]) == set(OBSERVATIONS["bare"])   # no path, no refs
+    assert all(errors(obs, schema["$defs"]["observations"], schema) == [] for obs in OBSERVATIONS.values())
+    for hostile in ('git "q', "git \\q", "git `q", "g" * 65):
+        bad = dict(worst, git_version=hostile)
+        assert errors(bad, schema["$defs"]["observations"], schema), hostile   # escapes and fences cannot grow it
+    assert canonical_rendering(rendering()).count(OBSERVATION_LABEL) == 0 and rendering().count(OBSERVATION_LABEL) == 1
+
+
+# --- F-11: the benchmark brackets the implementation --------------------------------------------------------------
+
+def test_the_lifecycle_never_makes_implementation_wait_for_the_freeze():
+    """F-11: the protocol is approved before implementation (L0); the tool and run inputs are frozen after it."""
+    plan = (SPEC_DIR / "BENCHMARK-PLAN.md").read_text(encoding="utf-8")
+    rows = {m[1]: [c.strip() for c in line.strip().strip("|").split("|")]
+            for line in plan.split("\n") if (m := re.match(r"^\| \*\*(L[0-5])\. ", line))}
+    assert list(rows) == ["L0", "L1", "L2", "L3", "L4", "L5"]
+    assert rows["L0"][1] == "before implementation" and rows["L0"][4] == "a tool commit, any hash, any gold sheet"
+    assert rows["L1"][3] == "L0" and rows["L1"][4] == "benchmark inputs or results"
+    assert rows["L2"][3] == "the merged implementation" and rows["L3"][3] == "the tool commit"
+    assert [rows[p][1] for p in ("L1", "L2", "L3", "L4", "L5")] == [
+        "after L0", "after L1 merges", "after L2", "after L3", "after L4"]
+    for name in ("SPEC.md", "BENCHMARK-PLAN.md", "FREEZE-TOOL.md"):
+        text = re.sub(r"\s+", " ", (SPEC_DIR / name).read_text(encoding="utf-8"))
+        assert not re.search(r"implementation waits for[^.]*(freeze|result)", text, re.IGNORECASE), name
+    spec = re.sub(r"\s+", " ", spec_text())
+    assert "It never waits for the benchmark *freeze*, which needs the implementation's own commit (phase L3)" in spec
+    assert "Approve the protocol before implementation. Its run inputs are frozen only after the implementation" in spec
+    assert "(BENCHMARK-PLAN §5, lifecycle phase L3)" in (SPEC_DIR / "FREEZE-TOOL.md").read_text(encoding="utf-8")
+
+
+# --- F-15: one overflow rule, and schema limits equal to the specification's ------------------------------------------
+
+def display_anchor(kind, value, matches, max_anchor_matches=4):
+    """SPEC.md §5.2 and §6.1, restated: decisions on the full set, then a bounded display with its count."""
+    matches = sorted(matches)
+    resolution = {0: "unresolved", 1: "resolved"}.get(len(matches), "ambiguous")
+    obligations = matches if 1 <= len(matches) <= max_anchor_matches else []
+    return {"kind": kind, "value": value, "resolution": resolution, "targets": matches[:8],
+            "target_count": len(matches)}, obligations
+
+
+def test_seventeen_targets_stay_ambiguous_bounded_and_without_obligations():
+    schema = load("context-package.schema.json")
+    for count in (17, 1000):
+        matches = [f"src/m{n:04d}.py:delete" for n in range(count)]
+        anchor, obligations = display_anchor("symbol", "delete()", matches)
+        assert errors(anchor, schema["$defs"]["anchor"], schema) == []
+        assert anchor["resolution"] == "ambiguous" and anchor["target_count"] == count and len(anchor["targets"]) == 8
+        assert obligations == []                                 # a bounded display never makes a unique anchor
+    anchor, obligations = display_anchor("symbol", "Vault.delete", ["src/store.py:Vault.delete"])
+    assert anchor["resolution"] == "resolved" and obligations == ["src/store.py:Vault.delete"]
+    anchor, obligations = display_anchor("symbol", "delete()", [f"m{n}.py:delete" for n in range(4)])
+    assert anchor["resolution"] == "ambiguous" and len(obligations) == 4 == len(anchor["targets"])
+
+
+def test_nine_finding_links_rank_fully_and_display_boundedly():
+    schema = load("context-package.schema.json")
+    item = copy.deepcopy(next(i for i in example()["package"]["items"] if i["role"] == "optional"))
+    for links in (9, 1000):
+        reasons = [f"anchor:F-{n}" for n in range(1, links + 1)] + ["terms:forget"]
+        item.update(reasons=reasons[:8], reasons_total=len(reasons))
+        assert errors(item, schema["$defs"]["item"], schema) == []
+        assert item["reasons_total"] == links + 1 and len(item["reasons"]) == 8
+    over = dict(item, reasons=[f"anchor:F-{n}" for n in range(9)])
+    assert errors(over, schema["$defs"]["item"], schema)        # an unbounded display is refused
+
+
+def spec_limit(field):
+    row = next(l for l in spec_text().splitlines() if l.startswith(f"| `{field}` |"))
+    return int(re.search(r"\| `[^`]+` \| ([\d,]+)", row).group(1).replace(",", ""))
+
+
+def test_schema_limits_equal_the_specification_overflow_table():
+    """SPEC.md §6.1: `context-package.schema.json` uses exactly the limits of the overflow table."""
+    schema = load("context-package.schema.json")
+    defs, package = schema["$defs"], schema["$defs"]["package"]["properties"]
+    pairs = {"task.terms": package["task"]["properties"]["terms"],
+             "task.anchors": package["task"]["properties"]["anchors"],
+             "task.anchors[].targets": defs["anchor"]["properties"]["targets"],
+             "items[].reasons": defs["item"]["properties"]["reasons"],
+             "findings": package["findings"], "tests": package["tests"], "conflicts": package["conflicts"],
+             "conflicts[].sides": defs["conflict"]["properties"]["sides"], "missing": package["missing"],
+             "omitted.top": package["omitted"]["properties"]["top"],
+             "inputs.candidate.changes": package["inputs"]["properties"]["candidate"]["properties"]["changes"],
+             "inputs.candidate.changes[].changed": defs["change"]["properties"]["changed"]}
+    for field, node in pairs.items():
+        assert node["maxItems"] == spec_limit(field), field
+    assert package["task"]["properties"]["text"]["maxLength"] == spec_limit("task.text")
+    assert defs["item"]["properties"]["symbol"]["maxLength"] == 256
+    assert (package["obligations"]["maxItems"], package["items"]["maxItems"], package["sources"]["maxItems"]) == \
+        (200, 200, 512)
+    assert 3 + 32 * 4 + 2 <= package["obligations"]["maxItems"]
+
+
 def test_schemas_use_only_keywords_this_validator_implements():
     for name in SCHEMAS:
         assert keywords(load(name), set()) <= SUPPORTED, name
@@ -305,12 +526,33 @@ def test_fingerprint_covers_the_package_and_never_the_observations():
         json.dumps(out["package"]).split('"'))
 
 
+def test_example_parameters_are_the_specification_defaults():
+    """SPEC.md §6: the example runs with the table's defaults. Only the two command-line parameters may vary."""
+    defaults = spec_parameters()
+    assert len(defaults) == 14 and example()["package"]["parameters"] == defaults
+    parameters = load("context-package.schema.json")["$defs"]["package"]["properties"]["parameters"]
+    assert sorted(parameters["required"]) == sorted(defaults)
+    spec = spec_text()
+    rows = {"max_output_bytes": r"\| `--max-output-bytes N` \| no \| 49,152 \| [^|]*?([\d,]+)–([\d,]+) \(§6\) \|",
+            "max_items": r"\| `--max-items N` \| no \| 40 \| ([\d,]+)–([\d,]+) \|"}
+    for name, value in defaults.items():
+        bounds = parameters["properties"][name]
+        if name in rows:                                      # §3: adjustable, within the command line's range
+            low, high = (int(g.replace(",", "")) for g in re.search(rows[name], spec).groups())
+            assert bounds == {"type": "integer", "minimum": low, "maximum": high} and low <= value <= high, name
+        else:                                                 # fixed in V1, so the limits of §6.1 hold
+            assert bounds == {"const": value}, name
+
+
 def test_example_respects_the_output_bound_and_the_per_field_limits():
     """F-7: the whole serialized output, JSON and Markdown, is bounded, not only the excerpts."""
     out = example()
     package, parameters = out["package"], out["package"]["parameters"]
+    limit = parameters["max_output_bytes"] - parameters["observation_bytes"]
     assert len(canonical(out)) <= parameters["max_output_bytes"]
     assert len(rendering().encode("utf-8")) <= parameters["max_output_bytes"]
+    assert len(canonical({"schema": out["schema"], "fingerprint": "sha256:" + "0" * 64, "package": package})) <= limit
+    assert len(canonical_rendering(rendering()).encode("utf-8")) <= limit
     sizes = [len(i["excerpt"].encode("utf-8")) for i in package["items"]]
     mandatory = [n for n, i in zip(sizes, package["items"]) if i["role"] != "optional"]
     core = [n for n, i in zip(sizes, package["items"]) if i["role"] == "core"]
@@ -323,7 +565,7 @@ def test_example_respects_the_output_bound_and_the_per_field_limits():
         assert len(source["path"].encode("utf-8")) <= 512
         assert source["status_line"] is None or len(source["status_line"].encode("utf-8")) <= 512
     assert len(package["task"]["text"]) <= 2000 and len(package["task"]["terms"]) <= 64
-    assert len(package["task"]["anchors"]) <= 32 and len(package["missing"]) <= 40
+    assert len(package["task"]["anchors"]) <= 32 and len(package["missing"]) <= 64
     assert sum(len(t["names"]) for t in package["tests"]) <= 60
     assert [i["id"] for i in package["items"]] == [f"S{n}" for n in range(1, len(package["items"]) + 1)]
     roles = [i["role"] for i in package["items"]]
@@ -439,7 +681,10 @@ def test_example_citations_symbols_classes_and_obligations_are_exact_at_the_pinn
             [sid] = obligation["sources"]
             outline = sources[sid]["outline"]
             expected = [[q, a, b] for q, (a, b) in definitions(lines_of[sid]).items()]
-            assert outline == {"entries": expected[:200], "omitted": max(0, len(expected) - 200)}
+            shown = expected[:200]
+            assert outline == {"entries": [[cut_name(q)[0], a, b] for q, a, b in shown],
+                               "omitted": max(0, len(expected) - 200),
+                               "names_truncated": sum(cut_name(q)[1] for q, _, _ in shown)}
             assert path_of[sid].endswith(obligation["anchor"])
         elif kind == "adr":
             [sid] = obligation["sources"]
@@ -472,8 +717,22 @@ def test_example_citations_symbols_classes_and_obligations_are_exact_at_the_pinn
         adr = "ADR-" + re.search(r"/docs/adr/(\d{4})-", path_of[status_side["source"]]).group(1)
         register = lines_of[row_sides[0]["source"]]
         named = [n for section, n, row in register_rows(register) if section == "Approved" and names(row, adr)]
-        assert [s["lines"] for s in row_sides] == [[n, n] for n in named]
+        assert conflict["sides_total"] == 1 + len(named)                     # §6.1: the full count
+        assert [s["lines"] for s in row_sides] == [[n, n] for n in named][:15]   # and at most 16 sides shown
     assert {m["reason"] for m in package["missing"]} >= {"outside_v1_scope"}
+    for anchor in package["task"]["anchors"]:                                 # §6.1: display bounded, count full
+        assert len(anchor["targets"]) == min(anchor["target_count"], 8)
+        assert anchor["resolution"] == {0: "unresolved", 1: "resolved"}.get(anchor["target_count"], "ambiguous")
+    for item in package["items"]:
+        assert len(item["reasons"]) == min(item["reasons_total"], 8) and item["symbol_truncated"] is False
+    per_file = [len(t["names"]) for t in package["tests"]]
+    full = {"findings": len(package["findings"]) == 20, "conflicts": len(package["conflicts"]) == 20,
+            "missing": len(package["missing"]) == 64, "test_files": len(package["tests"]) == 20,
+            "test_names": sum(per_file) == 60 or 30 in per_file}
+    assert len(package["findings"]) <= 20 and len(package["conflicts"]) <= 20 and len(package["missing"]) <= 64
+    assert len(package["tests"]) <= 20 and sum(per_file) <= 60 and all(n <= 30 for n in per_file)
+    for name, at_limit in full.items():                                      # nothing overflows below its limit
+        assert at_limit or package["overflow"][name] == 0, name
 
 
 MARKED = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]")
@@ -586,6 +845,8 @@ def test_benchmark_task_plan_is_executable_and_holds_no_hashes():
     """F-8 and F-11: pinned inputs behave as the plan says; hashes live only in the detached freeze manifest."""
     plan = load("benchmark-tasks.json")
     assert plan["schema"] == "sovereign.devcontext.benchmark-tasks.v3" and plan["status"].startswith("planned")
+    plan_schema = load("benchmark-tasks.schema.json")
+    assert errors(plan, plan_schema, plan_schema) == []
     assert not re.search(r'"[a-z_]*sha256[a-z_]*"|[0-9a-f]{64}', json.dumps(plan)), "the task plan holds no hashes"
     tasks = {t["id"]: t for t in plan["tasks"]}
     assert list(tasks) == ["T1", "T2", "T3", "T4"]
@@ -710,7 +971,8 @@ def test_collection_formats_accept_unmeasured_records_and_reject_invented_values
                 "tasks": [{"id": "T1", "set": "calibration", "held_out": False, "target": sha, "candidate": None,
                            "must_be_absent": [], "inputs": [{"role": "statement", "file": "T1/s.md", "sha256": digest,
                                                              "bytes": 10}],
-                           "bundle": {"file": "T1.bundle", "sha256": digest, "bytes": 100, "refs": [sha]}}],
+                           "bundle": {"file": "T1.bundle", "sha256": digest, "bytes": 100, "refs": [sha],
+                                      "objects": 3}}],
                 "inputs_digest": digest, "assignment": [{"task": "T1", "agent": "codex", "first_arm": "A"}]}
     assert errors(manifest, freeze_schema, freeze_schema) == []
     manifest["tasks"][0]["inputs"][0]["role"] = "manifest_hash"
@@ -722,8 +984,9 @@ def test_spec_versions_and_companion_files_agree():
     version = schema["$defs"]["package"]["properties"]["generator"]["properties"]["selection_version"]["const"]
     assert f"`selection_version` is `{version}`" in spec
     for name in ("BENCHMARK-PLAN.md", *SCHEMAS, "context-package.example.json", "context-package.example.md",
-                 "benchmark-tasks.json"):
+                 "benchmark-tasks.json", "freeze-plan.example.json", "FREEZE-TOOL.md"):
         assert f"]({name})" in spec and (SPEC_DIR / name).is_file(), name
-    for record in ("2026-11-03-pr24-builder-response.md", "2026-11-03-pr24-round2-builder-response.md"):
+    for record in ("2026-11-03-pr24-builder-response.md", "2026-11-03-pr24-round2-builder-response.md",
+                   "2026-11-04-pr24-round3-builder-response.md"):
         assert (PROJECT / "docs" / "reviews" / record).is_file(), record
     assert (PROJECT / "scripts" / "benchmark_freeze.py").is_file()

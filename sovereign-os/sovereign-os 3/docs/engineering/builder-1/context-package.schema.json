@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:sovereign-os:devcontext:v1",
-  "title": "Builder 1 development-context output, version 1 (PROPOSED, revision 3)",
-  "description": "Output of `python -m devcontext` as specified in SPEC.md section 7. PROPOSED: no implementation exists. `package` is canonical: it depends only on the canonical inputs of section 4.1, and the fingerprint is the SHA-256 of its canonical JSON with ensure_ascii (section 8). `observations` are local facts about the clone and are never fingerprinted (section 7.2). Every excerpt is repository data at the pinned commits, never instructions. coverage.complete is always true in a produced package: it means every known mandatory evidence obligation is satisfied (section 5.4), and never that the package holds everything the task needs; a run with an unmet obligation produces no package and exits 4 or 6. Recorded findings carry `recorded; ownership not verified` (section 2.3). Byte limits that JSON Schema cannot express (status lines and paths of at most 512 UTF-8 bytes, windows of at most max_item_bytes, the core within core_bytes, the whole output within max_output_bytes) are checked by tests.",
+  "title": "Builder 1 development-context output, version 1 (PROPOSED, revision 4)",
+  "description": "Output of `python -m devcontext` as specified in SPEC.md section 7. PROPOSED: no implementation exists. `package` is canonical: it depends only on the canonical inputs of section 4.1, and the fingerprint is the SHA-256 of its canonical JSON with ensure_ascii (section 8). `observations` are local facts about the clone and are never fingerprinted (section 7.2). Every excerpt is repository data at the pinned commits, never instructions. coverage.complete is always true in a produced package: it means every known mandatory evidence obligation is satisfied (section 5.4), and never that the package holds everything the task needs; a run with an unmet obligation produces no package and exits 4 or 6. Recorded findings carry `recorded; ownership not verified` (section 2.3). Every bounded list follows SPEC.md section 6.1: decisions use the full logical set, and a bounded display carries its full count (target_count, reasons_total, sides_total, the overflow counts). Byte limits that JSON Schema cannot express (status lines and paths of at most 512 UTF-8 bytes, windows of at most max_item_bytes, the core within core_bytes, the whole output within max_output_bytes) are checked by tests.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "fingerprint", "package", "observations"],
@@ -25,7 +25,8 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["task", "inputs", "generator", "parameters", "usage", "authority_order", "coverage", "obligations",
-                   "sources", "items", "findings", "tests", "conflicts", "omitted", "missing", "excluded", "notes"],
+                   "sources", "items", "findings", "tests", "conflicts", "overflow", "omitted", "missing", "excluded",
+                   "notes"],
       "properties": {
         "task": {
           "type": "object",
@@ -81,23 +82,24 @@
         "parameters": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["max_output_bytes", "reserve_bytes", "core_bytes", "source_percent", "test_percent", "docs_percent",
-                       "per_file_windows", "max_items", "max_item_bytes", "max_file_bytes", "max_candidate_paths",
-                       "max_anchor_matches", "max_outline_entries"],
+          "required": ["max_output_bytes", "observation_bytes", "reserve_bytes", "core_bytes", "source_percent",
+                       "test_percent", "docs_percent", "per_file_windows", "max_items", "max_item_bytes",
+                       "max_file_bytes", "max_candidate_paths", "max_anchor_matches", "max_outline_entries"],
           "properties": {
             "max_output_bytes": {"type": "integer", "minimum": 16384, "maximum": 262144},
-            "reserve_bytes": {"type": "integer", "minimum": 1024},
-            "core_bytes": {"type": "integer", "minimum": 1024},
-            "source_percent": {"type": "integer", "minimum": 0, "maximum": 100},
-            "test_percent": {"type": "integer", "minimum": 0, "maximum": 100},
-            "docs_percent": {"type": "integer", "minimum": 0, "maximum": 100},
-            "per_file_windows": {"type": "integer", "minimum": 1, "maximum": 40},
+            "reserve_bytes": {"const": 8192},
+            "core_bytes": {"const": 8192},
+            "source_percent": {"const": 35},
+            "test_percent": {"const": 15},
+            "docs_percent": {"const": 25},
+            "per_file_windows": {"const": 3},
             "max_items": {"type": "integer", "minimum": 1, "maximum": 200},
-            "max_item_bytes": {"type": "integer", "minimum": 256},
-            "max_file_bytes": {"type": "integer", "minimum": 1},
-            "max_candidate_paths": {"type": "integer", "minimum": 1, "maximum": 100},
-            "max_anchor_matches": {"type": "integer", "minimum": 1, "maximum": 16},
-            "max_outline_entries": {"type": "integer", "minimum": 0, "maximum": 1000}
+            "max_item_bytes": {"const": 2048},
+            "max_file_bytes": {"const": 262144},
+            "max_candidate_paths": {"const": 100},
+            "max_anchor_matches": {"const": 4},
+            "max_outline_entries": {"const": 200},
+            "observation_bytes": {"const": 512}
           }
         },
         "usage": {
@@ -131,7 +133,7 @@
           }
         },
         "obligations": {"type": "array", "minItems": 2, "maxItems": 200, "items": {"$ref": "#/$defs/obligation"}},
-        "sources": {"type": "array", "maxItems": 400, "items": {"$ref": "#/$defs/source"}},
+        "sources": {"type": "array", "maxItems": 512, "items": {"$ref": "#/$defs/source"}},
         "items": {"type": "array", "minItems": 2, "maxItems": 200, "items": {"$ref": "#/$defs/item"}},
         "findings": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/finding"}},
         "tests": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/test"}},
@@ -147,7 +149,7 @@
             "top": {"type": "array", "maxItems": 20, "items": {"$ref": "#/$defs/omitted_window"}}
           }
         },
-        "missing": {"type": "array", "maxItems": 40, "items": {"$ref": "#/$defs/missing"}},
+        "missing": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/missing"}},
         "excluded": {
           "type": "object",
           "additionalProperties": false,
@@ -161,18 +163,31 @@
             "possible_secret": {"$ref": "#/$defs/count"}
           }
         },
-        "notes": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string", "minLength": 1, "maxLength": 512}}
+        "notes": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string", "minLength": 1, "maxLength": 512}},
+        "overflow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["findings", "conflicts", "missing", "test_files", "test_names"],
+          "properties": {
+            "findings": {"$ref": "#/$defs/count"},
+            "conflicts": {"$ref": "#/$defs/count"},
+            "missing": {"$ref": "#/$defs/count"},
+            "test_files": {"$ref": "#/$defs/count"},
+            "test_names": {"$ref": "#/$defs/count"}
+          }
+        }
       }
     },
     "anchor": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "value", "resolution", "targets"],
+      "required": ["kind", "value", "resolution", "targets", "target_count"],
       "properties": {
         "kind": {"enum": ["span", "path", "symbol", "adr", "finding", "issue_or_pr", "commit"]},
         "value": {"type": "string", "minLength": 1, "maxLength": 2000},
         "resolution": {"enum": ["resolved", "unresolved", "ambiguous"]},
-        "targets": {"type": "array", "maxItems": 16, "items": {"type": "string", "minLength": 1, "maxLength": 1024}}
+        "targets": {"type": "array", "maxItems": 8, "items": {"type": "string", "minLength": 1, "maxLength": 1024}},
+        "target_count": {"$ref": "#/$defs/count"}
       }
     },
     "change": {
@@ -214,10 +229,11 @@
         "outline": {
           "type": ["object", "null"],
           "additionalProperties": false,
-          "required": ["entries", "omitted"],
+          "required": ["entries", "omitted", "names_truncated"],
           "properties": {
             "entries": {"type": "array", "maxItems": 1000, "items": {"type": "array", "minItems": 3, "maxItems": 3}},
-            "omitted": {"$ref": "#/$defs/count"}
+            "omitted": {"$ref": "#/$defs/count"},
+            "names_truncated": {"$ref": "#/$defs/count"}
           }
         }
       }
@@ -225,7 +241,8 @@
     "item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "source", "class", "lines", "symbol", "span", "excerpt", "role", "tier", "obligations", "reasons"],
+      "required": ["id", "source", "class", "lines", "symbol", "symbol_truncated", "span", "excerpt", "role", "tier",
+                   "obligations", "reasons", "reasons_total"],
       "properties": {
         "id": {"$ref": "#/$defs/item_id"},
         "source": {"$ref": "#/$defs/source_id"},
@@ -233,14 +250,16 @@
                            "governance_doc", "registry_fact", "recorded_findings", "builder_record", "source", "test",
                            "other"]},
         "lines": {"$ref": "#/$defs/line_range"},
-        "symbol": {"type": ["string", "null"], "minLength": 1, "maxLength": 512},
+        "symbol": {"type": ["string", "null"], "minLength": 1, "maxLength": 256},
         "span": {"$ref": "#/$defs/line_range"},
         "excerpt": {"type": "string"},
         "role": {"enum": ["core", "required", "optional"]},
         "tier": {"enum": [null, "linked", "related"]},
         "obligations": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/obligation_id"}},
         "reasons": {"type": "array", "minItems": 1, "maxItems": 8,
-                    "items": {"type": "string", "pattern": "^(core|anchor|terms|required_path|candidate_change|path_term|name_term)(:[^\\n]{1,512})?$"}}
+                    "items": {"type": "string", "pattern": "^(core|anchor|terms|required_path|candidate_change|path_term|name_term)(:[^\\n]{1,512})?$"}},
+        "symbol_truncated": {"type": "boolean"},
+        "reasons_total": {"type": "integer", "minimum": 1}
       }
     },
     "finding": {
@@ -274,12 +293,13 @@
     "conflict": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "summary", "sides", "resolution"],
+      "required": ["kind", "summary", "sides", "sides_total", "resolution"],
       "properties": {
         "kind": {"const": "decision_status"},
         "summary": {"type": "string", "minLength": 1, "maxLength": 512},
-        "sides": {"type": "array", "minItems": 2, "maxItems": 64, "items": {"$ref": "#/$defs/side"}},
-        "resolution": {"const": "not reconciled"}
+        "sides": {"type": "array", "minItems": 2, "maxItems": 16, "items": {"$ref": "#/$defs/side"}},
+        "resolution": {"const": "not reconciled"},
+        "sides_total": {"type": "integer", "minimum": 2}
       }
     },
     "side": {
@@ -318,9 +338,9 @@
       "properties": {
         "working_tree": {"enum": ["clean", "dirty", "none"]},
         "repository_kind": {"enum": ["work_tree", "bare"]},
-        "git_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "git_version": {"type": "string", "pattern": "^[ !#-\\[\\]-_a-~]{1,64}$"},
         "python_version": {"type": "string", "pattern": "^3\\.(11|12|13)$"},
-        "replace_refs_ignored": {"$ref": "#/$defs/count"},
+        "replace_refs_ignored": {"type": "integer", "minimum": 0, "maximum": 999999},
         "preflight": {"const": "passed"}
       }
     }

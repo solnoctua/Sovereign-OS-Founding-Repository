@@ -1,4 +1,4 @@
-# Builder 1: Git-first development-context compiler (specification, PROPOSED, revision 3)
+# Builder 1: Git-first development-context compiler (specification, PROPOSED, revision 4)
 
 **Status:** PROPOSED. Tier 2 specification for WP-5, [Issue #22](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/22).
 
@@ -7,9 +7,11 @@
   - **Revision 2** answered the first independent Codex Tier 2 audit, of `ed7776d`: F-1 to F-10.
   - **Revision 3 (2026-11-03)** answers the second independent review, of `a03c524`, as relayed in the founder's directive: F-5 and F-10 were partly open (P2), and F-11 was new (P1).
   - Revision 3 also corrects the further defects that the builder's own review found (round-2 builder record).
+  - **Revision 4 (2026-11-04)** answers the third independent review, of `5304b5b`: F-10 to F-15, all P2. Per the founder's directive, that review accepted F-5 and retained the earlier accepted corrections.
 - **The builder records**, which are not reviewer artifacts:
   - [`docs/reviews/2026-11-03-pr24-builder-response.md`](../../reviews/2026-11-03-pr24-builder-response.md) (round 1);
-  - [`docs/reviews/2026-11-03-pr24-round2-builder-response.md`](../../reviews/2026-11-03-pr24-round2-builder-response.md) (round 2).
+  - [`docs/reviews/2026-11-03-pr24-round2-builder-response.md`](../../reviews/2026-11-03-pr24-round2-builder-response.md) (round 2);
+  - [`docs/reviews/2026-11-04-pr24-round3-builder-response.md`](../../reviews/2026-11-04-pr24-round3-builder-response.md) (round 3).
   - The reviewer-owned findings are not in this repository, and nothing here closes them.
 - **Baseline:** `main` at `99f302637d95f3d78cdd26a9f75d7a8ca336be99`, with schema 5.
   - SB-2a has since merged: PR #21 merged into `main` as `374011976b210f8624d1155e13e5e244bba2c0b6` on 2026-11-03, and this branch includes it.
@@ -24,7 +26,7 @@
 | [`context-package.schema.json`](context-package.schema.json) | The output schema |
 | [`context-package.example.json`](context-package.example.json), [`context-package.example.md`](context-package.example.md) | An example output and its Markdown rendering, generated from Git objects by the builder's throwaway reference model (§7.3) |
 | [`benchmark-tasks.json`](benchmark-tasks.json) | The benchmark task plan. No hashes |
-| [`benchmark-freeze.schema.json`](benchmark-freeze.schema.json) | The detached freeze manifest. [`scripts/benchmark_freeze.py`](../../../scripts/benchmark_freeze.py) writes and verifies it |
+| [`benchmark-freeze.schema.json`](benchmark-freeze.schema.json), [`freeze-plan.schema.json`](freeze-plan.schema.json), [`freeze-plan.example.json`](freeze-plan.example.json), [`benchmark-tasks.schema.json`](benchmark-tasks.schema.json) | The detached freeze manifest, its single input (the freeze plan) and an example, and the task plan's schema. [`scripts/benchmark_freeze.py`](../../../scripts/benchmark_freeze.py) writes and verifies them; [`FREEZE-TOOL.md`](FREEZE-TOOL.md) is its usage guide |
 | [`benchmark-run.schema.json`](benchmark-run.schema.json), [`gold-sheet.schema.json`](gold-sheet.schema.json) | The benchmark's records and reviewer-owned gold sheets |
 
 ## 1. Purpose, scope and non-goals
@@ -361,9 +363,9 @@ The `issue_or_pr` expression is applied after URLs (`https?://\S+`) and Markdown
 
 At the baseline, the naive substring `#15` occurs 8 times on 7 lines, 5 of them link fragments. This rule keeps exactly the 3 issue references (AT-9).
 
-**Outcomes.** Every anchor is listed in `task.anchors` with `resolution` (`resolved`, `ambiguous` or `unresolved`) and its `targets`: full paths, `path:qualified-name`, `path:L-M`, or full SHAs.
+**Outcomes.** Every anchor is listed in `task.anchors` with `resolution` (`resolved`, `ambiguous` or `unresolved`), its `target_count`, and at most 8 of its `targets`, in sorted order: full paths, `path:qualified-name`, `path:L-M`, or full SHAs. Resolution and obligations are decided on the full count, never on the listed targets (§6.1).
 
-- **1 to `max_anchor_matches` (4) targets:** every target generates an obligation (§5.4), whether the anchor is resolved or ambiguous.
+- **1 to `max_anchor_matches` (4) targets:** every target generates an obligation (§5.4), whether the anchor is resolved or ambiguous. All of them are listed.
 - **More than 4 targets:** no obligation. `missing` says `ambiguous` and suggests qualifying the anchor.
 - **Unresolved:** no obligation, and `missing` says `unresolved`. An unresolved anchor is a fact about the commits: a task may name a method it is about to create. The Markdown header lists it prominently.
 - **`issue_or_pr`:** never an obligation. GitHub state is listed in `missing` as `outside_v1_scope`.
@@ -466,7 +468,9 @@ Outside the project root, the repository-root `AGENTS.md` and `CLAUDE.md` are `g
 
 **Score.** The distinct task terms in the window's text, plus the distinct task terms in its symbol or heading.
 
-**Tiers.** A candidate with at least one link is `linked`. One with no link but a score above 0 is `related`. Anything else is not a candidate.
+**Tiers.** The full set of links counts, for the tier and for the order, before any display limit. An item lists at most 8 reasons, with `reasons_total` giving the full number (§6.1).
+
+A candidate with at least one link is `linked`. One with no link but a score above 0 is `related`. Anything else is not a candidate.
 
 **Order:** `(tier, −links, −score, class rank, tree, path bytes, first line)`.
 
@@ -505,7 +509,7 @@ The sequence of acceptances is the **acceptance order** used by §6. Windows not
 
 - **Mandatory:** every record matched by a finding anchor (§5.4).
 - **Optional:** records whose `title` or `summary` shares a task term, ordered by (−shared terms, file path, `id`).
-- **Limits:** at most 20 findings in all, mandatory ones first. Each copied field is cut to 256 bytes on a character boundary, with `truncated: true`.
+- **Limits:** at most 20 findings in all, mandatory ones first. More than 20 mandatory findings exit 4: they are obligations, and none may be dropped. Optional findings beyond the room are counted in `overflow.findings`. Each copied field is cut to 256 bytes on a character boundary, with `truncated: true`.
 - **What is copied:** `id`, `severity`, `confidence`, `status` and `independent_disposition` (null if absent), verbatim, with the constant `attribution`. `builder_response` entries are not copied; the citation points to them.
 - **Unreadable files:** a findings file that is not a JSON object with a `findings` list is listed in `missing` as `unreadable`.
 
@@ -529,11 +533,12 @@ Revision 2's `stale_path` and `unknown_commit` checks are **withdrawn** to V1.1 
 - **`stale_path` flags every planned path.** This very specification names `devcontext/git.py`, for example.
 - Both need evaluation before they are worth their noise.
 
-## 6. Budgets and the output bound (F-7)
+## 6. Budgets, cardinality and finalization (F-7, F-10, F-15)
 
 | Parameter | Default | Meaning |
 | --- | --- | --- |
 | `max_output_bytes` | 49,152 | the whole serialized output: the JSON object, and separately its Markdown rendering |
+| `observation_bytes` | 512 | the fixed share of `max_output_bytes` kept for the observation envelope (§7.2). Canonical content must fit in the rest |
 | `reserve_bytes` | 8,192 | kept for everything that is not an excerpt |
 | excerpt budget | `max_output_bytes − reserve_bytes` | the UTF-8 bytes of all excerpts |
 | `core_bytes` | 8,192 | the core's excerpts (§5.4). At the baseline, a task anchoring ADR-0003 needs 3,103 bytes, and the register rows naming ADR-0006 alone are 2,351 bytes |
@@ -546,39 +551,63 @@ Revision 2's `stale_path` and `unknown_commit` checks are **withdrawn** to V1.1 
 | `max_anchor_matches` | 4 | targets of one anchor that become obligations |
 | `max_outline_entries` | 200 | outline entries per path |
 
-**Per-field limits.**
+**Only two parameters can be changed:** `max_output_bytes` and `max_items`, with `--max-output-bytes` and `--max-items` (§3). The others are fixed in V1 (D-4), and the schema holds each to its value. The limits of §6.1 are computed from those values, so they hold by construction: with `max_anchor_matches` at 16, for example, 32 anchors could need 517 obligations.
 
-| Field | Limit |
-| --- | --- |
-| task | 2,000 characters |
-| terms | 64 |
-| anchors | 32 |
-| a path | 512 bytes, or it is excluded (`unsafe_path`) |
-| a status line | 512 bytes, with `status_line_truncated: true` |
-| findings | 20; each copied field 256 bytes |
-| tests | 20 files, 30 names each, 60 names in all |
-| conflicts | 20 |
-| omitted windows listed | 20 (all are counted) |
-| changed ranges | 20 per candidate path (all are counted) |
-| missing | 40 |
-| notes | fixed sentences only |
+### 6.1 Cardinality and overflow (F-15)
 
-**The bound, step by step.**
+**One rule for every collection.** Every decision is made on the **full logical set**: whether an anchor resolves, whether it is ambiguous, whether it generates obligations, and how a window ranks. Only then is the **display** bounded. A bounded display always carries the full count, so it can never make an anchor look unique, an obligation look met, or a constraint disappear.
 
-1. **Mandatory evidence first.**
+| Field | Displayed at most | Beyond that |
+| --- | --- | --- |
+| `task.text` | 2,000 characters | exit 2 |
+| `task.terms` | 64 | the rest is counted in `terms_omitted`; terms only score |
+| `task.anchors` | 32 | exit 2: anchors carry obligations, so none may be dropped |
+| `task.anchors[].targets` | 8 | `target_count` is the full number. Resolution and obligations use it: 0 is `unresolved`, 1 `resolved`, more `ambiguous`; obligations exist only when it is 1 to `max_anchor_matches` (4), so every obligation's targets are listed |
+| `items[].reasons` | 8 | `reasons_total` is the full number. Tier and order use the full set of links (§5.5) |
+| `items[].symbol`, outline names | 256 bytes, cut on a character boundary | `symbol_truncated`, and the outline's `names_truncated` count |
+| `findings` | 20 | mandatory findings come first. More than 20 mandatory findings exit 4. Optional findings beyond the room are counted in `overflow.findings` |
+| `tests` | 20 files, 30 names each, 60 names in all | `overflow.test_files` and `overflow.test_names` |
+| `conflicts` | 20 | `overflow.conflicts` |
+| `conflicts[].sides` | 16 | `sides_total` |
+| `missing` | 64 | `overflow.missing` |
+| `omitted.top` | 20 | `omitted.count`, with `linked` and `related` |
+| `inputs.candidate.changes` | 100 | exit 4 (`max_candidate_paths`): the change map is mandatory |
+| `inputs.candidate.changes[].changed` | 20 | `ranges_omitted` |
+| `sources[].outline.entries` | `max_outline_entries` | `omitted` |
+| `obligations`, `items`, `sources` | 200, 200, 512 | cannot be exceeded: 32 anchors × 4 targets, plus 5, gives at most 133 obligations; items are at most `max_items`; sources are at most 498 by the same arithmetic |
+| a path | 512 bytes | the file is excluded (`unsafe_path`) |
+| a status line | 512 bytes | `status_line_truncated` |
+| a finding field | 256 bytes | the finding's `truncated` |
+| notes | 3 fixed sentences | — |
+
+`context-package.schema.json` uses exactly these limits, and `tests/test_builder1_spec.py` checks that the two agree.
+
+### 6.2 Finalization, step by step (F-10)
+
+**Order matters: canonical content is finished, and fingerprinted, before anything local is added.**
+
+1. **Resolve the canonical inputs** (§4.1).
+2. **Generate the candidates and the obligations** (§5).
+3. **Mandatory evidence must fit.**
    - The core's excerpts must fit `core_bytes`.
    - All mandatory excerpts must fit the excerpt budget, and their windows `max_items`.
    - Otherwise the run exits 4, saying how many bytes and items are needed and available.
-2. **Fill optional windows** (§5.5).
-3. **Serialize and render.** Serialize the JSON (compact, sorted keys, `ensure_ascii=True`) and render the Markdown.
-4. **Shrink.** While either exceeds `max_output_bytes`:
-   - remove the optional window accepted **last** (§5.5's acceptance order), and add it to `omitted`;
-   - rebuild the sources, the ids and the omitted list, then serialize and render again.
+4. **Fill optional windows** (§5.5).
+5. **Prune canonically.**
+   - **Measure** the *canonical output*: the compact JSON of `{schema, fingerprint, package}`, with `fingerprint` as a placeholder of its fixed 71-character length. Measure also the *canonical rendering*: the Markdown without the observation block.
+   - **Prune.** While either exceeds `max_output_bytes − observation_bytes`:
+     - remove the optional window accepted **last** (§5.5's acceptance order), and add it to `omitted`;
+     - rebuild the sources, ids and lists, and measure again.
+   - **Stop.** Each pass removes one window, so the loop ends. Mandatory items are never removed. If none is left to remove and the bound is still exceeded, the run exits 4.
+6. **Fingerprint** the package (§8).
+7. **Add the observations** (§7.2) and serialize the final JSON (compact, sorted keys, `ensure_ascii=True`). Render the final Markdown, which is the canonical rendering with the observation block inserted (§7.4).
+8. **Check the final bound.** Both outputs must be within `max_output_bytes`.
+   - This holds by construction. Every observation field is bounded, so the observation member serializes to at most 226 bytes and the observation block renders to at most 201 bytes, both under `observation_bytes`.
+   - A failure here would be a defect: the run exits 1 and never prunes canonical content.
 
-   Each pass removes one window, so the loop ends. Mandatory items are never removed.
-5. **Fail if it still does not fit.** If no optional window remains and the output still exceeds the bound, the run exits 4.
+**Why (F-10).** Revision 3 pruned until the *final* output fit, observations included. The same canonical package serialized to 49,152 bytes in a bare clone (`"none"`, `"bare"`) and to 49,158 in a work tree (`"clean"`, `"work_tree"`). At a 49,152-byte bound, only the work tree pruned a window, so two clones built different packages from the same inputs (round-3 record, F-10).
 
-The measured sizes are not written into the output, since they would refer to themselves. Tests measure them (AT-17).
+**No self-reference.** The fingerprint covers `package` only (§8), and its length is fixed, so measuring with a placeholder gives exactly the final size. The measured sizes are not written into the output. Tests measure them (AT-17).
 
 ## 7. Output
 
@@ -593,7 +622,7 @@ The output is one JSON object with four members, defined by [`context-package.sc
 
 | Field | Content |
 | --- | --- |
-| `task` | `text`, `terms`, `terms_omitted`, and `anchors` (each with `kind`, `value`, `resolution` and `targets`) |
+| `task` | `text`, `terms`, `terms_omitted`, and `anchors` (each with `kind`, `value`, `resolution`, `targets` (at most 8) and `target_count`) |
 | `inputs` | `project_root`; `target` (`commit`, `tree`); and `candidate`, which is null or holds `commit`, `tree`, `merge_base` and `changes` (`path`, `status`, `changed` [[first, last]…], `ranges_omitted`, `both_changed`) |
 | `generator` | `name`, `version`, `selection_version`, `stopwords_sha256`, `python_grammar` |
 | `parameters` | every value of §6 |
@@ -601,11 +630,12 @@ The output is one JSON object with four members, defined by [`context-package.sc
 | `authority_order` | null, or `item` (the core item holding the line) and `order` |
 | `coverage` | `complete` (always `true` in a produced package), `obligations` (their count) and `task_obligations` (those from anchors or the candidate) |
 | `obligations[]` | `id`, `kind`, `anchor`, `items` (the item ids that satisfy it), `sources` (the source ids that satisfy it: ADR status lines, outlines, findings files) |
-| `sources[]` | one entry per cited file version, numbered `R1`… in order of first citation: items, then obligations, then findings, then tests, then conflicts. Each has `id`, `path`, `commit`, `blob`, `status_line` (or null), `status_line_truncated`, and `outline` (null unless the path is anchored: `entries` [[name, first, last]…] and `omitted`) |
-| `items[]` | `id` (`S1`…), `source`, `class`, `lines` [first, last], `symbol` (or null), `span` [first, last], `excerpt`, `role` (`core`, `required` or `optional`), `tier` (null, `linked` or `related`), `obligations` (ids), `reasons` |
+| `sources[]` | one entry per cited file version, numbered `R1`… in order of first citation: items, then obligations, then findings, then tests, then conflicts. Each has `id`, `path`, `commit`, `blob`, `status_line` (or null), `status_line_truncated`, and `outline` (null unless the path is anchored: `entries` [[name, first, last]…], `omitted` and `names_truncated`) |
+| `items[]` | `id` (`S1`…), `source`, `class`, `lines` [first, last], `symbol` (or null), `symbol_truncated`, `span` [first, last], `excerpt`, `role` (`core`, `required` or `optional`), `tier` (null, `linked` or `related`), `obligations` (ids), `reasons` (at most 8), `reasons_total` |
 | `findings[]` | `source`, `id`, `severity`, `confidence`, `status`, `independent_disposition` (or null), `attribution` (the constant `"recorded; ownership not verified"`), `mandatory`, `truncated` |
 | `tests[]` | `source`, `names`, `command` |
-| `conflicts[]` | `kind` (`decision_status`), `summary`, `sides` (source ids and lines), `resolution` (the constant `"not reconciled"`) |
+| `conflicts[]` | `kind` (`decision_status`), `summary`, `sides` (source ids and lines, at most 16), `sides_total`, `resolution` (the constant `"not reconciled"`) |
+| `overflow` | the counts of entries not shown: `findings`, `conflicts`, `missing`, `test_files`, `test_names` (§6.1) |
 | `omitted` | `count`, `linked`, `related`, and `top` (at most 20 entries, each with `path`, `commit`, `lines` and `tier`) |
 | `missing[]` | `what` and `reason` (`outside_v1_scope`, `not_found`, `unresolved`, `ambiguous` or `unreadable`) |
 | `excluded` | counts by reason: `symlink_or_submodule`, `unsafe_path`, `forbidden_path`, `oversized`, `binary`, `possible_secret` |
@@ -628,10 +658,12 @@ The output is one JSON object with four members, defined by [`context-package.sc
 | --- | --- |
 | `working_tree` | `clean`, `dirty`, or `none` for a bare repository |
 | `repository_kind` | `work_tree` or `bare` |
-| `git_version` | the `git --version` string |
+| `git_version` | the first line of `git --version`, with every character that is not printable ASCII, or is `"`, `\` or `` ` ``, replaced by `?`, cut to 64 characters |
 | `python_version` | `major.minor` of the running interpreter |
-| `replace_refs_ignored` | the count of `refs/replace/*` |
+| `replace_refs_ignored` | the count of `refs/replace/*`, capped at 999,999 |
 | `preflight` | the constant `"passed"`, since a failure never produces output |
+
+**Bounded, and outside canonical pruning.** These bounds cap the envelope at 226 bytes of JSON and 201 bytes of Markdown, within `observation_bytes` (512). Pruning never sees them (§6.2).
 
 **Why separate.** Revision 1 put `working_tree` inside the fingerprinted data, so a clean, a dirty and a bare checkout of the same commit gave three fingerprints (round-1 record, F-10).
 
@@ -668,9 +700,9 @@ The output is one JSON object with four members, defined by [`context-package.sc
    - The anchors that are unresolved or too ambiguous.
    - The number of optional windows left out.
    - The number of conflicts.
-   - The observations, labelled as local.
+   - The observations, labelled as local, as exactly two lines: `- Local observations, not part of the fingerprint:` and a fenced block `working tree <w>; <kind>; <git_version>; Python <version>; replace refs ignored <n>`. The canonical rendering of §6.2 is this rendering without those two lines.
 3. **The task, the pinned inputs, the candidate's change map and the authority order.**
-4. **The anchors.**
+4. **The anchors**, each with its resolution and target count. An anchor with more than 8 targets says that the first 8 are listed. An item with more than 8 reasons says how many are shown.
 5. **The mandatory evidence:** the obligations, each with the items and sources that satisfy it, and then the core and required items.
 6. **The related evidence**, in tier order.
 7. **The outlines of anchored paths, the recorded findings** (headed "ownership not verified"), **the tests** (headed "suggested commands, not run"), **the conflicts** (headed "not reconciled"), **what was left out, what is missing, and the sources** with their status lines.
@@ -762,10 +794,10 @@ They are a backstop behind the source restriction (§1), not a privacy control.
 | --- | --- |
 | Out-of-range argument; task too long, empty or with NUL; more than 32 anchors; credential pattern in the task | exit 2 |
 | Not a Git repository; target or candidate unresolvable or ambiguous; no unique merge base; no unique project root (the one directory holding both `AGENTS.md` and `docs/SECURITY-GATE.md`); the `AGENTS.md` section or Security Gate line missing | exit 3 |
-| An anchored path that is not readable (§4.4); the core over `core_bytes`; mandatory excerpts over the excerpt budget or `max_items`; candidate changes over `max_candidate_paths`; the bound unmet with mandatory content only | exit 4 |
+| An anchored path that is not readable (§4.4); the core over `core_bytes`; mandatory excerpts over the excerpt budget or `max_items`; more than 20 mandatory findings; candidate changes over `max_candidate_paths`; the canonical bound unmet with mandatory content only | exit 4 |
 | A preflight condition (§4.2); Git older than 2.24; a Git limit (§4.3) | exit 5 |
 | A disclosure match in mandatory evidence or in the final output (§9) | exit 6 |
-| An unexpected exception | exit 1, with a fixed message |
+| An unexpected exception; the observation envelope exceeding its reserve (impossible with the bounds of §7.2) | exit 1, with a fixed message |
 | No authority-order line; no `.github/CODEOWNERS`; no findings file; no register | exit 0; `missing` |
 | An unresolved or over-ambiguous anchor; an anchored issue or PR | exit 0; `missing`, and the header lists it |
 | Optional windows that do not fit | exit 0; `omitted` |
@@ -831,12 +863,13 @@ They run the real command as a subprocess against synthetic repositories in temp
 | AT-14 | **Schema.** Every output validates against `context-package.schema.json` |
 | AT-15 | **Ranking (F-5).** At `3740119`, the nine natural-language tasks of the round-2 record, §6.1, include the sources that record lists as found. Relevant tests that rank below documents still enter through the test quota. Quotas and the per-file limit hold |
 | AT-16 | **Windows and completeness (F-5, F-6).** A task anchoring `Vault.delete` and `Vault._forget_plan` includes every window of both, and `_forget_plan` (2,104 bytes) is split into two. With a budget too small for them, the run exits 4 and names both anchors, with the bytes needed and available. A method outside the first 2 KiB of its class is delivered whole |
-| AT-17 | **Output bound (F-7).** For every fixture, the JSON and the Markdown are each at most `max_output_bytes`, and the per-field limits hold. The shrink loop removes in reverse acceptance order and is deterministic. A fixture whose mandatory content alone exceeds the bound exits 4 |
+| AT-17 | **Output bound and finalization (F-7, F-10).** For every fixture, the JSON and the Markdown are each at most `max_output_bytes`, and the limits of §6.1 hold. The shrink loop removes in reverse acceptance order and measures canonical content only. Boundary fixtures, including a package whose final JSON is 49,152 bytes in a bare clone and 49,158 in a work tree, give byte-identical packages, fingerprints, optional selections and `omitted` lists across bare, clean and dirty clones, Git version strings of 18 to 64 characters, checkout paths, and extra objects and refs. A fixture whose mandatory content alone exceeds the canonical bound exits 4 |
 | AT-18 | **Candidate (F-8).** For T2's commits: `merge_base` is `8ea54b5`; the change map has the 11 candidate paths, with changed line ranges; `both_changed` is set exactly for `SECOND-BRAIN-VALIDATION.md`; and candidate items cite `59272b8`. An ambiguous merge base exits 3. More than `max_candidate_paths` changed paths exits 4 |
 | AT-19 | **Decision scope (F-4).** At `99f3026`, a task anchoring ADR-0005 carries every register row naming it, verbatim. No field presents D15 text as approved |
 | AT-20 | **Old commits (F-8).** At `eeed753` (T1's start), a run succeeds, with `authority_order: null` recorded in `missing` |
 | AT-21 | **Obligations (F-5).** Each of these gives its documented result: a missing method (unresolved, exit 0); methods over budget (exit 4); several ADRs over `core_bytes` 4,096 (exit 4), and the same task at 8,192 (exit 0); a task with no anchors (`task_obligations` 0, and the header says so); a path anchor (an outline, with no claim about methods); mandatory evidence matching a pattern (exit 6). No produced package has an unmet obligation, which is checked by recomputing every obligation from the output |
 | AT-22 | **CLI.** `--help` documents every argument, limit and exit code. Standard output, `--out`, JSON and Markdown all work from the project directory of a clean checkout. Every exit code is reachable and prints nothing on standard output |
+| AT-23 | **Cardinality (F-15).** An anchor matching 17 definitions is `ambiguous`, has `target_count` 17, lists 8 targets, and generates no obligation. A window linked to 9 findings ranks by all 9 links, and lists 8 reasons with `reasons_total` 10. The same holds, bounded, with 1,000 matches and 1,000 links. Every output validates against the schema |
 
 ## 14. Minimal implementation plan
 
@@ -863,7 +896,7 @@ This is for a separate PR, after the decisions in §15. The pipeline has one fun
 
 **Also delivered:**
 
-- AT-1 to AT-22 and the policy tests;
+- AT-1 to AT-23 and the policy tests;
 - a usage guide (`devcontext/README.md`) covering requirements, the commands, pinning, candidates, labels, refusals, limits, the separate GitHub-status handoff, removal, and how to reproduce the demonstrations;
 - three demonstration packages of real tasks (the store and Forget, SB-2a provenance, SB-2b planning), each checked against the source.
 
@@ -881,8 +914,8 @@ This is for a separate PR, after the decisions in §15. The pipeline has one fun
 | D-6 | **Development vault** (§2.4) | Defer; a separate ADR |
 | D-7 | **The `registry_vs_code`, `stale_path` and `commit_not_in_history` checks** (§5.8, §10) | V1.1, after evaluating their noise |
 | D-8 | **Dirty work tree:** observe it, or refuse it | Observe (§7.2) |
-| D-9 | **Review tier of the implementation PR** | Tier 2, with an independent reviewer artifact. Its acceptance rests on the real command and AT-1 to AT-22, never on this example |
-| D-10 | **Benchmark parameters** ([BENCHMARK-PLAN.md](BENCHMARK-PLAN.md) §11) | As proposed there |
+| D-9 | **Review tier of the implementation PR** | Tier 2, with an independent reviewer artifact. Its acceptance rests on the real command and AT-1 to AT-23, never on this example |
+| D-10 | **The benchmark protocol and its parameters** ([BENCHMARK-PLAN.md](BENCHMARK-PLAN.md) §5 phase L0, §11) | Approve the protocol before implementation. Its run inputs are frozen only after the implementation exists (phase L3) |
 | D-11 | **Verifying findings ownership:** signed commits or tags by a configured reviewer key | Defer. V1 labels every finding as recorded and unverified |
 | D-12 | **A CommonMark parser as a test-only dependency** for AT-10 | Use `markdown-it-py` in the `dev` extra only, as a test tool. The structural checks always run as well |
 | D-13 | **Supported environment** (§1): Linux and macOS, CPython 3.11–3.13, Git 2.24 or later | Approve; Windows later if needed |
@@ -892,6 +925,6 @@ This is for a separate PR, after the decisions in §15. The pipeline has one fun
 This branch changes no shared governance document. PR #21 merged on 2026-11-03 (`3740119`), so these edits no longer conflict with it. They wait for the founder's decisions. Then one documentation change should:
 
 - **BUILD §5.6:** replace the reuse sentence (D-2), and state V1's scope and the deferred development vault.
-- **ROADMAP §H, Builder 1 row:** on `main` at `3740119` the row still lists "SB-2a demonstrated useful; first-use trial" as its dependency. The founder relaxed the SB-2a dependency for the specification only (Issue #22). SB-2a has merged, and implementation waits for the founder's decisions and the benchmark freeze.
+- **ROADMAP §H, Builder 1 row:** on `main` at `3740119` the row still lists "SB-2a demonstrated useful; first-use trial" as its dependency. The founder relaxed the SB-2a dependency for the specification only (Issue #22). SB-2a has merged. Implementation waits only for the founder's approval of this specification, its decisions (§15) and the benchmark *protocol* (BENCHMARK-PLAN §5, phase L0). It never waits for the benchmark *freeze*, which needs the implementation's own commit (phase L3), or for benchmark results.
 - **The registry:** a `builder-1-devcontext` entry, with status `approved` on approval and `implemented` with the implementation.
 - **`docs/DEVELOPMENT.md`:** mention the package in *Canonical context and handoff*, after the benchmark.

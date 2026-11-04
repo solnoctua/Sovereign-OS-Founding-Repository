@@ -1,10 +1,15 @@
-# Builder 1 benchmark plan: manual handoffs against generated context (PLAN, revision 3, no results)
+# Builder 1 benchmark plan: manual handoffs against generated context (PLAN, revision 4, no results)
 
-**Status:** PLAN for [Issue #22](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/22), revision 3 (2026-11-03).
+**Status:** PLAN for [Issue #22](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/22), revision 4 (2026-11-04).
 
 - **No results.** No run has been executed. No gold sheet, hidden test, frozen handoff or Builder 1 implementation exists.
 - **No claims.** Gains are not presumed. The targets in §9 are hypotheses for the founder to adopt or reject, not expected results.
-- **What revision 3 changes.** It answers F-11 of the second independent Codex review (of `a03c524`), as relayed in the founder's directive of 2026-11-03: revision 2's freeze order and hash fields were cyclic and could not be executed.
+- **What revision 4 changes.** It answers F-11 to F-14 of the third independent review (of `5304b5b`), as relayed in the founder's directive of 2026-11-04.
+  - **F-11.** The lifecycle around the implementation is explicit (§5): the protocol is approved before implementation, and run inputs are frozen only after it.
+  - **F-12 and F-13.** The freeze tool takes one documented input, the freeze plan, derived by `prepare` from the task plan. Its verifier now checks presence as well as absence in a workspace. Its usage guide is [`FREEZE-TOOL.md`](FREEZE-TOOL.md).
+  - **F-14.** The tool reads a bundle header within fixed bounds, where revision 3 looped forever on a truncated one. `manifest` refuses a truncated or malformed header with exit 2, and `verify` reports it as a failed check (exit 1). Every Git call has a time limit.
+  - The builder record is [`docs/reviews/2026-11-04-pr24-round3-builder-response.md`](../../reviews/2026-11-04-pr24-round3-builder-response.md) (round 3).
+- **What revision 3 changed.** It answers F-11 of the second independent Codex review (of `a03c524`), as relayed in the founder's directive of 2026-11-03: revision 2's freeze order and hash fields were cyclic and could not be executed.
   - Inputs and the metadata that commits to them are now separate. The task plan in this repository holds no hashes (§3.2), and the hashes go into a **detached freeze manifest** that no bundle, input or source commit contains (§5).
   - [`scripts/benchmark_freeze.py`](../../../scripts/benchmark_freeze.py) builds the bundles, writes the manifest and verifies the whole commitment. `tests/test_benchmark_freeze.py` runs the freeze sequence end to end on synthetic artifacts.
   - A qualification stage now precedes any trusted use of the tool (§7.1).
@@ -48,16 +53,17 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
 - **Held-out tasks** are written by the founder after the tool freeze (§5, step 2). They are never shown to the Builder 1 implementer and are not used in tool design.
 - **Only their manifest hashes are committed** before the runs. Their statements are published with the results.
 
-### 3.2 The task plan and the freeze manifest (F-8, F-11)
+### 3.2 The task plan, the freeze plan and the freeze manifest (F-8, F-11, F-12)
 
-**Two different files, so that nothing commits to itself:**
+**Three files, so that nothing commits to itself and every tool input has one schema:**
 
 | File | Holds | Where it lives |
 | --- | --- | --- |
 | [`benchmark-tasks.json`](benchmark-tasks.json), the **task plan** | for each task: its set, kind and stage; the target, candidate and expected merge base; the paths present and absent at each commit; the commits that must be absent from its run environment; where its frozen statement comes from; the reference outcome of calibration tasks. **No hashes** | this repository. It may change until the freeze |
+| the **freeze plan** (schema [`freeze-plan.schema.json`](freeze-plan.schema.json), example [`freeze-plan.example.json`](freeze-plan.example.json)) | the input of `scripts/benchmark_freeze.py manifest`: each pinned task's commits, the commits that must be absent, its bundle file and its input-file bindings, plus the held-out tasks. `prepare` derives it from the task plan, and lists the unpinned tasks instead of inventing pins. **No hashes** | private, with the independent party, until the results PR |
 | the **freeze manifest** (shape: [`benchmark-freeze.schema.json`](benchmark-freeze.schema.json)) | the SHA-256 and size of every frozen input file, each bundle's SHA-256, size and refs, the tool commit and selection version, the protocol commit, the agents, and the arm assignment derived from the inputs | outside every bundle and every source commit (§5, step 8). Only its own SHA-256 is published, at step 9 |
 
-`tests/test_builder1_spec.py` checks the task plan's pinned facts against Git. `scripts/benchmark_freeze.py verify` checks a freeze manifest against its inputs and bundles.
+`tests/test_builder1_spec.py` checks the task plan's pinned facts against Git, and its schema (`benchmark-tasks.schema.json`). `scripts/benchmark_freeze.py verify` checks a freeze manifest against its inputs and bundles. Revision 3's tool read the task plan directly and failed with a traceback (`KeyError: 'target'`), because it expected a different, undocumented structure (round-3 record, F-12).
 
 ### 3.3 Calibration tasks
 
@@ -108,18 +114,21 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
 
 **Each run environment is built from a bundle,** with `scripts/benchmark_freeze.py`:
 
-1. **The bundle** (§5, step 5). `bundle --repo <trusted clone> --out <task>.bundle <target> [<candidate>]` creates `refs/heads/devcontext-freeze/<sha>` for each pinned commit, bundles exactly those refs, and deletes them again.
+1. **The bundle** (§5, step 5). `bundle --repo <trusted clone> --plan <freeze plan> --task <id> --bundles <dir>` creates `refs/heads/devcontext-freeze/<sha>` for each of the task's pinned commits, bundles exactly those refs, and deletes them again.
    - **The refs must be branches.** A plain `git clone` fetches only `refs/heads` and `refs/tags`. A bundle whose refs are elsewhere clones **empty**, and then every absence check passes vacuously.
    - The round-1 reproduction made exactly that mistake: its clone held 0 objects. Repeated correctly on the real repository, the bundle of T1's start holds 849 objects, all reachable from the start commit, and `8ea54b5` and `99f3026` are absent (round-2 builder record).
-2. **The workspace.** For each run:
-   - `git clone --no-checkout <task>.bundle <dir>`;
-   - `git -C <dir> checkout --detach <target>`;
-   - `git -C <dir> remote remove origin`.
-3. **Verify before the run** with `verify --manifest … --workspace <dir> --task <id>`. Any failure invalidates the run, and the run record says so (`environment.preflight_passed: false`). The checks are:
-   - **untrusted Git state:** shallow, alternates, grafts, promisor packs or configuration, replace refs, or any remote;
-   - **objects:** every object in the workspace, unreachable ones included, must be in the task's bundle;
-   - **later commits:** each commit in the task plan's `must_be_absent` must be missing;
-   - **private files:** no working-tree file may have the bytes of a frozen gold sheet, hidden test or evaluator instruction.
+2. **The workspace.** For each run, `workspace --manifest … --task <id> --arm A|B|N --out <dir>` builds it:
+   - it clones the task's bundle, checks out branch `work` at the target, and creates branch `candidate` for an integration task;
+   - it removes the remote and every other ref;
+   - it writes the arm's bootstrap files to `.devcontext/`: the frozen statement as `task.md`, and the frozen handoff (arm A) or the generated package's Markdown (arm B).
+3. **Verify the start state** with `verify --manifest … --workspace <dir> --task <id> --arm <arm> --record <file>`. Any failure exits 1 and invalidates the run; only a passing check writes the start record. The checks cover both **presence** and **absence**:
+   - **the repository:** a non-bare work tree at its own top level, not shallow, with no alternates, grafts, promisor state, replace refs or remotes, and only the configuration a fresh clone writes. Any other configuration could run a program during `git status`, so the work tree is then not inspected;
+   - **the commits:** HEAD is born, on `work`, at the target; the refs are exactly `work`, plus `candidate` for an integration task;
+   - **the objects:** exactly the task bundle's objects, none missing and none extra, unreachable ones included; no later commit;
+   - **the files:** no staged change, and no tracked file different from the target. No untracked or ignored file outside the arm's bootstrap allow-list. The bootstrap files are present, and byte-identical to the frozen inputs where those exist;
+   - **private material:** no file anywhere in the workspace, `.git` included, has the bytes of any task's gold sheet, hidden tests or evaluator instructions. Git lists no path inside a `.git` directory, and the scan follows no link to a directory, so a nested `.git`, and a symbolic link inside the repository's own `.git`, are refused outright.
+
+   Revision 3's verifier checked only absence. It accepted an empty repository, a checkout holding the later outcome's code, and a manifest with no tasks or agents ([round-3 record](../../reviews/2026-11-04-pr24-round3-builder-response.md), F-13). [`FREEZE-TOOL.md`](FREEZE-TOOL.md) lists every check and exit code.
 4. **Isolate the agent.**
    - Every run starts a fresh session. No memory or instruction file outside the repository may be read: Claude Code's user memory and auto-memory, and Codex's memory and global instructions, are disabled or empty, and this is recorded.
    - The workspace is rebuilt between runs. Patches, transcripts and reviewer answers never cross runs.
@@ -129,16 +138,38 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
    - A model's training data may contain the repository's later history.
    - Both are reasons to keep held-out tasks private and to report calibration apart (§12).
 
-## 5. Freeze order (F-11)
+## 5. Lifecycle and freeze order (F-11)
+
+### 5.1 Lifecycle around the implementation
+
+**The benchmark brackets the implementation.** It does not precede it, so nothing here waits for benchmark results before Builder 1 is built.
+
+| Phase | When | What happens | Needs | Never needs |
+| --- | --- | --- | --- | --- |
+| **L0. Protocol approval** | before implementation | The founder approves `SPEC.md`, its decisions (§15 there) and this plan: protocol, outcome criteria, cost ceiling, roles, metric definitions. The independent party for gold sheets, hidden tests and held-out tasks is named | — | a tool commit, any hash, any gold sheet |
+| **L1. Implementation** | after L0 | Builder 1 is built: the CLI, AT-1 to AT-23, the usage guide and three demonstrations. Codex audits it independently, and the founder decides on merging | L0 | benchmark inputs or results |
+| **L2. Tool freeze** | after L1 merges | The implementation commit and `selection_version` are recorded (step 2 below) | the merged implementation | — |
+| **L3. Run-input freeze** | after L2 | Steps 3 to 9 below: inputs written and hashed, bundles built and verified, the manifest written and its hash published. Held-out tasks are written now. Qualification (§7.1) runs on the calibration and pilot inputs frozen here | the tool commit | — |
+| **L4. Runs** | after L3 | Steps 10 and 11 | the published manifest | — |
+| **L5. Scoring and publication** | after L4 | Steps 12 and 13. The founder decides on adoption against §9 | the runs | — |
+
+**Four questions are kept apart:**
+
+- *Is the protocol approved?* That is L0.
+- *Is the implementation correct?* That is L1: AT-1 to AT-23 and the independent audit.
+- *Is it qualified for trusted use?* That is §7.1, in L3.
+- *Does it improve engineering outcomes?* That is the benchmark's result, in L5.
+
+### 5.2 Freeze order
 
 **Revision 2's order could not be executed.** Its gold sheet committed to the manifest's hash while the manifest committed to the gold sheet's. And it committed the manifest, holding the bundle's hash, into the repository whose commits a forward task's bundle contains. A manifest committed inside the bundle it describes never converges: in a reproduction, each attempt changed the bundle's hash (round-2 builder record, F-11).
 
-**Revision 3's order is a dependency graph in which every arrow points from a later artifact to earlier bytes:**
+**The order is a dependency graph in which every arrow points from a later artifact to earlier bytes.** It is revision 3's, except that steps 1 and 2 now name their lifecycle phases:
 
 | Step | Who | What | Commits to |
 | --- | --- | --- | --- |
-| 1 | Founder | Approves this plan (protocol, outcome criteria, cost ceiling, roles) and decides §11 | — |
-| 2 | Builder 1 implementer | Freezes the tool: the implementation commit and `selection_version` | — |
+| 1 | Founder | Approves this plan (protocol, outcome criteria, cost ceiling, roles) and decides §11. This is phase L0, before implementation | — |
+| 2 | Builder 1 implementer | Freezes the tool once the implementation has merged (L2): the implementation commit and `selection_version` | — |
 | 3 | Independent party | Writes, per task, the statement, the arm A handoff, the gold sheet, the hidden tests and the evaluator instructions, as files outside the repository. Held-out tasks are written now, after step 2 | the pinned source commits, by SHA only |
 | 4 | Independent party | Finalizes those files. From here their bytes never change | — |
 | 5 | Independent party | Builds each task's bundle from its pinned commits only (§4) | the pinned commits |
@@ -162,7 +193,7 @@ Benchmark 1 alone cannot show engineering value: a correct package can still slo
 
 - a missing input, or an input whose bytes no longer match its frozen hash;
 - an input that contains the manifest's hash or the inputs digest;
-- a bundle that changed, holds prerequisite commits, has refs other than the pinned commits, holds an unreachable object or a later commit, or stores an input or a freeze manifest;
+- a bundle that changed, has a malformed or unbounded header, holds prerequisite commits, has refs other than the pinned commits, holds an unreachable object or a later commit, or stores an input or a freeze manifest;
 - a manifest whose digest or assignment does not follow from its inputs;
 - a workspace that fails §4, step 3.
 
@@ -252,7 +283,7 @@ The controls use synthetic fixture repositories, never this repository's history
 
 ### 7.1 Qualification before trusted use
 
-**Before Builder 1's output is used as trusted development assistance** (including for SB-2b), it passes a qualification on the calibration and pilot tasks and on the adversarial controls of §6.3, scored as in Benchmark 1. It qualifies only if:
+**Before Builder 1's output is used as trusted development assistance** (including for SB-2b), it passes a qualification on the calibration and pilot tasks and on the adversarial controls of §6.3, scored as in Benchmark 1. This happens in phase L3 (§5.1), after the implementation exists, on the inputs frozen for those tasks. It qualifies only if:
 
 - **C2 is 100%:** no critical security or authority fact is missed;
 - **C5 and C6 are 0:** no asserted-authority error and no negative-fact violation;
