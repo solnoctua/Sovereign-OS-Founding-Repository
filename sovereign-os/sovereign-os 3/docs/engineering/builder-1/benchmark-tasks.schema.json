@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sovereign-os:devcontext:benchmark-tasks:v3",
+  "title": "Builder 1 benchmark task plan, version 3 (PROPOSED)",
+  "description": "The published task plan of BENCHMARK-PLAN.md section 3.2: pinned commits and expected structural facts, and no hashes. A task with no pinned target names when it will be pinned (pin_when) and has no environment. `scripts/benchmark_freeze.py prepare` validates it against this schema before deriving a freeze plan. PROPOSED.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "status",
+    "plan",
+    "hashes",
+    "project_root",
+    "task_statement_max_chars",
+    "sets",
+    "tasks"
+  ],
+  "properties": {
+    "schema": {
+      "const": "sovereign.devcontext.benchmark-tasks.v3"
+    },
+    "status": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "plan": {
+      "const": "docs/engineering/builder-1/BENCHMARK-PLAN.md"
+    },
+    "hashes": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "project_root": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "task_statement_max_chars": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2000
+    },
+    "sets": {
+      "type": "object"
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/task"
+      }
+    }
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "set",
+        "kind",
+        "stage",
+        "title",
+        "pin_when",
+        "inputs",
+        "expected",
+        "statement",
+        "handoff_a",
+        "environment",
+        "acceptance",
+        "reference_outcome"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9-]{0,31}$"
+        },
+        "set": {
+          "enum": [
+            "calibration",
+            "pilot",
+            "main"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "feature",
+            "bug_or_security",
+            "docs_or_reconciliation"
+          ]
+        },
+        "stage": {
+          "enum": [
+            "planning",
+            "implementation",
+            "integration"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "pin_when": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "candidate",
+            "expected_merge_base"
+          ],
+          "properties": {
+            "target": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "candidate": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "expected_merge_base": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{40}$"
+            }
+          }
+        },
+        "expected": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "present_at_target",
+            "absent_at_target",
+            "authority_order",
+            "present_at_candidate_only",
+            "candidate_changed_paths",
+            "both_changed_paths"
+          ],
+          "properties": {
+            "present_at_target": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "absent_at_target": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "present_at_candidate_only": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "candidate_changed_paths": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "both_changed_paths": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            },
+            "authority_order": {
+              "enum": [
+                null,
+                "present"
+              ]
+            }
+          }
+        },
+        "statement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        },
+        "handoff_a": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source"
+          ],
+          "properties": {
+            "source": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        },
+        "environment": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "bundle_refs",
+            "must_be_absent"
+          ],
+          "properties": {
+            "bundle_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 2,
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            },
+            "must_be_absent": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            }
+          }
+        },
+        "acceptance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "reference_outcome": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "required": [
+            "commits",
+            "reviews"
+          ],
+          "properties": {
+            "commits": {
+              "type": "object"
+            },
+            "reviews": {
+              "type": "string",
+              "maxLength": 1024
+            }
+          }
+        }
+      }
+    }
+  }
+}

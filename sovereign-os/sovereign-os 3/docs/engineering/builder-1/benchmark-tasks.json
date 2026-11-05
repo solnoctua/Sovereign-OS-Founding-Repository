@@ -1,0 +1,216 @@
+{
+  "schema": "sovereign.devcontext.benchmark-tasks.v3",
+  "status": "planned: no run executed, nothing frozen, no gold sheet exists",
+  "plan": "docs/engineering/builder-1/BENCHMARK-PLAN.md",
+  "hashes": "none: input and bundle hashes belong only to the detached freeze manifest (BENCHMARK-PLAN.md section 5)",
+  "project_root": "sovereign-os/sovereign-os 3",
+  "task_statement_max_chars": 2000,
+  "sets": {
+    "calibration": {
+      "tasks": [
+        "T1",
+        "T2"
+      ],
+      "evidence_of_gain": false
+    },
+    "pilot": {
+      "size": 6,
+      "mix": {
+        "feature": 2,
+        "bug_or_security": 2,
+        "docs_or_reconciliation": 2
+      },
+      "tasks": [],
+      "evidence_of_gain": false
+    },
+    "main": {
+      "min_size": 12,
+      "min_held_out": 4,
+      "min_per_kind": 3,
+      "forward": [
+        "T3",
+        "T4"
+      ],
+      "evidence_of_gain": true,
+      "held_out": "written after the tool freeze; listed only in the freeze manifest"
+    }
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "set": "calibration",
+      "kind": "bug_or_security",
+      "stage": "implementation",
+      "title": "Issue #6: schema-v5 repair of the hidden-rowid REPLACE bypass and of zero-source authority",
+      "pin_when": null,
+      "inputs": {
+        "target": "eeed753311382047fb2042515a5d2d0f68e94b04",
+        "candidate": null,
+        "expected_merge_base": null
+      },
+      "expected": {
+        "present_at_target": [
+          "AGENTS.md",
+          "docs/SECURITY-GATE.md",
+          "src/sovereign/store.py",
+          "src/sovereign/claims.py",
+          "docs/adr/0003-memory-claim-authority.md",
+          "tests/test_memory_claims.py"
+        ],
+        "absent_at_target": [
+          "docs/FOUNDER-DECISIONS.md",
+          "docs/engineering/BUILD-AND-INTEGRATION-PLAN.md"
+        ],
+        "authority_order": null,
+        "present_at_candidate_only": [],
+        "candidate_changed_paths": [],
+        "both_changed_paths": []
+      },
+      "statement": {
+        "source": "a founder-written statement of at most 2,000 characters for GitHub Issue #6, whose title (65 characters) and body (2,103 characters) exceed the limit verbatim"
+      },
+      "handoff_a": {
+        "source": "the founder's historical handoff for Issue #6 if provided, otherwise a new one limited to 49,152 bytes"
+      },
+      "environment": {
+        "bundle_refs": [
+          "eeed753311382047fb2042515a5d2d0f68e94b04"
+        ],
+        "must_be_absent": [
+          "04ba75ce7d59e62f7e2d021ac54cfa92e4303be1",
+          "8ea54b5e52a19e86b1239d83ee86416ece71c99d",
+          "99f302637d95f3d78cdd26a9f75d7a8ca336be99"
+        ]
+      },
+      "acceptance": "BENCHMARK-PLAN.md section 7, step 7",
+      "reference_outcome": {
+        "commits": {
+          "pr10_audited_head": "04ba75ce7d59e62f7e2d021ac54cfa92e4303be1",
+          "pr10_head": "8ea54b5e52a19e86b1239d83ee86416ece71c99d",
+          "main_after_pr20": "99f302637d95f3d78cdd26a9f75d7a8ca336be99"
+        },
+        "reviews": "Codex audits of 04ba75c (CHANGES REQUIRED: F-1 to F-4, F-8) and 8ea54b5 (PASS), as recorded in docs/reviews/2026-10-22-f9-f10-reconciliation.md; no reviewer-owned findings file is in the repository"
+      }
+    },
+    {
+      "id": "T2",
+      "set": "calibration",
+      "kind": "feature",
+      "stage": "integration",
+      "title": "SB-2a integration: PR #11 into main",
+      "pin_when": null,
+      "inputs": {
+        "target": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "candidate": "59272b882dfe7b9c7d5ac0027c199aaa95e9effb",
+        "expected_merge_base": "8ea54b5e52a19e86b1239d83ee86416ece71c99d"
+      },
+      "expected": {
+        "present_at_target": [
+          "AGENTS.md",
+          "docs/SECURITY-GATE.md",
+          "docs/FOUNDER-DECISIONS.md",
+          "docs/engineering/BUILD-AND-INTEGRATION-PLAN.md"
+        ],
+        "absent_at_target": [
+          "src/sovereign/provenance.py",
+          "tests/test_provenance.py"
+        ],
+        "authority_order": "present",
+        "present_at_candidate_only": [
+          "src/sovereign/provenance.py",
+          "tests/test_provenance.py"
+        ],
+        "candidate_changed_paths": [
+          "docs/reviews/2026-10-22-pr11-audit-remediation.md",
+          "docs/second-brain/SECOND-BRAIN-VALIDATION.md",
+          "src/sovereign/app.py",
+          "src/sovereign/provenance.py",
+          "src/sovereign/static/app.js",
+          "src/sovereign/static/index.html",
+          "src/sovereign/static/style.css",
+          "src/sovereign/store.py",
+          "tests/adversarial/test_pr11_audit_regressions.py",
+          "tests/adversarial/test_pr11_f7_allocation.py",
+          "tests/test_provenance.py"
+        ],
+        "both_changed_paths": [
+          "docs/second-brain/SECOND-BRAIN-VALIDATION.md"
+        ]
+      },
+      "statement": {
+        "source": "the founder's SB-2a integration instruction, frozen verbatim if the founder provides it, at most 2,000 characters"
+      },
+      "handoff_a": {
+        "source": "the founder's historical handoff for the SB-2a integration if provided, otherwise a new one limited to 49,152 bytes"
+      },
+      "environment": {
+        "bundle_refs": [
+          "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "59272b882dfe7b9c7d5ac0027c199aaa95e9effb"
+        ],
+        "must_be_absent": [
+          "4c34317c402bac2cdef8a2b9381b02ce760e9b63",
+          "b00a5b39dbca9673b273799c1e5e63b2912680e5",
+          "e6391784c3ef556cf4de74f9071d2a3fa48f0d9e",
+          "374011976b210f8624d1155e13e5e244bba2c0b6"
+        ]
+      },
+      "acceptance": "BENCHMARK-PLAN.md section 7, step 7",
+      "reference_outcome": {
+        "commits": {
+          "pr21_audited_head": "4c34317c402bac2cdef8a2b9381b02ce760e9b63",
+          "pr21_f9_correction": "b00a5b39dbca9673b273799c1e5e63b2912680e5",
+          "rehearsed_r11": "e6391784c3ef556cf4de74f9071d2a3fa48f0d9e",
+          "main_after_pr21": "374011976b210f8624d1155e13e5e244bba2c0b6"
+        },
+        "reviews": "Codex Tier 2 audit of 4c34317: CONDITIONAL PASS with an F-9 registry-boundary condition and F-12 (Issue #23), as handed off by the founder on PR #21; merged into main as 3740119 on 2026-11-03 after the founder's Code Owner approval of b00a5b3"
+      }
+    },
+    {
+      "id": "T3",
+      "set": "main",
+      "kind": "feature",
+      "stage": "planning",
+      "title": "SB-2b: plan the minimal snapshot exporter",
+      "pin_when": "main at or after 3740119 (PR #21 merged on 2026-11-03), pinned by the founder at the freeze",
+      "inputs": {
+        "target": null,
+        "candidate": null,
+        "expected_merge_base": null
+      },
+      "expected": null,
+      "statement": {
+        "source": "a planning request written by the founder at the freeze, at most 2,000 characters"
+      },
+      "handoff_a": {
+        "source": "a new handoff, limited to 49,152 bytes"
+      },
+      "environment": null,
+      "acceptance": "the independent reviewer accepts the plan (BENCHMARK-PLAN.md section 3.4)",
+      "reference_outcome": null
+    },
+    {
+      "id": "T4",
+      "set": "main",
+      "kind": "feature",
+      "stage": "implementation",
+      "title": "SB-2b: implement the approved plan",
+      "pin_when": "the commit at which the founder approves the SB-2b plan",
+      "inputs": {
+        "target": null,
+        "candidate": null,
+        "expected_merge_base": null
+      },
+      "expected": null,
+      "statement": {
+        "source": "the implementation request for the approved SB-2b plan, written by the founder, at most 2,000 characters"
+      },
+      "handoff_a": {
+        "source": "a new handoff, limited to 49,152 bytes"
+      },
+      "environment": null,
+      "acceptance": "an independent Tier 2 audit passes and the hidden tests pass (BENCHMARK-PLAN.md section 3.4)",
+      "reference_outcome": null
+    }
+  ]
+}

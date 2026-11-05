@@ -1,0 +1,66 @@
+{
+  "schema": "sovereign.devcontext.freeze-plan.v1",
+  "note": "Derived by scripts/benchmark_freeze.py prepare from docs/engineering/builder-1/benchmark-tasks.json. The independent party writes the input files, may change the bindings, and adds held-out tasks before running manifest.",
+  "tool": {
+    "commit": "1111111111111111111111111111111111111111",
+    "selection_version": "devcontext-selection-3"
+  },
+  "protocol_commit": "2222222222222222222222222222222222222222",
+  "agents": [
+    "claude-code",
+    "codex"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "set": "calibration",
+      "held_out": false,
+      "target": "eeed753311382047fb2042515a5d2d0f68e94b04",
+      "candidate": null,
+      "must_be_absent": [
+        "04ba75ce7d59e62f7e2d021ac54cfa92e4303be1",
+        "8ea54b5e52a19e86b1239d83ee86416ece71c99d",
+        "99f302637d95f3d78cdd26a9f75d7a8ca336be99"
+      ],
+      "bundle": "T1.bundle",
+      "inputs": {
+        "statement": "T1/statement.md",
+        "handoff_a": "T1/handoff_a.md",
+        "gold_sheet": "T1/gold_sheet.json",
+        "hidden_tests": "T1/hidden_tests.py",
+        "evaluator_instructions": "T1/evaluator_instructions.md"
+      }
+    },
+    {
+      "id": "T2",
+      "set": "calibration",
+      "held_out": false,
+      "target": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+      "candidate": "59272b882dfe7b9c7d5ac0027c199aaa95e9effb",
+      "must_be_absent": [
+        "4c34317c402bac2cdef8a2b9381b02ce760e9b63",
+        "b00a5b39dbca9673b273799c1e5e63b2912680e5",
+        "e6391784c3ef556cf4de74f9071d2a3fa48f0d9e",
+        "374011976b210f8624d1155e13e5e244bba2c0b6"
+      ],
+      "bundle": "T2.bundle",
+      "inputs": {
+        "statement": "T2/statement.md",
+        "handoff_a": "T2/handoff_a.md",
+        "gold_sheet": "T2/gold_sheet.json",
+        "hidden_tests": "T2/hidden_tests.py",
+        "evaluator_instructions": "T2/evaluator_instructions.md"
+      }
+    }
+  ],
+  "not_pinned": [
+    {
+      "id": "T3",
+      "pin_when": "main at or after 3740119 (PR #21 merged on 2026-11-03), pinned by the founder at the freeze"
+    },
+    {
+      "id": "T4",
+      "pin_when": "the commit at which the founder approves the SB-2b plan"
+    }
+  ]
+}

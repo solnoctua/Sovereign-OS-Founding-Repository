@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sovereign-os:devcontext:freeze-plan:v1",
+  "title": "Builder 1 benchmark freeze plan, version 1 (PROPOSED)",
+  "description": "The single input of `scripts/benchmark_freeze.py manifest` (FREEZE-TOOL.md). `prepare` derives it from the published task plan, benchmark-tasks.json: every pinned task, with default input bindings, and the unpinned tasks listed under not_pinned. The independent party then writes the input files, may change the bindings, and adds held-out tasks, which never appear in the published task plan. Bindings are paths relative to the inputs directory and must name regular files inside it; bundle names are files in the bundles directory. A task whose target is not pinned is refused. It holds no hashes: the manifest commits to the files it names. PROPOSED: no freeze plan exists yet.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "tool",
+    "protocol_commit",
+    "agents",
+    "tasks",
+    "not_pinned"
+  ],
+  "properties": {
+    "schema": {
+      "const": "sovereign.devcontext.freeze-plan.v1"
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "selection_version"
+      ],
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "selection_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "protocol_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "agents": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/task"
+      }
+    },
+    "not_pinned": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "pin_when"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Za-z0-9-]{0,31}$"
+          },
+          "pin_when": {
+            "type": "string",
+            "maxLength": 512
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "set",
+        "held_out",
+        "target",
+        "candidate",
+        "must_be_absent",
+        "bundle",
+        "inputs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z0-9-]{0,31}$"
+        },
+        "set": {
+          "enum": [
+            "calibration",
+            "pilot",
+            "main"
+          ]
+        },
+        "held_out": {
+          "type": "boolean"
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "candidate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "must_be_absent": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          }
+        },
+        "bundle": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*\\.bundle$",
+          "maxLength": 128
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "statement",
+            "handoff_a",
+            "gold_sheet",
+            "hidden_tests",
+            "evaluator_instructions"
+          ],
+          "properties": {
+            "statement": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*$",
+              "maxLength": 256
+            },
+            "handoff_a": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*$",
+              "maxLength": 256
+            },
+            "gold_sheet": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*$",
+              "maxLength": 256
+            },
+            "hidden_tests": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*$",
+              "maxLength": 256
+            },
+            "evaluator_instructions": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9_][A-Za-z0-9._-]*)*$",
+              "maxLength": 256
+            }
+          }
+        }
+      }
+    }
+  }
+}

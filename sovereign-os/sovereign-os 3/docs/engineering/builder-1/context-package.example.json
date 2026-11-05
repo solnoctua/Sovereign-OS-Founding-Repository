@@ -1,0 +1,1634 @@
+{
+  "schema": "sovereign.devcontext.v1",
+  "fingerprint": "sha256:477c1046256f001a21b2e3dcc9c5b86ba5a726e0e8253b1e66c6b1157c16415f",
+  "package": {
+    "task": {
+      "text": "Issue #15: Vault.delete, Vault.forget_preview and Vault._forget_plan in src/sovereign/store.py fail when stored text is not valid UTF-8. Keep the Forget contract of ADR-0003.",
+      "terms": [
+        "0003",
+        "adr",
+        "contract",
+        "delete",
+        "fail",
+        "forget",
+        "issue",
+        "keep",
+        "plan",
+        "preview",
+        "sovereign",
+        "src",
+        "store",
+        "stored",
+        "text",
+        "utf",
+        "valid",
+        "vault"
+      ],
+      "terms_omitted": 0,
+      "anchors": [
+        {
+          "kind": "issue_or_pr",
+          "value": "#15",
+          "resolution": "resolved",
+          "targets": [
+            "#15"
+          ],
+          "target_count": 1
+        },
+        {
+          "kind": "symbol",
+          "value": "Vault.delete",
+          "resolution": "resolved",
+          "targets": [
+            "sovereign-os/sovereign-os 3/src/sovereign/store.py:Vault.delete"
+          ],
+          "target_count": 1
+        },
+        {
+          "kind": "symbol",
+          "value": "Vault.forget_preview",
+          "resolution": "resolved",
+          "targets": [
+            "sovereign-os/sovereign-os 3/src/sovereign/store.py:Vault.forget_preview"
+          ],
+          "target_count": 1
+        },
+        {
+          "kind": "symbol",
+          "value": "Vault._forget_plan",
+          "resolution": "resolved",
+          "targets": [
+            "sovereign-os/sovereign-os 3/src/sovereign/store.py:Vault._forget_plan"
+          ],
+          "target_count": 1
+        },
+        {
+          "kind": "path",
+          "value": "src/sovereign/store.py",
+          "resolution": "resolved",
+          "targets": [
+            "sovereign-os/sovereign-os 3/src/sovereign/store.py"
+          ],
+          "target_count": 1
+        },
+        {
+          "kind": "adr",
+          "value": "ADR-0003",
+          "resolution": "resolved",
+          "targets": [
+            "sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md"
+          ],
+          "target_count": 1
+        }
+      ]
+    },
+    "inputs": {
+      "project_root": "sovereign-os/sovereign-os 3",
+      "target": {
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "tree": "0fcadc186de77a0cc70e3e3145cf4e7c40f4ba23"
+      },
+      "candidate": null
+    },
+    "generator": {
+      "name": "devcontext",
+      "version": "0.0.0-reference-model",
+      "selection_version": "devcontext-selection-3",
+      "stopwords_sha256": "d7201270c0b668153c2531f2646d5f0115bb8e6f388abe4a0841541939482c9b",
+      "python_grammar": "3.11"
+    },
+    "parameters": {
+      "max_output_bytes": 49152,
+      "reserve_bytes": 8192,
+      "core_bytes": 8192,
+      "source_percent": 35,
+      "test_percent": 15,
+      "docs_percent": 25,
+      "per_file_windows": 3,
+      "max_items": 40,
+      "max_item_bytes": 2048,
+      "max_file_bytes": 262144,
+      "max_candidate_paths": 100,
+      "max_anchor_matches": 4,
+      "max_outline_entries": 200,
+      "observation_bytes": 512
+    },
+    "usage": {
+      "excerpt_bytes": 20829,
+      "items": 22,
+      "mandatory_bytes": 7360,
+      "core_bytes": 3341
+    },
+    "authority_order": {
+      "item": "S3",
+      "order": [
+        "Constitution candidate (NOT RATIFIED)",
+        "founder decisions (`../FOUNDER-DECISIONS.md`)",
+        "approved ADRs",
+        "`ARCHITECTURE.md`",
+        "`ROADMAP.md` \u00a7H",
+        "this plan",
+        "bounded PRs"
+      ]
+    },
+    "coverage": {
+      "complete": true,
+      "obligations": 9,
+      "task_obligations": 5
+    },
+    "obligations": [
+      {
+        "id": "M1",
+        "kind": "agents",
+        "anchor": null,
+        "items": [
+          "S1"
+        ],
+        "sources": []
+      },
+      {
+        "id": "M2",
+        "kind": "security_gate",
+        "anchor": null,
+        "items": [
+          "S2"
+        ],
+        "sources": []
+      },
+      {
+        "id": "M3",
+        "kind": "authority_order",
+        "anchor": null,
+        "items": [
+          "S3"
+        ],
+        "sources": []
+      },
+      {
+        "id": "M4",
+        "kind": "symbol",
+        "anchor": "Vault.delete",
+        "items": [
+          "S9"
+        ],
+        "sources": []
+      },
+      {
+        "id": "M5",
+        "kind": "symbol",
+        "anchor": "Vault.forget_preview",
+        "items": [
+          "S10"
+        ],
+        "sources": []
+      },
+      {
+        "id": "M6",
+        "kind": "symbol",
+        "anchor": "Vault._forget_plan",
+        "items": [
+          "S11",
+          "S12"
+        ],
+        "sources": []
+      },
+      {
+        "id": "M7",
+        "kind": "path",
+        "anchor": "src/sovereign/store.py",
+        "items": [],
+        "sources": [
+          "R6"
+        ]
+      },
+      {
+        "id": "M8",
+        "kind": "adr",
+        "anchor": "ADR-0003",
+        "items": [
+          "S4",
+          "S5",
+          "S6"
+        ],
+        "sources": [
+          "R13"
+        ]
+      },
+      {
+        "id": "M9",
+        "kind": "codeowners",
+        "anchor": null,
+        "items": [
+          "S7",
+          "S8"
+        ],
+        "sources": []
+      }
+    ],
+    "sources": [
+      {
+        "id": "R1",
+        "path": "sovereign-os/sovereign-os 3/AGENTS.md",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "e7f71b65351570c9f3202e60af10877e133e410c",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R2",
+        "path": "sovereign-os/sovereign-os 3/docs/SECURITY-GATE.md",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "8afe381583594c6beae139ec17db55f8dfdfb149",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R3",
+        "path": "sovereign-os/sovereign-os 3/docs/engineering/BUILD-AND-INTEGRATION-PLAN.md",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "93998dee85cb3e1951e4af0e2f018d2e99b4a5b1",
+        "status_line": "**Status:** execution plan for founder review, consolidated 2026-10-22 from the founding investigation, two independent architecture reviews (2026-10-22) and the founder's implementation directive. **Supersedes** the provisional plan proposed in PR #7 (`docs/engineering-integration-plan-20261021`), whose verified starting position, integration seams and do-not-compromise checks are carried forward below. It is not an ADR, a constitutional amendment, a security certification or blanket approval to integrate ",
+        "status_line_truncated": true,
+        "outline": null
+      },
+      {
+        "id": "R4",
+        "path": "sovereign-os/sovereign-os 3/docs/FOUNDER-DECISIONS.md",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "787dea5a690eaf49761ddd7790c8ff7bdd4fd103",
+        "status_line": "**Status:** record of decisions, not a roadmap (sequence lives in `ROADMAP.md` \u00a7H; detail in `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`). Entries are short. A decision is binding only when listed under *Approved*. Writing a reviewer recommendation here does not approve it.",
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R5",
+        "path": ".github/CODEOWNERS",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "730433f00ead41241017783d0a73e08284d941a9",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R6",
+        "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "9e4a602cb33941ce2072b64f24f671e3fd54319c",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": {
+          "entries": [
+            [
+              "_abort",
+              71,
+              72
+            ],
+            [
+              "_no_nul",
+              268,
+              269
+            ],
+            [
+              "ForgetImpactChanged",
+              333,
+              334
+            ],
+            [
+              "VaultStateInvalid",
+              337,
+              349
+            ],
+            [
+              "VaultStateInvalid.__init__",
+              345,
+              349
+            ],
+            [
+              "evidence_hash",
+              352,
+              355
+            ],
+            [
+              "evidence_set_digest",
+              358,
+              362
+            ],
+            [
+              "_has_nul",
+              365,
+              366
+            ],
+            [
+              "_record_retrieval_state",
+              369,
+              375
+            ],
+            [
+              "_claim_retrieval_state",
+              378,
+              386
+            ],
+            [
+              "_encode_cursor",
+              389,
+              390
+            ],
+            [
+              "_decode_cursor",
+              393,
+              400
+            ],
+            [
+              "stamp",
+              403,
+              404
+            ],
+            [
+              "_is_text",
+              407,
+              408
+            ],
+            [
+              "_lineage_order",
+              411,
+              444
+            ],
+            [
+              "Vault",
+              447,
+              1284
+            ],
+            [
+              "Vault.__init__",
+              448,
+              451
+            ],
+            [
+              "Vault._migrate",
+              453,
+              496
+            ],
+            [
+              "Vault.connection",
+              498,
+              519
+            ],
+            [
+              "Vault._exists",
+              521,
+              523
+            ],
+            [
+              "Vault._record",
+              525,
+              527
+            ],
+            [
+              "Vault.add",
+              529,
+              548
+            ],
+            [
+              "Vault.get",
+              550,
+              553
+            ],
+            [
+              "Vault.search",
+              555,
+              565
+            ],
+            [
+              "Vault.context_candidates",
+              567,
+              649
+            ],
+            [
+              "Vault._forget_plan",
+              651,
+              679
+            ],
+            [
+              "Vault.forget_preview",
+              681,
+              684
+            ],
+            [
+              "Vault.delete",
+              686,
+              708
+            ],
+            [
+              "Vault._claim",
+              712,
+              743
+            ],
+            [
+              "Vault._get_claim",
+              745,
+              749
+            ],
+            [
+              "Vault._validate_new",
+              751,
+              764
+            ],
+            [
+              "Vault._creation_set",
+              766,
+              769
+            ],
+            [
+              "Vault._commit_set",
+              771,
+              774
+            ],
+            [
+              "Vault._insert_claim",
+              776,
+              793
+            ],
+            [
+              "Vault._new_claim",
+              795,
+              805
+            ],
+            [
+              "Vault._record_transition",
+              807,
+              814
+            ],
+            [
+              "Vault.add_claim",
+              816,
+              824
+            ],
+            [
+              "Vault.claims_page",
+              826,
+              848
+            ],
+            [
+              "Vault.list_claims",
+              850,
+              856
+            ],
+            [
+              "Vault.transition_claim",
+              858,
+              874
+            ],
+            [
+              "Vault.supersede_claim",
+              876,
+              890
+            ],
+            [
+              "Vault.revalidate_claim",
+              892,
+              930
+            ],
+            [
+              "Vault.delete_claim",
+              932,
+              938
+            ],
+            [
+              "Vault.export",
+              942,
+              949
+            ],
+            [
+              "Vault._checked_payload",
+              951,
+              969
+            ],
+            [
+              "Vault._structural_findings",
+              971,
+              977
+            ],
+            [
+              "Vault._undecodable_text",
+              979,
+              995
+            ],
+            [
+              "Vault._export_payload",
+              997,
+              1007
+            ],
+            [
+              "Vault._validity_findings",
+              1009,
+              1056
+            ],
+            [
+              "Vault._parse",
+              1058,
+              1159
+            ],
+            [
+              "Vault._can_introduce",
+              1161,
+              1185
+            ],
+            [
+              "Vault._insert_records",
+              1187,
+              1197
+            ],
+            [
+              "Vault.import_untrusted",
+              1199,
+              1241
+            ],
+            [
+              "Vault.restore_trusted",
+              1243,
+              1284
+            ],
+            [
+              "_rebuild_without_rowid",
+              1287,
+              1331
+            ],
+            [
+              "_statements",
+              1334,
+              1345
+            ]
+          ],
+          "omitted": 0,
+          "names_truncated": 0
+        }
+      },
+      {
+        "id": "R7",
+        "path": "sovereign-os/sovereign-os 3/src/sovereign/app.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "8f2ca8c0eb57d92b952f091cd06864bcfee0b26e",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R8",
+        "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_storage_integrity_rowid.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "c99921d0e91f6a30fae6c35dd639b7397609b832",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R9",
+        "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_context_compiler_adversarial.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "4deedaa064dd2754cc3e6955e64754917e454073",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R10",
+        "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_memory_claims_audit2.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "1894045b94f9e2aad099408842e6b0f7fc019479",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R11",
+        "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_memory_claims_audit1.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "6d727cc7d9940929135d7619f859fbfd8a4f9b40",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R12",
+        "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_memory_claims_codex_review.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "b8d25735f53cfac1a72124e24e03a0b4c0ccb0fa",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R13",
+        "path": "sovereign-os/sovereign-os 3/docs/adr/0003-memory-claim-authority.md",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "94aabdbc6eb94db9d65f6aa76df1ca7caa8e0d58",
+        "status_line": "- Status: Proposed (Benchmark 0001; Tier 2 \u2014 hardened after independent audits of `c847f9d` and `708e9de`; requires delta audit and founder approval)",
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R14",
+        "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_pr10_audit_regressions.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "075f8ab1895aeeaca902143e9418be7aa7eab330",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R15",
+        "path": "sovereign-os/sovereign-os 3/tests/test_schema_v5_migration.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "b641f361e1eb4c66843cd3ffe558537a72450571",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R16",
+        "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_embedded_nul.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "61c2de57f214394420f7383c0b55a91b85f18ed5",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R17",
+        "path": "sovereign-os/sovereign-os 3/tests/test_context_compiler.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "5846589889f5c09d2b6d6c616e8bea7b209cb028",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R18",
+        "path": "sovereign-os/sovereign-os 3/tests/test_memory_claims.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "37858b99bdc3ffbde6a4634f401d6b5518a70168",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R19",
+        "path": "sovereign-os/sovereign-os 3/tests/test_policy_invariants.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "1f8d17980561f247d8d73315f11a1d6ba9ab5684",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      },
+      {
+        "id": "R20",
+        "path": "sovereign-os/sovereign-os 3/tests/test_systems_registry.py",
+        "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+        "blob": "0a927167c338fe7c956aa0e8dc36e187803101b2",
+        "status_line": null,
+        "status_line_truncated": false,
+        "outline": null
+      }
+    ],
+    "items": [
+      {
+        "id": "S1",
+        "source": "R1",
+        "class": "governance_doc",
+        "lines": [
+          5,
+          13
+        ],
+        "symbol": "Read before consequential work",
+        "symbol_truncated": false,
+        "span": [
+          5,
+          13
+        ],
+        "excerpt": "## Read before consequential work\n\n1. `CONSTITUTION.md` \u2014 enduring principles; currently a ratification candidate. Do not change it unless the founder explicitly asks for a constitutional amendment.\n2. `ARCHITECTURE.md` \u2014 current technical direction and boundaries.\n3. `ROADMAP.md` \u2014 current milestones and priority order.\n4. `docs/SECURITY-GATE.md` \u2014 restrictions before real sensitive data use.\n5. Relevant ADRs in `docs/adr/`.\n6. For memory/retrieval, also read `docs/adr/0005-governed-second-brain-architecture.md`, `docs/second-brain/LEVELS-AND-OBSIDIAN.md`, and the benchmark for the feature's phase.\n7. For sequencing, work packages, external-repository adoption and enforcement boundaries, read `ROADMAP.md` \u00a7H, `docs/engineering/BUILD-AND-INTEGRATION-PLAN.md`, `ARCHITECTURE.md` \u00a714 and `docs/FOUNDER-DECISIONS.md`. The development loop and review tiers live only in `docs/DEVELOPMENT.md`; do not restate them here.",
+        "role": "core",
+        "tier": null,
+        "obligations": [
+          "M1"
+        ],
+        "reasons": [
+          "core:agents"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S2",
+        "source": "R2",
+        "class": "governance_doc",
+        "lines": [
+          3,
+          3
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          3,
+          3
+        ],
+        "excerpt": "**Current status: NOT PASSED. Synthetic or intentionally non-sensitive demonstrations only.**",
+        "role": "core",
+        "tier": null,
+        "obligations": [
+          "M2"
+        ],
+        "reasons": [
+          "core:security_gate"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S3",
+        "source": "R3",
+        "class": "governance_doc",
+        "lines": [
+          5,
+          5
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          5,
+          5
+        ],
+        "excerpt": "**Authority order:** Constitution candidate (NOT RATIFIED) \u2192 founder decisions (`../FOUNDER-DECISIONS.md`) \u2192 approved ADRs \u2192 `ARCHITECTURE.md` \u2192 `ROADMAP.md` \u00a7H \u2192 this plan \u2192 bounded PRs. This document never ratifies anything.",
+        "role": "core",
+        "tier": null,
+        "obligations": [
+          "M3"
+        ],
+        "reasons": [
+          "core:authority_order"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S4",
+        "source": "R4",
+        "class": "binding_decision",
+        "lines": [
+          10,
+          10
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          10,
+          10
+        ],
+        "excerpt": "| 2026-10-19 | ADR-0003 MemoryClaim authority; ADR-0004 governed retrieval and exact-plan disclosure (V0 decisions 1\u20136) | `store.py`, `claims.py`, `context.py` |",
+        "role": "core",
+        "tier": null,
+        "obligations": [
+          "M8"
+        ],
+        "reasons": [
+          "core:register_row:ADR-0003"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S5",
+        "source": "R4",
+        "class": "binding_decision",
+        "lines": [
+          21,
+          21
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          21,
+          21
+        ],
+        "excerpt": "| 2026-10-22 | **D-A** (A1, refined): claims made before schema 5, whose original evidence-set completeness cannot be proven, stay historically preserved but non-authoritative pending explicit human revalidation; revalidation shows the surviving evidence and lets the owner confirm or reconstruct through a governed process (no blind confirmation); future claims carry a write-once commitment to their complete evidence set; a separate integrity state, not new ordinary statuses; ADR-0003 amendments proposed explicitly | PR #20, the replacement for #10 (ADR-0006) |",
+        "role": "core",
+        "tier": null,
+        "obligations": [
+          "M8"
+        ],
+        "reasons": [
+          "core:register_row:ADR-0003"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S6",
+        "source": "R4",
+        "class": "binding_decision",
+        "lines": [
+          27,
+          27
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          27,
+          27
+        ],
+        "excerpt": "| 2026-10-31 | **Ratification of ADR-0006** (schema 5), its ADR-0003 evidence-integrity amendments and backup format 3, consistent with D-A, D-B and D-C: a claim has authority only if it is `approved`, `supported` and its evidence-set integrity is `committed`; claims approved before schema 5 without proof of complete evidence stay historically preserved but non-authoritative until governed revalidation; invalid migration and export states fail closed; embedded-NUL restrictions and legacy exceptions as implemented (ADR-0006 decision 6). No automatic unmanaged plaintext backup; no mandatory programmatic pre-upgrade export in PR #20; a verified backup and recovery procedure is required before any future non-disposable vault is deployed or migrated. Issue #17 is accepted as a separately tracked availability risk for this synthetic-only prototype, not for personal-data production use; Issues #14\u2013#17 remain open. The Security Gate remains NOT PASSED; no real personal-data migration or production SB-2 deployment is authorized. Given after the independent Codex Tier 2 audit of `ab51bae` returned PASS (2026-10-31) | ADR-0006, ADR-0003 (PR #20, the replacement for #10); `docs/SECURITY-GATE.md` |",
+        "role": "core",
+        "tier": null,
+        "obligations": [
+          "M8"
+        ],
+        "reasons": [
+          "core:register_row:ADR-0003"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S7",
+        "source": "R5",
+        "class": "other",
+        "lines": [
+          12,
+          12
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          12,
+          12
+        ],
+        "excerpt": "*                                                           @solnoctua",
+        "role": "core",
+        "tier": null,
+        "obligations": [
+          "M9"
+        ],
+        "reasons": [
+          "core:codeowners"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S8",
+        "source": "R5",
+        "class": "other",
+        "lines": [
+          15,
+          15
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          15,
+          15
+        ],
+        "excerpt": "/sovereign-os/sovereign-os\\ 3/src/sovereign/store.py        @solnoctua",
+        "role": "core",
+        "tier": null,
+        "obligations": [
+          "M9"
+        ],
+        "reasons": [
+          "core:codeowners"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S9",
+        "source": "R6",
+        "class": "source",
+        "lines": [
+          686,
+          708
+        ],
+        "symbol": "Vault.delete",
+        "symbol_truncated": false,
+        "span": [
+          686,
+          708
+        ],
+        "excerpt": "    def delete(self, record_id: str, expected_impact: str | None = None) -> dict | None:\n        \"\"\"Forget a source record, its earlier revisions and all dependent claims.\n\n        With `expected_impact` (the preview's token) the operation refuses to run if its effect has\n        changed since the preview, so a confirmation can never understate what is removed.\n        \"\"\"\n        with self.connection(write=True) as db:\n            plan = self._forget_plan(db, record_id)\n            if plan is None:\n                return None\n            if expected_impact is not None and expected_impact != plan[\"impact_token\"]:\n                raise ForgetImpactChanged(\"What Forget would remove changed since the preview; review it again.\")\n            claims_before = db.execute(\"SELECT count(*) FROM claims\").fetchone()[0]\n            ids = [r[\"id\"] for r in plan[\"records\"]]\n            # The storage trigger removes each record and forgets every claim citing it.\n            db.executemany(\"INSERT INTO tombstones (id,deleted_at) VALUES (?,?)\", [(rid, stamp()) for rid in ids])\n            removed = claims_before - db.execute(\"SELECT count(*) FROM claims\").fetchone()[0]\n            survivors = [c[\"id\"] for c in plan[\"claims\"] if self._exists(db, \"SELECT 1 FROM claims WHERE id=?\", c[\"id\"])]\n            if removed != plan[\"claims_forgotten\"] or survivors:\n                raise RuntimeError(\"Forget effect diverged from its plan; nothing was changed.\")   # rolls back\n            # Do not claim backup/WAL/forensic secure deletion here.\n            return {\"records_forgotten\": len(ids), \"claims_forgotten\": removed,\n                    \"record_ids\": ids, \"claim_ids\": [c[\"id\"] for c in plan[\"claims\"]]}",
+        "role": "required",
+        "tier": null,
+        "obligations": [
+          "M4"
+        ],
+        "reasons": [
+          "anchor:Vault.delete"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S10",
+        "source": "R6",
+        "class": "source",
+        "lines": [
+          681,
+          684
+        ],
+        "symbol": "Vault.forget_preview",
+        "symbol_truncated": false,
+        "span": [
+          681,
+          684
+        ],
+        "excerpt": "    def forget_preview(self, record_id: str) -> dict | None:\n        \"\"\"What Forget would remove right now (read-only).\"\"\"\n        with self.connection() as db:\n            return self._forget_plan(db, record_id)",
+        "role": "required",
+        "tier": null,
+        "obligations": [
+          "M5"
+        ],
+        "reasons": [
+          "anchor:Vault.forget_preview"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S11",
+        "source": "R6",
+        "class": "source",
+        "lines": [
+          651,
+          678
+        ],
+        "symbol": "Vault._forget_plan",
+        "symbol_truncated": false,
+        "span": [
+          651,
+          679
+        ],
+        "excerpt": "    def _forget_plan(self, db: sqlite3.Connection, record_id: str) -> dict | None:\n        \"\"\"The exact effect of forgetting `record_id` in the current state; None if it does not exist.\n\n        This is the single source of truth for Forget: the preview returns it and `delete` executes\n        it, so what the user confirms and what the vault does cannot drift apart. Forget covers the\n        record, every earlier revision still present (lineage walks backward), and every claim that\n        cites any of them (the storage trigger forgets exactly those claims).\n        \"\"\"\n        if not self._exists(db, \"SELECT 1 FROM records WHERE id=?\", record_id):\n            return None\n        ids = [record_id]\n        while True:\n            previous = db.execute(\"SELECT r.id FROM records r JOIN records s ON s.supersedes_id = r.id WHERE s.id=?\",\n                                  (ids[-1],)).fetchone()\n            if previous is None or previous[\"id\"] in ids:\n                break\n            ids.append(previous[\"id\"])\n        marks = \",\".join(\"?\" * len(ids))\n        claim_rows = db.execute(f\"\"\"SELECT * FROM claims WHERE id IN (SELECT claim_id FROM claim_sources WHERE record_id IN ({marks}))\n                                    ORDER BY created_at DESC, id DESC\"\"\", ids).fetchall()\n        claims = [self._claim(db, row) for row in claim_rows]\n        # The token covers what is removed *and* its authority: a decision taken after the preview\n        # (e.g. approving a listed claim) also invalidates the confirmation.\n        impact = hashlib.sha256(json.dumps([sorted(ids), sorted([c[\"id\"], c[\"status\"], c[\"authoritative\"]] for c in claims)])\n                                .encode()).hexdigest()\n        return {\"record_id\": record_id, \"impact_token\": impact,\n                \"records_forgotten\": len(ids), \"claims_forgotten\": len(claims),\n                \"records\": [self._record(db.execute(\"SELECT * FROM records WHERE id=?\", (rid,)).fetchone()) for rid in ids],",
+        "role": "required",
+        "tier": null,
+        "obligations": [
+          "M6"
+        ],
+        "reasons": [
+          "anchor:Vault._forget_plan"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S12",
+        "source": "R6",
+        "class": "source",
+        "lines": [
+          679,
+          679
+        ],
+        "symbol": "Vault._forget_plan",
+        "symbol_truncated": false,
+        "span": [
+          651,
+          679
+        ],
+        "excerpt": "                \"claims\": [{k: c[k] for k in (\"id\", \"text\", \"status\", \"origin\", \"authoritative\", \"source_ids\")} for c in claims]}",
+        "role": "required",
+        "tier": null,
+        "obligations": [
+          "M6"
+        ],
+        "reasons": [
+          "anchor:Vault._forget_plan"
+        ],
+        "reasons_total": 1
+      },
+      {
+        "id": "S13",
+        "source": "R6",
+        "class": "source",
+        "lines": [
+          1,
+          37
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          1,
+          68
+        ],
+        "excerpt": "\"\"\"Local source record vault.\n\nSource records are evidence. Memory claims are separate, source-linked\ninterpretations governed by `claims.py` (ADR-0003): created `proposed` and changed\nonly by explicit, recorded human decisions. A claim reaches a model only through\nthe Context Compiler (`context.py`, ADR-0004), and only when approved with intact\nevidence. Claim support is derived at read time from current evidence, so\ncorrecting a source record immediately stops dependent claims presenting as supported.\n\nDeleting a source record means *forget*: the record, its earlier revisions and\nevery claim derived from them are removed from the active DB and replaced by\ncontent-free identifier tombstones that block resurrection. Full secure erasure\nincluding backups/WAL is NOT provided.\n\"\"\"\nfrom __future__ import annotations\n\nimport base64\nfrom contextlib import contextmanager\nfrom datetime import datetime, timezone\nimport hashlib\nimport json\nfrom pathlib import Path\nimport sqlite3\nfrom typing import Iterator, Mapping\nfrom uuid import UUID, uuid4, uuid5\n\nfrom . import claims as rules\n\n# PRAGMA user_version. 0 = records-only vaults (ADR-0002). 1, 2, 3 = unreleased drafts (c847f9d, 708e9de, 36c9bbc).\n# 4 = ADR-0003 schema. 5 = the same tables, triggers and rules with the canonical tables below rebuilt\n# WITHOUT ROWID (ADR-0006, Issue #6), plus write-once evidence-set commitments (D-A) and the storage rejection\n# of embedded NUL in current canonical text and identifiers (D-C): SCHEMA5_ADDITIONS.\nSCHEMA_VERSION = 5\n# A hidden rowid let INSERT OR REPLACE / REPLACE naming an existing rowid, and UPDATE OR REPLACE ... SET rowid,\n# delete a row without firing its DELETE trigger whenever recursive_triggers is off (SQLite's default). Without a\n# rowid the only uniqueness constraint left is each table's primary key, which the BEFORE triggers guard.\n# claim_events keeps INTEGER PRIMARY KEY AUTOINCREMENT: its rowid *is* `seq`, guarded by claim_events_no_replace.",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "required_path",
+          "anchor:Vault.delete",
+          "anchor:ADR-0003",
+          "path_term:store",
+          "terms:0003,adr,delete,forget,issue,text,vault"
+        ],
+        "reasons_total": 5
+      },
+      {
+        "id": "S14",
+        "source": "R6",
+        "class": "source",
+        "lines": [
+          75,
+          102
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          75,
+          265
+        ],
+        "excerpt": "# Records that existed before the claims era (migrated from an ADR-0002 vault, or restored from a\n# backup of one) carry legacy = 1. They are preserved exactly as the ADR-0002 restore accepted them:\n# within the bounds below, and exempt from the newer lineage rules. Everything written now is\n# legacy = 0 and must meet the current bounds. Ordinary import never creates legacy rows.\nLEGACY_SCHEMA = \"\"\"\n    ALTER TABLE records ADD COLUMN legacy INTEGER NOT NULL DEFAULT 0 CHECK(legacy IN (0, 1));\n    UPDATE records SET legacy = 1;\n\"\"\"\n\n_ALLOWED = \", \".join(f\"'{key}'\" for key in rules.transition_keys())\n_TERMINAL = \", \".join(f\"'{s}'\" for s, targets in rules.TRANSITIONS.items() if not targets)\n_CLAIM_FORGOTTEN = \"EXISTS (SELECT 1 FROM claim_tombstones WHERE id = {})\"\n_RECORD_FORGOTTEN = \"EXISTS (SELECT 1 FROM tombstones WHERE id = {})\"\n\n# Version 3: additive only. Existing `records`/`tombstones` rows are untouched.\n# These triggers are the storage contract (ADR-0003). They hold for any connection issuing\n# INSERT/UPDATE/DELETE, including OR REPLACE / upsert forms, with or without\n# PRAGMA foreign_keys/recursive_triggers: every insert path is checked by a BEFORE INSERT trigger,\n# which runs before SQLite's REPLACE deletes, and from schema 5 the canonical tables have no hidden\n# rowid, so no statement can collide with a row except through its guarded primary key (ADR-0006;\n# before schema 5 a rowid collision deleted rows unguarded, Issue #6). They do not hold against\n# schema changes (DROP TRIGGER) or direct file edits by a process that already controls the vault file.\nCLAIMS_SCHEMA = f\"\"\"\n    CREATE TABLE claims (\n        id TEXT PRIMARY KEY CHECK(typeof(id) = 'text' AND length(id) BETWEEN 1 AND {MAX_ID}),\n        text TEXT NOT NULL CHECK(typeof(text) = 'text' AND length(text) BETWEEN 1 AND {rules.MAX_TEXT}),\n        origin TEXT NOT NULL CHECK(origin IN ('human', 'model', 'imported')),\n        status TEXT NOT NULL CHECK(status IN ('proposed', 'approved', 'rejected', 'contested', 'superseded')),",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "required_path",
+          "anchor:ADR-0003",
+          "path_term:store",
+          "terms:0003,adr,contract,delete,issue,text,vault"
+        ],
+        "reasons_total": 4
+      },
+      {
+        "id": "S15",
+        "source": "R6",
+        "class": "source",
+        "lines": [
+          932,
+          938
+        ],
+        "symbol": "Vault.delete_claim",
+        "symbol_truncated": false,
+        "span": [
+          932,
+          938
+        ],
+        "excerpt": "    def delete_claim(self, claim_id: str) -> bool:\n        \"\"\"Forget a claim: its tombstone removes the claim, its links and its history.\"\"\"\n        with self.connection(write=True) as db:\n            if not self._exists(db, \"SELECT 1 FROM claims WHERE id=?\", claim_id):\n                return False\n            db.execute(\"INSERT INTO claim_tombstones(id,deleted_at) VALUES (?,?)\", (claim_id, stamp()))\n            return True",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "required_path",
+          "path_term:store",
+          "name_term:delete",
+          "terms:delete,forget"
+        ],
+        "reasons_total": 4
+      },
+      {
+        "id": "S16",
+        "source": "R7",
+        "class": "source",
+        "lines": [
+          112,
+          155
+        ],
+        "symbol": "create_app",
+        "symbol_truncated": false,
+        "span": [
+          81,
+          313
+        ],
+        "excerpt": "        return Response((files(\"sovereign\").joinpath(\"static/style.css\")).read_text(encoding=\"utf-8\"), media_type=\"text/css\")\n\n    @app.get(\"/ui.js\")\n    def js():\n        from fastapi.responses import Response\n        return Response((files(\"sovereign\").joinpath(\"static/app.js\")).read_text(encoding=\"utf-8\"), media_type=\"application/javascript\")\n\n    @app.get(\"/api/status\")\n    def status():\n        return {\"mode\": \"prototype\", \"local\": True, \"providers\": providers.available(),\n                \"warning\": \"Synthetic/non-sensitive data only. No at-rest vault encryption or user authentication.\"}\n\n    @app.get(\"/api/memories\")\n    def list_memories(q: str = \"\"):\n        return {\"records\": vault.search(q, 60)}\n\n    @app.post(\"/api/memories\", status_code=201)\n    def add_memory(note: NoteIn):\n        try:\n            return vault.add(note.content, note.sensitivity)\n        except ValueError as e:\n            raise HTTPException(status_code=422, detail=str(e))\n\n    # `:path` because ADR-0002 accepted record ids of any text, including \"/\"; such a legacy record\n    # must still be previewable, correctable and above all forgettable.\n    @app.post(\"/api/memories/{record_id:path}/correct\")\n    def correct(record_id: str, note: NoteIn):\n        try:\n            return vault.add(note.content, note.sensitivity, supersedes_id=record_id)\n        except KeyError as e:\n            raise HTTPException(status_code=404, detail=str(e))\n        except ValueError as e:\n            raise HTTPException(status_code=422, detail=str(e))\n\n    @app.get(\"/api/memories/{record_id:path}/forget-preview\")\n    def forget_preview(record_id: str):\n        # Server-authoritative: exactly what DELETE would remove now (same plan, same code path).\n        plan = vault.forget_preview(record_id)\n        if plan is None:\n            raise HTTPException(status_code=404, detail=\"Record not found\")\n        return plan\n\n    @app.delete(\"/api/memories/{record_id:path}\")\n    def remove(record_id: str, expected_impact: str | None = None):",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "anchor:Vault.delete",
+          "anchor:Vault.forget_preview",
+          "terms:adr,delete,forget,plan,preview,sovereign,text,utf,vault"
+        ],
+        "reasons_total": 3
+      },
+      {
+        "id": "S17",
+        "source": "R8",
+        "class": "test",
+        "lines": [
+          1,
+          30
+        ],
+        "symbol": null,
+        "symbol_truncated": false,
+        "span": [
+          1,
+          30
+        ],
+        "excerpt": "\"\"\"Issue #6: hidden-rowid replacement and evidence-empty authority (ADR-0003 storage contract).\n\nInvariant under test: no SQL statement issued on an ordinary connection to the vault, in any\ncombination of `foreign_keys` and `recursive_triggers`, can delete, replace or re-key a canonical\nrow of `records`, `tombstones`, `claims`, `claim_sources`, `claim_tombstones` or `claim_events`\nwithout the corresponding storage guard firing. Every attack below must leave the canonical state\nexactly as it was, whether SQLite rejects the statement or a trigger ignores it.\n\nFounder-accepted invariant (2026-10-22): a MemoryClaim with missing, invalid, corrupted or\ninsufficiently verified required evidence is never authoritative, including when it has no\nevidence links at all.\n\nOut of scope, as ADR-0003 states: a process that can change the schema (DROP TRIGGER,\nwritable_schema) or rewrite the vault file. The zero-source tests below use such a process only\nto simulate corruption, then check that derivation never treats the result as authoritative.\n\"\"\"\nimport sqlite3\n\nimport pytest\n\nfrom sovereign import claims as rules\nfrom sovereign import context\nfrom sovereign.store import Vault\n\nT = \"2026-10-22T00:00:00+00:00\"\nCANONICAL = {\n    \"records\": \"id\", \"tombstones\": \"id\", \"claims\": \"id\",\n    \"claim_sources\": \"claim_id, record_id\", \"claim_tombstones\": \"id\", \"claim_events\": \"seq\",\n}\nROWID_FREE = (\"records\", \"tombstones\", \"claims\", \"claim_sources\", \"claim_tombstones\")",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "anchor:Vault.delete",
+          "anchor:ADR-0003",
+          "terms:0003,adr,contract,delete,issue,sovereign,store,vault"
+        ],
+        "reasons_total": 3
+      },
+      {
+        "id": "S18",
+        "source": "R9",
+        "class": "test",
+        "lines": [
+          283,
+          305
+        ],
+        "symbol": "test_verification_is_the_execution_point_and_no_vault_lock_spans_the_call",
+        "symbol_truncated": false,
+        "span": [
+          283,
+          305
+        ],
+        "excerpt": "def test_verification_is_the_execution_point_and_no_vault_lock_spans_the_call(client, poisoned, monkeypatch):\n    \"\"\"ADR-0004 linearization: the plan is recompiled and token-verified just before the provider call;\n    that verification is its execution point. No SQLite transaction is open during the network call,\n    and a change committed during it does not alter (or retroactively revoke) the bytes already authorised.\"\"\"\n    monkeypatch.setattr(providers, \"available\", lambda: [{\"id\": \"kimi\", \"ready\": True}])\n    vault, sent = client.app.state.vault, []\n\n    def generate(p, messages):\n        db = sqlite3.connect(vault.path, timeout=0.2, isolation_level=None)\n        db.execute(\"BEGIN EXCLUSIVE\")              # fails at once if any connection still holds a vault lock\n        db.execute(\"ROLLBACK\")\n        db.close()\n        vault.delete(poisoned[\"good\"][\"id\"])       # a Forget committing while the request is in flight\n        sent.append(messages)\n        return \"ok\"\n\n    monkeypatch.setattr(providers, \"generate\", generate)\n    plan = preview(client)\n    assert ask(client, plan).status_code == 200\n    assert sent == [plan[\"outbound\"][\"messages\"]]                       # exactly the verified plan, nothing more\n    after = json.dumps(preview(client))\n    assert \"ALLOWED-EVIDENCE\" not in after and \"ALLOWED-MEMORY\" not in after   # the next plan reflects the Forget\n    assert ask(client, plan).status_code == 409                          # and the old approval no longer executes",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "anchor:Vault.delete",
+          "name_term:vault",
+          "terms:adr,delete,forget,plan,preview,vault"
+        ],
+        "reasons_total": 3
+      },
+      {
+        "id": "S19",
+        "source": "R10",
+        "class": "test",
+        "lines": [
+          473,
+          489
+        ],
+        "symbol": "test_trusted_payload_cannot_forget_a_live_local_claim_by_rewriting_its_sources",
+        "symbol_truncated": false,
+        "span": [
+          473,
+          489
+        ],
+        "excerpt": "def test_trusted_payload_cannot_forget_a_live_local_claim_by_rewriting_its_sources(vault):\n    rec = vault.add(\"Invented note\")\n    gone = vault.add(\"Invented forgotten note\")\n    c = vault.add_claim(\"Local claim\", [rec[\"id\"]], \"human\")\n    vault.delete(gone[\"id\"])\n    backup = vault.export()\n    # The forgery keeps its commitment consistent; an inconsistent one is refused outright (ADR-0006, D-A).\n    forged = [{**x, \"source_ids\": [gone[\"id\"]], \"source_hashes\": {gone[\"id\"]: None},\n               \"evidence_set\": {**x[\"evidence_set\"], \"link_count\": 1,\n                                \"digest\": store.evidence_set_digest(x[\"id\"], {gone[\"id\"]: None})}} for x in backup[\"claims\"]]\n    with pytest.raises(ValueError, match=\"committed evidence set\"):\n        vault.restore_trusted({**backup, \"claims\": [{**x, \"source_ids\": [gone[\"id\"]], \"source_hashes\": {gone[\"id\"]: None}}\n                                                    for x in backup[\"claims\"]]})\n    result = vault.restore_trusted({**backup, \"claims\": forged})\n    assert result[\"claims_skipped_existing\"] == 1 and result[\"claims_forgotten\"] == 0\n    assert claims_of(vault)[c[\"id\"]][\"source_ids\"] == [rec[\"id\"]]\n    assert_coherent(vault)",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "anchor:Vault.delete",
+          "name_term:forget",
+          "terms:adr,delete,forget,store,vault"
+        ],
+        "reasons_total": 3
+      },
+      {
+        "id": "S20",
+        "source": "R11",
+        "class": "test",
+        "lines": [
+          155,
+          164
+        ],
+        "symbol": "test_cross_vault_record_forget_propagates_to_dependent_claims",
+        "symbol_truncated": false,
+        "span": [
+          155,
+          164
+        ],
+        "excerpt": "def test_cross_vault_record_forget_propagates_to_dependent_claims(client,tmp_path):\n    rec=create(client)\n    c=claim(client,[rec[\"id\"]],\"Restates the note\"); act(client,c[\"id\"],\"approve\")\n    old_a=client.get(\"/api/export\").json()\n    b=new_client(tmp_path,\"b.db\"); restore(b,old_a)\n    b.delete(f\"/api/memories/{rec['id']}\")\n    restore(client,b.get(\"/api/export\").json())\n    assert client.get(\"/api/memories\").json()[\"records\"]==[] and claims(client)=={}\n    restore(client,old_a); client.post(\"/api/import\",json=old_a)\n    assert client.get(\"/api/memories\").json()[\"records\"]==[] and claims(client)=={}",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "anchor:Vault.delete",
+          "name_term:forget,vault",
+          "terms:delete,forget,vault"
+        ],
+        "reasons_total": 3
+      },
+      {
+        "id": "S21",
+        "source": "R12",
+        "class": "test",
+        "lines": [
+          59,
+          62
+        ],
+        "symbol": "forget",
+        "symbol_truncated": false,
+        "span": [
+          59,
+          62
+        ],
+        "excerpt": "def forget(client, record_id, token=None, expect=200):\n    resp = client.delete(f\"/api/memories/{record_id}\", params={\"expected_impact\": token} if token else None)\n    assert resp.status_code == expect, resp.text\n    return resp.json()",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "anchor:Vault.delete",
+          "name_term:forget",
+          "terms:delete,forget,text"
+        ],
+        "reasons_total": 3
+      },
+      {
+        "id": "S22",
+        "source": "R7",
+        "class": "source",
+        "lines": [
+          156,
+          194
+        ],
+        "symbol": "create_app",
+        "symbol_truncated": false,
+        "span": [
+          81,
+          313
+        ],
+        "excerpt": "        # Forget: the record, its earlier revisions and every claim derived from them. With the\n        # preview's token the request fails (409) if the effect changed since it was confirmed.\n        try:\n            result = vault.delete(record_id, expected_impact)\n        except ForgetImpactChanged as e:\n            raise HTTPException(status_code=409, detail=str(e))\n        if result is None:\n            raise HTTPException(status_code=404, detail=\"Record not found\")\n        return {\"removed\": True, **result,\n                \"note\": \"Forgotten from active SQLite rows with dependent claims; backups/forensic copies not covered.\"}\n\n    def claim_errors(action):\n        try:\n            return action()\n        except KeyError as e:\n            raise HTTPException(status_code=404, detail=str(e.args[0]))\n        except TransitionError as e:\n            raise HTTPException(status_code=409, detail=str(e))\n        except sqlite3.IntegrityError as e:\n            raise HTTPException(status_code=409, detail=f\"Rejected by vault integrity rules: {e}\")\n        except ValueError as e:\n            raise HTTPException(status_code=422, detail=str(e))\n\n    @app.get(\"/api/claims\")\n    def list_claims(status: Literal[STATUSES] | None = None, cursor: str | None = None,\n                    limit: int = Query(default=100, ge=1, le=store.MAX_PAGE)):\n        # Newest first; follow `next_cursor` until it is null to reach every claim.\n        try:\n            return vault.claims_page(status, limit, cursor)\n        except ValueError as e:\n            raise HTTPException(status_code=422, detail=str(e))\n\n    @app.post(\"/api/claims\", status_code=201)\n    def add_claim(claim: ClaimIn):\n        return claim_errors(lambda: vault.add_claim(claim.text, claim.source_ids, \"human\"))\n\n    # Status changes are explicit local human actions; no model code path calls these.\n    # `:path`: a trusted restore accepts any 1-200 character claim id, so every listed claim stays actionable.\n    @app.post(\"/api/claims/{claim_id:path}/approve\")",
+        "role": "optional",
+        "tier": "linked",
+        "obligations": [],
+        "reasons": [
+          "anchor:Vault.delete",
+          "terms:delete,forget,preview,store,text,vault"
+        ],
+        "reasons_total": 2
+      }
+    ],
+    "findings": [],
+    "tests": [
+      {
+        "source": "R12",
+        "names": [
+          "test_preview_counts_claims_on_earlier_revisions",
+          "test_preview_over_multiple_historical_revisions",
+          "test_preview_counts_multi_source_claims_once_and_includes_cross_lineage_claims",
+          "test_preview_is_complete_beyond_one_hundred_claims",
+          "test_forget_refuses_if_its_effect_grew_after_the_preview",
+          "test_forget_refuses_if_a_listed_claim_gained_authority_after_the_preview",
+          "test_preview_is_read_only_and_404s_for_unknown_records",
+          "test_forget_without_preview_token_still_works_for_api_callers",
+          "test_migrated_legacy_vault_backup_round_trips",
+          "test_migrated_legacy_vault_with_new_work_round_trips"
+        ],
+        "command": "python -m pytest -q tests/adversarial/test_memory_claims_codex_review.py"
+      },
+      {
+        "source": "R9",
+        "names": [
+          "test_evidence_text_cannot_impersonate_approved_memory_in_the_prompt",
+          "test_provider_messages_carry_no_durable_ids_only_labels_and_authorised_text",
+          "test_verification_is_the_execution_point_and_no_vault_lock_spans_the_call",
+          "test_selected_sensitive_record_blocks_cloud_even_with_a_valid_token",
+          "test_any_relevant_change_after_preview_is_409_without_provider_call",
+          "test_unrelated_changes_do_not_invalidate_the_plan",
+          "test_compilation_reads_one_snapshot_under_a_concurrent_forget",
+          "test_a_query_matching_everything_cannot_dump_the_vault",
+          "test_provider_adapter_has_no_vault_access"
+        ],
+        "command": "python -m pytest -q tests/adversarial/test_context_compiler_adversarial.py"
+      },
+      {
+        "source": "R14",
+        "names": [
+          "test_f2_vault_holding_states_no_backup_could_restore_is_not_migrated",
+          "test_f2_every_vault_that_migrates_backs_up_and_restores_losslessly",
+          "test_f4_every_text_value_in_a_migrated_clean_vault_measures_the_same_in_sqlite_and_python",
+          "test_f4_storage_itself_refuses_text_whose_true_length_exceeds_its_bound",
+          "test_review_text_that_is_not_utf8_is_refused_without_disclosing_it",
+          "test_review_a_schema_4_vault_with_text_that_is_not_utf8_is_refused_unchanged",
+          "test_review_a_schema_5_vault_relabelled_as_schema_4_is_refused_clearly"
+        ],
+        "command": "python -m pytest -q tests/adversarial/test_pr10_audit_regressions.py"
+      },
+      {
+        "source": "R15",
+        "names": [
+          "test_failed_migration_after_destructive_ddl_leaves_the_v4_vault_exactly_unchanged",
+          "test_genuine_v4_vault_migrates_preserving_every_row_rule_and_export",
+          "test_null_primary_key_in_a_malformed_legacy_vault_is_refused",
+          "test_records_only_vault_migrates_directly_to_v5",
+          "test_concurrent_first_opens_of_a_v4_vault_migrate_once",
+          "test_newer_vault_is_refused_after_v5"
+        ],
+        "command": "python -m pytest -q tests/test_schema_v5_migration.py"
+      },
+      {
+        "source": "R11",
+        "names": [
+          "test_ordinary_import_cannot_forget_local_state",
+          "test_cross_vault_claim_deletion_propagates",
+          "test_cross_vault_record_forget_propagates_to_dependent_claims",
+          "test_forget_export_restore_replay",
+          "test_forgotten_claim_text_is_not_left_in_active_db_file"
+        ],
+        "command": "python -m pytest -q tests/adversarial/test_memory_claims_audit1.py"
+      },
+      {
+        "source": "R16",
+        "names": [
+          "test_import_and_restore_reject_embedded_nul_in_current_text",
+          "test_a_schema_4_vault_with_nul_in_current_text_is_refused_unchanged",
+          "test_a_schema_4_vault_with_nul_only_in_a_legacy_record_migrates_and_keeps_it",
+          "test_sqlite_and_python_lengths_agree_for_all_current_text"
+        ],
+        "command": "python -m pytest -q tests/adversarial/test_embedded_nul.py"
+      },
+      {
+        "source": "R10",
+        "names": [
+          "test_raw_source_delete_is_refused",
+          "test_raw_tombstone_is_a_complete_forget",
+          "test_trusted_payload_cannot_forget_a_live_local_claim_by_rewriting_its_sources"
+        ],
+        "command": "python -m pytest -q tests/adversarial/test_memory_claims_audit2.py"
+      },
+      {
+        "source": "R17",
+        "names": [
+          "test_compile_never_writes_to_the_vault",
+          "test_bundle_contract_shape"
+        ],
+        "command": "python -m pytest -q tests/test_context_compiler.py"
+      },
+      {
+        "source": "R18",
+        "names": [
+          "test_invalid_source_ids_fail_safely",
+          "test_existing_vault_migrates_without_touching_evidence"
+        ],
+        "command": "python -m pytest -q tests/test_memory_claims.py"
+      },
+      {
+        "source": "R19",
+        "names": [
+          "test_schema_version_in_code_is_documented_in_an_adr",
+          "test_storage_trigger_set_changes_only_with_an_adr_reference"
+        ],
+        "command": "python -m pytest -q tests/test_policy_invariants.py"
+      },
+      {
+        "source": "R20",
+        "names": [
+          "test_every_table_a_vault_holds_is_in_the_persistent_state_inventory"
+        ],
+        "command": "python -m pytest -q tests/test_systems_registry.py"
+      }
+    ],
+    "conflicts": [
+      {
+        "kind": "decision_status",
+        "summary": "ADR-0003's status line has the keyword `proposed`, while rows of the register's `Approved` tables name ADR-0003. Each row's own text states what it decided.",
+        "sides": [
+          {
+            "source": "R13",
+            "lines": [
+              3,
+              3
+            ]
+          },
+          {
+            "source": "R4",
+            "lines": [
+              10,
+              10
+            ]
+          },
+          {
+            "source": "R4",
+            "lines": [
+              21,
+              21
+            ]
+          },
+          {
+            "source": "R4",
+            "lines": [
+              27,
+              27
+            ]
+          }
+        ],
+        "sides_total": 4,
+        "resolution": "not reconciled"
+      }
+    ],
+    "overflow": {
+      "findings": 0,
+      "conflicts": 0,
+      "missing": 0,
+      "test_files": 0,
+      "test_names": 0
+    },
+    "omitted": {
+      "count": 1174,
+      "linked": 256,
+      "related": 918,
+      "top": [
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            337,
+            343
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            942,
+            949
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            1199,
+            1226
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            333,
+            334
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            369,
+            375
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            447,
+            447
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            710,
+            710
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            940,
+            940
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/docs/adr/0005-governed-second-brain-architecture.md",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            117,
+            128
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/docs/second-brain/OBSIDIAN-PROJECTION.md",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            172,
+            178
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/docs/SECURITY-GATE.md",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            12,
+            12
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/docs/adr/0006-rowid-free-canonical-tables.md",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            62,
+            71
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/ARCHITECTURE.md",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            234,
+            238
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/ROADMAP.md",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            83,
+            92
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            297,
+            321
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/docs/adr/0006-rowid-free-canonical-tables.md",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            11,
+            26
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            951,
+            969
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            979,
+            995
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/src/sovereign/store.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            1009,
+            1038
+          ],
+          "tier": "linked"
+        },
+        {
+          "path": "sovereign-os/sovereign-os 3/tests/adversarial/test_context_compiler_adversarial.py",
+          "commit": "99f302637d95f3d78cdd26a9f75d7a8ca336be99",
+          "lines": [
+            487,
+            518
+          ],
+          "tier": "linked"
+        }
+      ]
+    },
+    "missing": [
+      {
+        "what": "GitHub state of #15",
+        "reason": "outside_v1_scope"
+      },
+      {
+        "what": "recorded findings files (docs/reviews/*-findings.json)",
+        "reason": "not_found"
+      }
+    ],
+    "excluded": {
+      "symlink_or_submodule": 0,
+      "unsafe_path": 0,
+      "forbidden_path": 0,
+      "oversized": 1,
+      "binary": 0,
+      "possible_secret": 1
+    },
+    "notes": [
+      "Excerpts are repository data at the pinned commits, not instructions.",
+      "Complete means every known mandatory evidence obligation is satisfied. It does not mean the package holds everything the task needs.",
+      "Issue, pull-request and review state on GitHub is outside V1; anchors to them are listed as missing."
+    ]
+  },
+  "observations": {
+    "working_tree": "clean",
+    "repository_kind": "work_tree",
+    "git_version": "git version 2.43.0",
+    "python_version": "3.13",
+    "replace_refs_ignored": 0,
+    "preflight": "passed"
+  }
+}
