@@ -289,7 +289,7 @@ Proven: lexical BM25/FTS, dense + lexical hybrid retrieval with rank fusion, par
 | **D12** | Default Obsidian provenance mode | *Label* mode (one fixed partial sentence) for local browsing; *closed* mode (drop items with omitted links) recommended for removable, synced or shared exports |
 | **D13** | Raw canonical IDs in exported notes | None: the keyed handle only. Even canonical-UUID IDs can be enumerable (ordinary import derives claim IDs with a public UUIDv5 namespace), so a raw ID could reveal a gap where an excluded item sits |
 | **D14** | Projection registry | **Not needed for V0 (2026-10-20):** exports keep no persistent state; revisit only if an in-place refresh is ever proposed |
-| **D15** | Lineage sensitivity of claims: a private claim that supersedes a sensitive claim often restates it | **Deferred by the founder (2026-10-21); not ratified** (§15.1). Proposed direction: decide in the Context Compiler (an ADR-0004 amendment, Tier 2), because the same text is eligible for cloud plans today; the projection only warns until then |
+| **D15** | Lineage sensitivity of claims: a private claim that supersedes a sensitive claim often restates it | **Deferred by the founder (2026-10-21); not ratified** (§15.1). Proposed direction: decide in the Context Compiler (an ADR-0004 amendment, Tier 2), because the same text is eligible for cloud plans today; the projection only warns until then. *Status update (2026-11-05):* direction approved for records and claims (Option C); see [ADR-0007](0007-lineage-sensitivity.md) (PROPOSED) |
 
 D8, D9 and D14 record the founder's 2026-10-20 direction. The founder's decisions on this table and on R1–R7 (§12.2) are recorded in §15.1.
 
@@ -330,6 +330,8 @@ D8, D9 and D14 record the founder's 2026-10-20 direction. The founder's decision
 **No implementation, new permission, persistent schema, background ingestion or constitutional amendment is authorized by this document.**
 
 ## Revision notes
+
+**Status update** (2026-11-05; metadata only, no technical change): the founder approved D15's direction (Option C: transitive, fail-closed sensitivity inheritance across source records and MemoryClaims) and deferred governed declassification to D16 ([Issue #25](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/25)). The detailed policy is [ADR-0007](0007-lineage-sensitivity.md), PROPOSED; nothing is implemented. §15.1, dated 2026-10-21, records the earlier deferral and is unchanged.
 
 **Status update** (2026-11-02; metadata only, no technical change): the storage-integrity repair (Issue #6, ADR-0006) merged to `main` as PR #20 (`99f3026`). The 2026-10-22 note below, which calls it unmerged, and §12.4, dated 2026-10-20, describe earlier states. SB-2a provenance navigation (validation spec §3) is implemented by PR #21, the replacement for #11, a candidate until the founder merges it.
 
