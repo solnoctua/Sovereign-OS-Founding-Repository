@@ -238,7 +238,7 @@ def test_trusted_restore_preserves_state_and_history(client,tmp_path):
     a,b,made=lifecycle_fixture(client)
     before=claims(client)
     snapshot=client.get("/api/export").json()
-    assert snapshot["schema"]=="sovereign.v0.records.2" and len(snapshot["claims"])==6
+    assert snapshot["schema"]=="sovereign.v0.records.3" and len(snapshot["claims"])==6
     second=TestClient(create_app(str(tmp_path / "new.db")))
     assert restore(second,snapshot)=={"imported":2,"records_skipped":0,"claims_restored":6,"approved_claims_restored":1,
                                       "claims_skipped_existing":0,"claims_skipped_conflict":0,"claims_forgotten":0}
@@ -314,7 +314,7 @@ def test_existing_vault_migrates_without_touching_evidence(tmp_path):
                                       db.execute("SELECT * FROM tombstones").fetchall()); db.close()
     vault=Vault(path)
     db=sqlite3.connect(path)
-    assert db.execute("PRAGMA user_version").fetchone()[0]==SCHEMA_VERSION==4
+    assert db.execute("PRAGMA user_version").fetchone()[0]==SCHEMA_VERSION==5
     assert (db.execute(f"SELECT {columns} FROM records ORDER BY id").fetchall(),db.execute("SELECT * FROM tombstones").fetchall())==before
     assert db.execute("SELECT DISTINCT legacy FROM records").fetchall()==[(1,)]   # pre-claims rows are flagged legacy
     db.close()

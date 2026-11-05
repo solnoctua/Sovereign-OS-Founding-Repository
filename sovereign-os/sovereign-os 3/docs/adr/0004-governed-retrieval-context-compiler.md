@@ -63,21 +63,24 @@ Constitutional constraints:
 
 | Candidate | Included as | Otherwise excluded as |
 | --- | --- | --- |
-| Approved claim with intact evidence (`claims.is_authoritative`) | `approved_memory` | — |
+| Approved claim with active, hash-verified evidence and a committed evidence set (`claims.is_authoritative`) | `approved_memory` | — |
 | Proposed claim (including every imported claim) | never | `not_authoritative` |
 | Contested claim | never | `contested` |
 | Rejected claim | never | `rejected` |
 | Superseded claim | never | `superseded` |
 | Approved claim whose evidence was corrected | never | `stale` |
 | Approved claim with missing or unverified evidence | never | `orphaned` |
+| Approved pre-schema-5 claim whose surviving evidence set has not been revalidated | never | `revalidation_required` (when no earlier exclusion applies) |
+| Approved claim whose links no longer match its write-once evidence-set commitment | never | `evidence_set_mismatch` (when no earlier exclusion applies) |
 | Active source record | `evidence` | — |
 | Superseded source record (an old revision) | never | `superseded` |
 
 - **Further conditions on eligible candidates:**
   - they must also be relevant: pinned, or sharing at least one term with the question. A claim surfaced only through provenance is `not_relevant` (context minimisation);
   - they must pass the boundary (`sensitive_cloud`), duplicate (`duplicate`) and budget (`budget_exceeded`) checks.
-- **Every applicable reason is listed** in precedence order: `superseded`, `rejected`, `contested`, `not_authoritative`, `stale`, `orphaned`, `sensitive_cloud`, `not_relevant`, `duplicate`, `budget_exceeded`. `reason` is the first.
-- **Authority is not assumed.** The compiler re-checks `claims.is_authoritative` for any claim with no lifecycle or support reason, so an unexpected state is `not_authoritative`.
+- **Every applicable reason is listed** in precedence order: `invalid_state`, `superseded`, `rejected`, `contested`, `not_authoritative`, `stale`, `orphaned`, `revalidation_required`, `evidence_set_mismatch`, `sensitive_cloud`, `not_relevant`, `duplicate`, `budget_exceeded`. `reason` is the first. `invalid_state` (added 2026-10-22 by [ADR-0006](0006-rowid-free-canonical-tables.md), **ACCEPTED** on 2026-10-31) is fail-closed positive validation: a source record whose status is outside the storage CHECK set is never used. The two evidence-set reasons come from ADR-0006's authority refinement, not from a broader retrieval or cloud-admission policy.
+- **Authority is not assumed.** The compiler re-checks `claims.is_authoritative` for any claim with no lifecycle, support or evidence-integrity reason, so an unexpected state is `not_authoritative`. Under ADR-0006, claim authority requires `approved` status, `supported` evidence and integrity `committed`.
+- **Policy-version scope of ADR-0006.** The compiler retains `sovereign.context.v0`: this is a stricter underlying MemoryClaim authority check, with two new exclusion explanations, not a wider relevance rule, a new cloud-eligible sensitivity, or a change to the budget constants. A cloud request still recompiles and verifies the exact-plan token before egress; the token and relevant-state fingerprint reflect resulting authority/inclusion changes. Any future change to retrieval admission, disclosure eligibility or `ContextPolicy` values requires a separately reviewed, versioned policy decision.
 - **Distinct roles.** Evidence and approved memory stay separate in the bundle, the receipt and the prompt.
 
 ### Sensitivity inheritance

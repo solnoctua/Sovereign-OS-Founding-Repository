@@ -1,0 +1,129 @@
+# Codex audit F-9 and F-10 — builder reconciliation record, 2026-10-22
+
+**Status:** builder-authored evidence. This is not an independent review, and no finding is closed by it. The builder did not have the audit's text; it worked from the founder's directive. F-9 asks for the registry, schema version, security limits and SB-2a status to be reconciled against the integrated code. F-10 asks for GitHub's effective rules to be verified and for enforced review requirements to be separated from missing ones. The Security Gate remains **NOT PASSED**, and no proposal is ratified here.
+
+## F-9: documents that the integrated code contradicts
+
+**Method.** In a scratch worktree, never pushed, `main` (`eeed753`) was merged with the six open PR heads:
+
+| PR | Head |
+| --- | --- |
+| #11, which includes #10 at `ddec603` | `d43e579` |
+| #8 | `9415447` |
+| #9 | `b1d8d14` |
+| #12 | `4a37f84` |
+| #13 | `bc9a924` |
+
+The merges had no conflicts, and the integrated tree passes the full suite: 713 passed, 2 xfailed. That is F-9's point: no test notices that these statements are false on that tree.
+
+| Where (as introduced by PR #8 unless noted) | Statement | True on the integrated tree? |
+| --- | --- | --- |
+| `systems-registry.toml`, canonical-store | `schema user_version 4 (5 proposed in WP-2, unmerged)` | No: `store.SCHEMA_VERSION` is 5 |
+| `systems-registry.toml`, canonical-store and memory-claim-governance | hidden-rowid bypass open; `support_of([])` returns `supported` | No: both are fixed by PR #10 |
+| `systems-registry.toml`, sb2a-provenance-navigation | `approved`, `unmerged` | No: `src/sovereign/provenance.py` exists |
+| `SECURITY-GATE.md` status update | Issue #6 repair and zero-source rule "not merged" | No |
+| `SECURITY-GATE.md` (PR #10) | "Until that PR merges, this defect stands" | No, once PR #10 is the merged PR |
+| `ROADMAP.md` order table | WP-2 and SB-2a "Draft PR"; SB-2a depends on nothing technically | No: SB-2a is stacked on WP-2 |
+| `ARCHITECTURE.md` §14 K1 row | "integrity repair in progress (Issue #6)" | No |
+| `BUILD-AND-INTEGRATION-PLAN.md` §1 GAP | Issue #6 and zero-source open | No |
+| `FOUNDER-DECISIONS.md` | WP-2 "(unmerged)"; schema 5 approach "Proposed" | Depends on the founder's decision at merge |
+| `SECOND-BRAIN-VALIDATION.md` item 35 | ADR-0006 "PROPOSED, unmerged" | Depends on the founder's decision at merge |
+
+The stated limits match the code on both `main` and the integrated tree:
+
+- `MAX_BACKUP_BYTES` 128 MiB;
+- records of at most 10,000 characters;
+- claim text of at most 2,000 characters, at most 8 sources, notes of at most 500 characters;
+- the compiler budget of 12 items, 12,000 characters and 50 candidates;
+- `policy_version` `sovereign.context.v0`.
+
+One qualification belongs to PR #10's F-4: SQLite's `length()` undercounts text containing an embedded NUL, so storage can hold a value longer than the documented limit. ADR-0006 decision D-C covers it.
+
+## F-9 change in this PR
+
+`docs/architecture/systems-registry.toml` gains `[code_facts]`, and its entries gain an optional `code` list. `tests/test_systems_registry.py` checks each fact against the code in the same tree:
+
+- `schema_user_version` equals `store.SCHEMA_VERSION`;
+- every value in `[code_facts.limits]` equals the named constant;
+- `known_gaps` equals exactly the set of gaps that probes find in the code:
+  - `issue-6-hidden-rowid`: a canonical table that still has a hidden rowid;
+  - `zero-source-authority`: `support_of([])` returns `supported`;
+- an entry whose code exists is `implemented`, and an `implemented` entry's code exists.
+
+`pull_request` CI checks out the merge commit, and the ruleset requires branches to be up to date. So whichever of PRs #8, #10 and #11 merges later fails CI until it reconciles the registry.
+
+**Demonstration on the scratch integration:**
+
+- With this PR's registry, 3 tests fail:
+  - `assert 4 == 5`;
+  - `registry lists ['issue-6-hidden-rowid', 'zero-source-authority']; the code has []`;
+  - `sb2a-provenance-navigation has code in this tree but is marked approved`.
+- With the reconciled registry below, all 11 pass. The reconciliation is `schema_user_version = 5`, `known_gaps = []`, the six SB-2a constants added to the limits, and SB-2a `implemented`.
+
+Prose cannot be checked this way. The rule is that the PR that changes a fact updates the statements above in the same PR. The SECURITY-GATE status update now says it describes `main` at `eeed753`.
+
+**What PR #10 must update when it is brought up to date with `main` after this PR merges:**
+
+- registry `schema_user_version` (5) and `known_gaps` (none), the two `boundary` texts, and the new code fact `"store.EXPORT_SCHEMA" = "sovereign.v0.records.3"` (backup format 3, D-A);
+- `tests/test_policy_invariants.py` (from #9): `EXPECTED_TRIGGER_COUNT` 36 → 44, citing ADR-0006 (three `claim_evidence_sets_*` triggers and five `*_no_nul` triggers; `claim_tombstones_forget` is replaced, not added);
+- SECURITY-GATE status-update bullets and its own "until that PR merges" sentence;
+- ARCHITECTURE §14 K1 row;
+- BUILD plan GAP line;
+- ROADMAP WP-2 status;
+- FOUNDER-DECISIONS: the WP-2 "(unmerged)" pointers and the "Issue #6 repair approach" proposal row, once the founder approves ADR-0006 (D-A, D-B and D-C themselves are recorded in this PR);
+- SECOND-BRAIN-VALIDATION item 35;
+- ADR-0006 status, set only by the founder's decision.
+
+**What PR #11 must update:** the registry's SB-2a entry and its six limits, and the ROADMAP and BUILD plan SB-2a status.
+
+**Founder's target sequence (2026-10-22):** #5 → #9 → #8 → #10 → #11 → #12 → #13. Each merge needs the founder's explicit authorization. Before #8 merges, #5 and #9 are on `main`. #5 untracks `data/sovereign.db` and the `__pycache__` files and adds a hygiene check; no later PR changes those files. #9 brings the D-E workflow and `EXPECTED_TRIGGER_COUNT = 36`. #8's checks then cover #10 and #11 as each is brought up to date. The rehearsal of this sequence and its results are in the PR #10 remediation record.
+
+## F-10: effective GitHub rules on `main` (REST API, 2026-10-22)
+
+Ruleset `25374786` "Main branch protection" is active and targets the default branch. It has no bypass actors (`current_user_can_bypass: never`) and was last updated on 2026-10-19. There is no legacy branch protection.
+
+| Requirement | Enforced? |
+| --- | --- |
+| Pull request before merging | **Yes** |
+| Review threads resolved | **Yes** |
+| Required checks `full-test-suite`, `memory-adversarial` (GitHub Actions, app 15368), branch up to date | **Yes**, with the draft gap below |
+| No force-push (`non_fast_forward`), no deletion | **Yes** |
+| Auto-merge | Disabled at repository level |
+| Approving reviews | **No** (`required_approving_review_count: 0`) |
+| Code-owner review | **No** (`require_code_owner_review: false`). CODEOWNERS parses without errors on the WP-1 branch but has no effect |
+| Dismiss stale approvals; approval of the last push | **No** |
+| Merge methods | merge, squash and rebase all allowed |
+
+**Structural constraint.** Every PR is opened by `solnoctua`, who is also the only code owner and the identity of the agent token. GitHub does not let an author approve their own PR. So requiring one approval or a code-owner review today would block every merge, unless a second reviewer identity exists or a bypass is configured.
+
+**Draft-check gap (verified).** Both CI jobs carry `if: … draft == false`. On the draft heads `ddec603`, `d43e579` and `f0b6539`, the required check runs from the Actions app report `conclusion: skipped`, and GitHub counts a skipped required check as passing. A draft cannot be merged. But until the `ready_for_review` run registers, a PR marked ready shows green required checks for runs that never executed, and so does any non-draft PR whose jobs are skipped for any reason.
+
+The options and recommended defaults are in `docs/DEVELOPMENT.md` (PR #9). This record changes no setting.
+
+## Second Codex audit: F-9 on the integration (2026-10-27)
+
+**Context.** The founder reported the second Codex audit's verdicts:
+
+| Head | Verdict |
+| --- | --- |
+| PR #10 `8ea54b5` | PASS |
+| PR #11 `7b8dec8` | CHANGES REQUIRED (F-7) |
+| The rehearsed integration `85bda11` | BLOCK, with F-9 (P2) |
+
+F-9 names three observations: graph validation status, the registry's persistent-state inventory, and reversal and recovery instructions. The audit's own report was not available to the builder. The rows below are the builder's reading of those observations against `85bda11`. **No finding is closed here.**
+
+| Observation | What `85bda11` said | Change |
+| --- | --- | --- |
+| **Graph validation status** | The validation spec said "no test described here is implemented" and listed the provenance graph as "Specified, not implemented". Meanwhile the registry and the BUILD plan said SB-2a was implemented and tested against §3, with compiler tokens "identical with and without it" | **PR #11:** the spec says §3 is implemented by PR #11 and maps each item to its tests. Item 4 is tested over all 56 queries for `local` and `kimi`, plus a static import check; no test runs with the module removed. **R11:** the registry boundary and BUILD plan 5.4 say exactly that, and the registry states the new `provenance.VALUE_BYTES` |
+| **Persistent-state inventory** | `canonical-store` named no tables. `memory-claim-governance` listed four claim tables but not schema 5's `claim_evidence_sets` | **This PR:** `canonical-store` names `records`, `tombstones` and SQLite's rollback journal. `tests/test_systems_registry.py` requires every table that a fresh vault holds to be named by an implemented entry; with the previous text it fails, naming `records` and `tombstones`. **R10:** adds `claim_evidence_sets` |
+| **Reversal and recovery** | The claims exit test was "drop the four claim tables and triggers per ADR-0003 reversal; ADR-0002 rows unchanged". No test exercises that direct-SQL reversal, and it does not apply to a schema-5 vault. `DEVELOPMENT.md` offered "rollback by previous tag plus a canonical export", but schema-4 software refuses a format-3 export (verified: `ValueError: Unsupported export schema.`). Recovery of a refused vault was not mentioned | **This PR:** the schema-4 exit says that ADR-0003's reversal is documented, not tested. **R10:** the exit is the tested schema-5 route: export, rewrite as format 2, trusted-restore into v4 (`test_reversal_route_v5_backup_restores_into_v4_software_and_back`), after which claims are unconfirmed until revalidated. It also adds a dated note in ADR-0003, the format-2 step in `DEVELOPMENT.md`, and, in `canonical-store`, that a refused vault stays unchanged with no recovery tool yet (ADR-0006 decision 7) |
+
+**R8 and R13 reviewed.** Neither touches these three subjects, so both are unchanged. Merging #10 without the revised R10 now fails exactly four checks:
+- the trigger count;
+- schema 4 ≠ 5;
+- the known gaps;
+- the inventory, which names `claim_evidence_sets`.
+
+**Not changed (noticed in passing).** `docs/DEVELOPMENT.md` (#9) still says, under "what actually holds", that both CI jobs are skipped on drafts. Its next section explains that D-E removes the condition. Once #9 is on `main`, that sentence describes the past.
+
+The revised reconciliation commits are on a new rehearsal branch, `rehearsal/merge-sequence-20261027`. The audited `rehearsal/merge-sequence-20261022` (`85bda11`) is left unchanged.

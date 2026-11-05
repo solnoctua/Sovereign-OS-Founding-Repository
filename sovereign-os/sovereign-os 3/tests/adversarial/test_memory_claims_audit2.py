@@ -476,7 +476,13 @@ def test_trusted_payload_cannot_forget_a_live_local_claim_by_rewriting_its_sourc
     c = vault.add_claim("Local claim", [rec["id"]], "human")
     vault.delete(gone["id"])
     backup = vault.export()
-    forged = [{**x, "source_ids": [gone["id"]], "source_hashes": {gone["id"]: None}} for x in backup["claims"]]
+    # The forgery keeps its commitment consistent; an inconsistent one is refused outright (ADR-0006, D-A).
+    forged = [{**x, "source_ids": [gone["id"]], "source_hashes": {gone["id"]: None},
+               "evidence_set": {**x["evidence_set"], "link_count": 1,
+                                "digest": store.evidence_set_digest(x["id"], {gone["id"]: None})}} for x in backup["claims"]]
+    with pytest.raises(ValueError, match="committed evidence set"):
+        vault.restore_trusted({**backup, "claims": [{**x, "source_ids": [gone["id"]], "source_hashes": {gone["id"]: None}}
+                                                    for x in backup["claims"]]})
     result = vault.restore_trusted({**backup, "claims": forged})
     assert result["claims_skipped_existing"] == 1 and result["claims_forgotten"] == 0
     assert claims_of(vault)[c["id"]]["source_ids"] == [rec["id"]]

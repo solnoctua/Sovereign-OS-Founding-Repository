@@ -1,0 +1,251 @@
+{
+ "claim_tombstones": [
+  {
+   "deleted_at": "2026-10-22T03:56:17+00:00",
+   "id": "fcbccf92-1bba-4319-b1b3-cd0274cb71d8"
+  }
+ ],
+ "claims": [
+  {
+   "created_at": "2026-10-22T03:56:17+00:00",
+   "history": [
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": null,
+     "note": null,
+     "to_status": "proposed"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "proposed",
+     "note": null,
+     "to_status": "rejected"
+    }
+   ],
+   "id": "19ab8e35-3cba-43ae-82a2-ef0529ab2484",
+   "origin": "human",
+   "source_hashes": {
+    "f8713f8a-894e-4758-8ca3-a8b2872a8599": "ae0f2c721f5c558f270ff2ae3ccde7d4d19d8174aaaf43468c37c199841f6269"
+   },
+   "source_ids": [
+    "f8713f8a-894e-4758-8ca3-a8b2872a8599"
+   ],
+   "status": "rejected",
+   "supersedes_id": null,
+   "text": "Rejected claim"
+  },
+  {
+   "created_at": "2026-10-22T03:56:17+00:00",
+   "history": [
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": null,
+     "note": null,
+     "to_status": "proposed"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "proposed",
+     "note": "unsure",
+     "to_status": "contested"
+    }
+   ],
+   "id": "2877c70b-1be7-419a-a75a-52a98d285a96",
+   "origin": "human",
+   "source_hashes": {
+    "e6990787-04da-4ca8-8a15-c349e8cb8e27": "b17c51ab070531cde63acfaa8043c47ac4c5b579d99ae44da2134d52ff2bb8b2"
+   },
+   "source_ids": [
+    "e6990787-04da-4ca8-8a15-c349e8cb8e27"
+   ],
+   "status": "contested",
+   "supersedes_id": null,
+   "text": "Contested claim"
+  },
+  {
+   "created_at": "2026-10-22T03:56:17+00:00",
+   "history": [
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": null,
+     "note": null,
+     "to_status": "proposed"
+    }
+   ],
+   "id": "32319a21-e794-47d9-928c-6d609c7ffbb3",
+   "origin": "human",
+   "source_hashes": {
+    "f8713f8a-894e-4758-8ca3-a8b2872a8599": "ae0f2c721f5c558f270ff2ae3ccde7d4d19d8174aaaf43468c37c199841f6269"
+   },
+   "source_ids": [
+    "f8713f8a-894e-4758-8ca3-a8b2872a8599"
+   ],
+   "status": "proposed",
+   "supersedes_id": "5fee12d8-6546-4e5c-9a43-187ccbb3a26b",
+   "text": "Superseding claim"
+  },
+  {
+   "created_at": "2026-10-22T03:56:17+00:00",
+   "history": [
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": null,
+     "note": null,
+     "to_status": "proposed"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "proposed",
+     "note": null,
+     "to_status": "superseded"
+    }
+   ],
+   "id": "5fee12d8-6546-4e5c-9a43-187ccbb3a26b",
+   "origin": "human",
+   "source_hashes": {
+    "f8713f8a-894e-4758-8ca3-a8b2872a8599": "ae0f2c721f5c558f270ff2ae3ccde7d4d19d8174aaaf43468c37c199841f6269"
+   },
+   "source_ids": [
+    "f8713f8a-894e-4758-8ca3-a8b2872a8599"
+   ],
+   "status": "superseded",
+   "supersedes_id": null,
+   "text": "Claim to supersede"
+  },
+  {
+   "created_at": "2026-10-22T03:56:17+00:00",
+   "history": [
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": null,
+     "note": null,
+     "to_status": "proposed"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "proposed",
+     "note": null,
+     "to_status": "approved"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "approved",
+     "note": null,
+     "to_status": "contested"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "contested",
+     "note": null,
+     "to_status": "approved"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "approved",
+     "note": null,
+     "to_status": "contested"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "contested",
+     "note": null,
+     "to_status": "approved"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "approved",
+     "note": null,
+     "to_status": "contested"
+    },
+    {
+     "actor": "human",
+     "at": "2026-10-22T03:56:17+00:00",
+     "from_status": "contested",
+     "note": null,
+     "to_status": "approved"
+    }
+   ],
+   "id": "b0542de3-0992-4da2-b5d6-0dc28921ec87",
+   "origin": "human",
+   "source_hashes": {
+    "f8713f8a-894e-4758-8ca3-a8b2872a8599": "ae0f2c721f5c558f270ff2ae3ccde7d4d19d8174aaaf43468c37c199841f6269",
+    "legacy/1": "4e3633bfcf0bfa0f62caf52d099fdef85a7f377644a391c5a09526055418dd2c"
+   },
+   "source_ids": [
+    "f8713f8a-894e-4758-8ca3-a8b2872a8599",
+    "legacy/1"
+   ],
+   "status": "approved",
+   "supersedes_id": null,
+   "text": "Approved claim on two sources"
+  }
+ ],
+ "exported_at": "2026-10-22T06:07:10+00:00",
+ "records": [
+  {
+   "content": "Legacy synthetic note",
+   "created_at": "2026-10-01T00:00:00+00:00",
+   "id": "legacy/1",
+   "legacy": 1,
+   "sensitivity": "private",
+   "source": "manual",
+   "status": "active",
+   "supersedes_id": null
+  },
+  {
+   "content": "Synthetic note A",
+   "created_at": "2026-10-22T03:56:17+00:00",
+   "id": "20fa31b3-dbc9-4ce2-8330-fc12a5a9e584",
+   "legacy": 0,
+   "sensitivity": "private",
+   "source": "manual",
+   "status": "superseded",
+   "supersedes_id": null
+  },
+  {
+   "content": "Synthetic note B, sensitive",
+   "created_at": "2026-10-22T03:56:17+00:00",
+   "id": "e6990787-04da-4ca8-8a15-c349e8cb8e27",
+   "legacy": 0,
+   "sensitivity": "sensitive",
+   "source": "manual",
+   "status": "active",
+   "supersedes_id": null
+  },
+  {
+   "content": "Synthetic note A, corrected",
+   "created_at": "2026-10-22T03:56:17+00:00",
+   "id": "f8713f8a-894e-4758-8ca3-a8b2872a8599",
+   "legacy": 0,
+   "sensitivity": "private",
+   "source": "manual",
+   "status": "active",
+   "supersedes_id": "20fa31b3-dbc9-4ce2-8330-fc12a5a9e584"
+  }
+ ],
+ "schema": "sovereign.v0.records.2",
+ "tombstones": [
+  {
+   "deleted_at": "2026-10-01T00:00:00+00:00",
+   "id": "legacy-gone"
+  },
+  {
+   "deleted_at": "2026-10-22T03:56:17+00:00",
+   "id": "8eea69a6-ec87-4923-8125-27a7f79e8d0c"
+  }
+ ]
+}

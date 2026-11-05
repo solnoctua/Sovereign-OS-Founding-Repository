@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sovereign independent audit findings",
+  "type": "object",
+  "required": ["reviewer", "date", "subject", "base_commit", "head_commit", "findings"],
+  "properties": {
+    "reviewer": {"type": "string", "description": "Independent reviewer identity (model/tool and operator), never the builder"},
+    "date": {"type": "string"},
+    "subject": {"type": "string", "description": "PR number or topic"},
+    "base_commit": {"type": "string"},
+    "head_commit": {"type": "string"},
+    "scope": {"type": "string"},
+    "verdict": {"type": "string", "enum": ["PASS", "CONDITIONAL PASS", "FAIL", "INCOMPLETE"]},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "title", "summary", "evidence", "reproduction", "confidence", "status"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^F-[0-9]+$"},
+          "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+          "title": {"type": "string"},
+          "summary": {"type": "string"},
+          "evidence": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "reproduction": {"type": ["string", "null"]},
+          "confidence": {"type": "string", "enum": ["confirmed", "needs_validation", "rejected"]},
+          "status": {"type": "string", "enum": ["open", "fixed", "wontfix", "deferred"]},
+          "builder_response": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["date", "kind", "note"],
+              "properties": {
+                "date": {"type": "string"},
+                "kind": {"type": "string", "enum": ["reproduced", "fixed", "rejected_with_evidence", "deferred_with_reason"]},
+                "note": {"type": "string"},
+                "commit": {"type": "string"}
+              }
+            }
+          },
+          "independent_disposition": {"type": "string", "enum": ["accepted", "not_accepted", "pending"]}
+        }
+      }
+    }
+  }
+}
