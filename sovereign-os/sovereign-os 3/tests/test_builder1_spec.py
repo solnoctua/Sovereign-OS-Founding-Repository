@@ -987,6 +987,6 @@ def test_spec_versions_and_companion_files_agree():
                  "benchmark-tasks.json", "freeze-plan.example.json", "FREEZE-TOOL.md"):
         assert f"]({name})" in spec and (SPEC_DIR / name).is_file(), name
     for record in ("2026-11-03-pr24-builder-response.md", "2026-11-03-pr24-round2-builder-response.md",
-                   "2026-11-04-pr24-round3-builder-response.md"):
+                   "2026-11-04-pr24-round3-builder-response.md", "2026-11-05-pr24-round4-builder-response.md"):
         assert (PROJECT / "docs" / "reviews" / record).is_file(), record
     assert (PROJECT / "scripts" / "benchmark_freeze.py").is_file()

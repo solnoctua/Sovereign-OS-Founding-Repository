@@ -44,6 +44,8 @@ MAX_HEADER_BYTES, MAX_LINE_BYTES, MAX_HEADER_LINES = 1 << 20, 4096, 10000
 MAX_JSON_BYTES = 16 << 20         # a task plan, freeze plan or manifest
 MAX_CONTEXT_BYTES = 262144        # arm B's context: a package's Markdown, at most the largest max_output_bytes
 TIMEOUT = 300
+MAX_SHOWN = 2000                  # characters of one message line
+MIN_EMBEDDED = 64                 # a private input this long is also found inside a larger file
 # The only local configuration `git clone` writes, on any platform. Any other key could run a program (a filter
 # driver, `core.fsmonitor`) or change what `git status` reports (`core.worktree`, an include), so it is refused.
 WORKSPACE_CONFIG = {"core.repositoryformatversion", "core.filemode", "core.bare", "core.logallrefupdates",
@@ -60,6 +62,10 @@ class OperatingError(Exception):
 
 class BundleError(Exception):
     """A malformed or unsupported bundle."""
+
+
+class Unreadable(Exception):
+    """Git could not read part of a workspace: its start state cannot be verified (a failed check, exit 1)."""
 
 
 # --- Git -------------------------------------------------------------------------------------------------------------
@@ -82,27 +88,157 @@ def git(repo, *args, data=None, check=True, local_bundle=False):
     return result
 
 
-def shown(text):
-    """A path or key for a message: printable, so that a crafted name cannot drive the terminal."""
-    return text if text.isprintable() else text.encode("unicode_escape").decode("ascii")
+def shown(text, limit=MAX_SHOWN):
+    """Text for a message: every character that is not printable is escaped, so that a crafted key, identifier or
+    name cannot drive the terminal, and the result is bounded."""
+    text = "".join(c if c.isprintable() else c.encode("unicode_escape").decode("ascii") for c in str(text))
+    return text if len(text) <= limit else text[:limit] + "…"
+
+
+def emit(message, stream=None):
+    """The only way the tool writes a message: one escaped, bounded line."""
+    print(shown(message), file=stream or sys.stdout)
+
+
+# --- files: probes that never raise, and reads that never follow, block or leave anything half-written ----------------
+
+def kind_of(path):
+    """'file', 'dir', 'link' or 'other' for what is at path, None when nothing is, and 'unreadable' when it cannot
+    be examined. A symbolic link is never followed."""
+    try:
+        mode = os.lstat(path).st_mode
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError):
+        return "unreadable"
+    if stat.S_ISLNK(mode):
+        return "link"
+    return "file" if stat.S_ISREG(mode) else "dir" if stat.S_ISDIR(mode) else "other"
+
+
+def is_regular(path):
+    """True for a regular file, following a symbolic link the user chose to give. Never raises."""
+    try:
+        return stat.S_ISREG(os.stat(path).st_mode)
+    except (OSError, ValueError):
+        return False
+
+
+def is_directory(path):
+    try:
+        return stat.S_ISDIR(os.stat(path).st_mode)
+    except (OSError, ValueError):
+        return False
+
+
+def _open_regular(path, follow):
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
+    if not follow:
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        os.close(fd)
+        raise IsADirectoryError(path)
+    return fd
+
+
+def read_regular(path, follow=False):
+    """The bytes of a regular file, or None when it is not one or cannot be read. Never blocks on a FIFO."""
+    try:
+        fd = _open_regular(path, follow)
+    except (OSError, ValueError):
+        return None
+    try:
+        chunks = []
+        while block := os.read(fd, 1 << 20):
+            chunks.append(block)
+        return b"".join(chunks)
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def digest_regular(path, algorithm, prefix=b"", follow=False):
+    """A streamed digest of a regular file's bytes (after prefix(size)), or None when it cannot be read."""
+    try:
+        fd = _open_regular(path, follow)
+    except (OSError, ValueError):
+        return None
+    try:
+        digest = hashlib.new(algorithm, prefix(os.fstat(fd).st_size) if prefix else b"")
+        while block := os.read(fd, 1 << 20):
+            digest.update(block)
+        return digest.hexdigest()
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
 
 
 def sha256_file(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+    return digest_regular(path, "sha256", follow=True)
 
 
 def blob_id(data):
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
+def file_size(path):
+    try:
+        return os.stat(path).st_size
+    except (OSError, ValueError):
+        return None
+
+
+def blob_id_of(path):
+    """The Git blob id of a regular file's bytes, without following a link and without any Git filter."""
+    return digest_regular(path, "sha1", prefix=lambda size: b"blob %d\0" % size)
+
+
+def publish(final, write, flag):
+    """Create `final` with what `write(temporary_path)` produces, or refuse. The bytes go to a private temporary
+    directory beside it first, then are hard-linked into place: an occupied path, including a dangling symbolic
+    link, is never followed, replaced or partly written."""
+    final = Path(final)
+    if kind_of(final) is not None:
+        raise InputError(f"{flag} {final} exists")
+    if not is_directory(final.parent):
+        raise InputError(f"the parent directory of {flag} {final} does not exist")
+    try:
+        staging = tempfile.mkdtemp(prefix=".benchmark-freeze-", dir=final.parent)
+    except OSError as error:
+        raise InputError(f"cannot write {flag} {final}") from error
+    try:
+        temporary = os.path.join(staging, "output")
+        write(temporary)
+        try:
+            os.link(temporary, final)               # link(2) never follows or replaces `final`
+        except FileExistsError as error:
+            raise InputError(f"{flag} {final} exists") from error
+        except OSError as error:
+            raise InputError(f"cannot write {flag} {final}") from error
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+
+def write_new(path, data, flag="--out"):
+    def write(temporary):
+        try:
+            with open(temporary, "xb") as handle:
+                handle.write(data)
+        except OSError as error:
+            raise InputError(f"cannot write {flag} {path}") from error
+    publish(path, write, flag)
+
+
 # --- schemas (the keyword subset that tests/test_builder1_spec.py also implements) -----------------------------------
 
 def load_schema(name):
-    return json.loads((SCHEMA_DIR / name).read_text(encoding="utf-8"))
+    data = read_regular(SCHEMA_DIR / name, follow=True)
+    if data is None:
+        raise OperatingError(f"the tool's own schema {name} cannot be read")
+    return json.loads(data)
 
 
 def _is_type(value, name):
@@ -128,7 +264,7 @@ def schema_errors(value, schema, root, where="$"):
         props = schema.get("properties", {})
         found += [f"{where}: missing {k}" for k in schema.get("required", []) if k not in value]
         if schema.get("additionalProperties") is False:
-            found += [f"{where}: unexpected field {k}" for k in value if k not in props]
+            found += [f"{where}: unexpected field {shown(k, 80)}" for k in value if k not in props]
         for key, sub in value.items():
             if key in props:
                 found += schema_errors(sub, props[key], root, f"{where}.{key}")
@@ -151,23 +287,33 @@ def schema_errors(value, schema, root, where="$"):
 
 def read_file(path, what, limit):
     """The bytes of a regular file the user named, within a size limit."""
-    path = Path(path)
-    if not path.is_file():
+    if not is_regular(path):
         raise InputError(f"{what} {path} is not an existing file")
-    if path.stat().st_size > limit:
-        raise InputError(f"{what} {path} is larger than {limit:,} bytes")
     try:
-        return path.read_bytes()
+        size = os.stat(path).st_size
     except OSError as error:
         raise InputError(f"{what} {path} cannot be read") from error
+    if size > limit:
+        raise InputError(f"{what} {path} is larger than {limit:,} bytes")
+    data = read_regular(path, follow=True)
+    if data is None:
+        raise InputError(f"{what} {path} cannot be read")
+    if len(data) > limit:
+        raise InputError(f"{what} {path} is larger than {limit:,} bytes")
+    return data
 
 
-def read_json(path, what):
-    data = read_file(path, what, MAX_JSON_BYTES)
+def parse_json(data, what):
     try:
         return json.loads(data)
     except (UnicodeDecodeError, ValueError) as error:
-        raise InputError(f"{what} {path} is not valid JSON") from error
+        raise InputError(f"{what} is not valid JSON") from error
+    except RecursionError as error:
+        raise InputError(f"{what} is nested too deeply") from error
+
+
+def read_json(path, what):
+    return parse_json(read_file(path, what, MAX_JSON_BYTES), f"{what} {path}")
 
 
 def validate(value, schema_file, expected, what):
@@ -232,23 +378,31 @@ def check_plan(plan, inputs_dir=None, bundles_dir=None):
             for role, name in task["inputs"].items():
                 if name is not None:
                     input_path(inputs_dir, name, f"{tid}: input {role}")
-        if bundles_dir is not None and not (Path(bundles_dir) / task["bundle"]).is_file():
+        if bundles_dir is not None and not is_regular(Path(bundles_dir) / task["bundle"]):
             raise InputError(f"{tid}: bundle file {task['bundle']} is missing")
 
 
 def input_path(inputs_dir, name, what):
     """A binding must name a regular file inside the inputs directory."""
-    base = Path(inputs_dir).resolve()
-    path = (base / name).resolve()
-    if base not in path.parents or not path.is_file():
+    base = Path(os.path.realpath(inputs_dir))
+    path = Path(os.path.realpath(base / name))
+    if base not in path.parents or not is_regular(path):
         raise InputError(f"{what} ({name}) is not a file inside the inputs directory")
     return path
+
+
+def read_input(path, what):
+    data = read_regular(path, follow=True)
+    if data is None:
+        raise InputError(f"{what} cannot be read")
+    return data
 
 
 # --- step 5: the isolated source bundle -----------------------------------------------------------------------------
 
 def make_bundle(repo, commits, out):
-    """Bundle exactly the history of the pinned commits, under temporary branch refs that are deleted again."""
+    """Bundle exactly the history of the pinned commits, under temporary branch refs that are deleted again.
+    The bundle is written in a private staging directory and published at `out` only when complete (publish)."""
     commits = list(dict.fromkeys(commits))
     if not commits or not all(SHA.match(c) for c in commits):
         raise InputError("pin full 40-character commit SHAs")
@@ -261,13 +415,16 @@ def make_bundle(repo, commits, out):
         if git(repo, "cat-file", "-e", f"{commit}^{{commit}}", check=False).returncode:
             raise InputError(f"commit {commit[:12]} is not in {repo}")
     refs = [REF_PREFIX + c for c in commits]
-    try:
-        for ref, commit in zip(refs, commits):
-            git(repo, "update-ref", ref, commit)
-        git(repo, "bundle", "create", str(Path(out).resolve()), *refs)
-    finally:
-        for ref in refs:
-            git(repo, "update-ref", "-d", ref, check=False)
+
+    def write(temporary):
+        try:
+            for ref, commit in zip(refs, commits):
+                git(repo, "update-ref", ref, commit)
+            git(repo, "bundle", "create", os.path.abspath(temporary), *refs)
+        finally:
+            for ref in refs:
+                git(repo, "update-ref", "-d", ref, check=False)
+    publish(out, write, "bundle")
     return out
 
 
@@ -368,7 +525,8 @@ def make_manifest(plan, inputs_dir, bundles_dir):
         for role in ROLES:
             name = task["inputs"].get(role)
             if name is not None:
-                data = input_path(inputs_dir, name, f"{task['id']}: input {role}").read_bytes()
+                what = f"{task['id']}: input {role} ({name})"
+                data = read_input(input_path(inputs_dir, name, what), what)
                 entry["inputs"].append({"role": role, "file": name, "sha256": hashlib.sha256(data).hexdigest(),
                                         "bytes": len(data)})
         bundle = Path(bundles_dir) / task["bundle"]
@@ -379,12 +537,14 @@ def make_manifest(plan, inputs_dir, bundles_dir):
         pins = sorted({c for c in (task["target"], task["candidate"]) if c})
         if prerequisites or sorted(set(heads.values())) != pins:
             raise InputError(f"{task['id']}: bundle {task['bundle']} does not hold exactly the pinned commits")
+        digest, size = sha256_file(bundle), file_size(bundle)
+        if digest is None or size is None:
+            raise InputError(f"{task['id']}: bundle {task['bundle']} cannot be read")
         with tempfile.TemporaryDirectory() as tmp:
             clone = Path(tmp) / "clone.git"
-            git(tmp, "clone", "--mirror", "--quiet", str(bundle.resolve()), str(clone), local_bundle=True)
+            git(tmp, "clone", "--mirror", "--quiet", os.path.abspath(bundle), str(clone), local_bundle=True)
             objects = len(object_set(clone))
-        entry["bundle"] = {"file": task["bundle"], "sha256": sha256_file(bundle), "bytes": bundle.stat().st_size,
-                           "refs": pins, "objects": objects}
+        entry["bundle"] = {"file": task["bundle"], "sha256": digest, "bytes": size, "refs": pins, "objects": objects}
         tasks.append(entry)
     digest = inputs_digest(tasks)
     return {"schema": MANIFEST_SCHEMA,
@@ -397,10 +557,7 @@ def make_manifest(plan, inputs_dir, bundles_dir):
 
 def load_manifest(path):
     data = read_file(path, "manifest", MAX_JSON_BYTES)
-    try:
-        manifest = json.loads(data)
-    except (UnicodeDecodeError, ValueError) as error:
-        raise InputError(f"manifest {path} is not valid JSON") from error
+    manifest = parse_json(data, f"manifest {path}")
     validate(manifest, "benchmark-freeze.schema.json", MANIFEST_SCHEMA, "manifest")
     unique(manifest["agents"], "agent")
     unique([t["id"] for t in manifest["tasks"]], "task")
@@ -423,9 +580,12 @@ def check_manifest(manifest, inputs_dir, bundles_dir, manifest_bytes):
             try:
                 path = input_path(inputs_dir, item["file"], f"{tid}: input {item['role']}")
             except InputError:
-                failures.append(f"{tid}: input {item['role']} is missing")
+                failures.append(f"{tid}: input {item['role']} is missing or cannot be reached")
                 continue
-            data = path.read_bytes()
+            data = read_regular(path, follow=True)
+            if data is None:
+                failures.append(f"{tid}: input {item['role']} cannot be read")
+                continue
             if hashlib.sha256(data).hexdigest() != item["sha256"] or len(data) != item["bytes"]:
                 failures.append(f"{tid}: input {item['role']} changed after it was frozen")
             if manifest_hash.encode() in data or manifest["inputs_digest"].encode() in data:
@@ -443,9 +603,12 @@ def check_manifest(manifest, inputs_dir, bundles_dir, manifest_bytes):
 def check_bundle(task, bundles_dir, input_blobs, manifest_blob):
     tid, bundle = task["id"], task["bundle"]
     path = Path(bundles_dir) / bundle["file"]
-    if not path.is_file():
+    if not is_regular(path):
         return [f"{tid}: bundle is missing"]
-    if sha256_file(path) != bundle["sha256"] or path.stat().st_size != bundle["bytes"]:
+    digest, size = sha256_file(path), file_size(path)
+    if digest is None or size is None:
+        return [f"{tid}: bundle cannot be read"]
+    if digest != bundle["sha256"] or size != bundle["bytes"]:
         return [f"{tid}: bundle changed after it was frozen"]
     try:
         prerequisites, heads = bundle_heads(path)
@@ -459,7 +622,7 @@ def check_bundle(task, bundles_dir, input_blobs, manifest_blob):
         failures.append(f"{tid}: bundle refs are not exactly the pinned commits")
     with tempfile.TemporaryDirectory() as tmp:
         clone = Path(tmp) / "clone.git"
-        if git(tmp, "clone", "--mirror", "--quiet", str(path.resolve()), str(clone), check=False,
+        if git(tmp, "clone", "--mirror", "--quiet", os.path.abspath(path), str(clone), check=False,
                local_bundle=True).returncode:
             return failures + [f"{tid}: bundle cannot be cloned"]
         present = object_set(clone)
@@ -500,154 +663,374 @@ def task_entry(manifest, task_id):
     return task
 
 
-def input_bytes(manifest, inputs_dir, task, role):
+def frozen_input(manifest, inputs_dir, task, role):
+    """The bytes of a task's frozen input, or None when it has none or it cannot be read."""
     item = next((i for i in task["inputs"] if i["role"] == role), None)
-    return None if item is None else input_path(inputs_dir, item["file"], f"{task['id']}: input {role}").read_bytes()
+    if item is None:
+        return None
+    try:
+        path = input_path(inputs_dir, item["file"], f"{task['id']}: input {role}")
+    except InputError:
+        return None
+    return read_regular(path, follow=True)
 
 
 def check_workspace(manifest, inputs_dir, bundles_dir, task_id, arm, workspace):
-    """The start state of one run: what must be present, and what must be absent. Any failure invalidates the run."""
+    """The start state of one run: what must be present, and what must be absent. Any failure invalidates the run.
+
+    Git's own view of the work tree is not trusted: index flags, `git status` and filters can all hide a change.
+    Every tracked file's bytes and mode are compared with the pinned tree, every other path is found by walking
+    the directory, and the Git metadata must be an ordinary directory inside the workspace, where it is scanned."""
     task = task_entry(manifest, task_id)
-    workspace = Path(workspace)
-    if not workspace.is_dir():
+    if not is_directory(workspace):
         return ["workspace: not a directory"]
-    if git(workspace, "rev-parse", "--git-dir", check=False).returncode:
-        return ["workspace: not a Git repository"]
-    if git(workspace, "rev-parse", "--is-bare-repository").stdout.strip() == b"true":
+    root = Path(os.path.realpath(workspace))
+    dot_git = kind_of(root / ".git")
+    if dot_git is None:
+        probe = git(root, "rev-parse", "--is-bare-repository", check=False)
+        if not probe.returncode and probe.stdout.strip() == b"true":
+            return ["workspace: a bare repository; a run needs a work tree checked out at the target"]
+        return ["workspace: not a Git work tree; it has no .git directory"]
+    if dot_git == "unreadable":
+        return ["workspace: .git cannot be examined, so its start state cannot be verified"]
+    if dot_git == "link":
+        return ["workspace: .git is a symbolic link; the Git metadata must be a directory inside the workspace"]
+    if dot_git != "dir":
+        return ["workspace: .git is not a directory (a gitfile points to metadata elsewhere); the Git metadata "
+                "must be a directory inside the workspace"]
+    try:
+        return inspect_workspace(manifest, inputs_dir, bundles_dir, task, arm, root)
+    except Unreadable as error:
+        return [f"workspace: {error}, so its start state cannot be verified"]
+
+
+def inspect_workspace(manifest, inputs_dir, bundles_dir, task, arm, root):
+    def wgit(*args):
+        result = git(root, *args, check=False)
+        if result.returncode:
+            raise Unreadable(f"Git cannot read it (git {args[0]} failed)")
+        return result.stdout
+
+    git_dir = root / ".git"
+    if wgit("rev-parse", "--is-bare-repository").strip() == b"true":
         return ["workspace: a bare repository; a run needs a work tree checked out at the target"]
-    top = git(workspace, "rev-parse", "--show-toplevel").stdout.decode().strip()
-    if Path(top).resolve() != workspace.resolve():
-        return ["workspace: not the top level of its work tree"]
-    failures = []
-    git_dir = Path(git(workspace, "rev-parse", "--absolute-git-dir").stdout.decode().strip())
-    if git(workspace, "rev-parse", "--is-shallow-repository").stdout.strip() == b"true":
+    top = os.path.realpath(os.fsdecode(wgit("rev-parse", "--show-toplevel").rstrip(b"\n")))
+    metadata = os.path.realpath(os.fsdecode(wgit("rev-parse", "--absolute-git-dir").rstrip(b"\n")))
+    if top != str(root) or metadata != str(git_dir):
+        return ["workspace: not the top level of its work tree, with its own .git"]
+    failures, untrusted = [], []
+    if wgit("rev-parse", "--is-shallow-repository").strip() == b"true":
         failures.append("workspace: shallow")
-    for relative in ("objects/info/alternates", "objects/info/http-alternates", "info/grafts"):
-        if (git_dir / relative).exists():
-            failures.append(f"workspace: {relative} exists")
-    if list((git_dir / "objects" / "pack").glob("*.promisor")):
+    for relative in ("objects/info/alternates", "objects/info/http-alternates", "info/grafts", "commondir"):
+        if kind_of(git_dir / relative) is not None:
+            failures.append(f"workspace: .git/{relative} exists")
+    if any(name.endswith(".promisor") for name in listing(git_dir / "objects" / "pack")):
         failures.append("workspace: promisor pack")
-    config = git(workspace, "config", "--list", check=False).stdout.decode().lower()
-    if "extensions.partialclone" in config or re.search(r"remote\..*\.(promisor|partialclonefilter)=", config):
-        failures.append("workspace: partial-clone configuration")
-    if git(workspace, "remote").stdout.strip():
+    if wgit("remote").strip():
         failures.append("workspace: has a remote")
-    untrusted = []                      # anything here could run a program or bend `git status`, so it is not run
-    keys = git(workspace, "config", "--local", "--no-includes", "--list", "--name-only", "-z", check=False)
+    keys = git(root, "config", "--local", "--no-includes", "--list", "--name-only", "-z", check=False)
     if keys.returncode:
         untrusted.append("workspace: the repository configuration cannot be read")
-    for key in sorted({k.decode("utf-8", "replace").lower() for k in keys.stdout.split(b"\0") if k}):
+    for key in sorted({os.fsdecode(k).lower() for k in keys.stdout.split(b"\0") if k}):
         if key not in WORKSPACE_CONFIG:
-            untrusted.append(f"workspace: unexpected repository configuration {shown(key)}")
-    for extra in sorted(p.name for p in (git_dir / "info").glob("*") if p.name not in ("exclude", "grafts")):
-        untrusted.append(f"workspace: unexpected Git file info/{shown(extra)}")
+            untrusted.append(f"workspace: unexpected repository configuration {key}")
+    for extra in listing(git_dir / "info"):
+        if extra not in ("exclude", "grafts"):
+            untrusted.append(f"workspace: unexpected Git file info/{extra}")
     failures += untrusted
-    head = git(workspace, "rev-parse", "--verify", "--quiet", "HEAD^{commit}", check=False)
+    head = git(root, "rev-parse", "--verify", "--quiet", "HEAD^{commit}", check=False)
     if head.returncode:
         failures.append("workspace: HEAD is unborn; nothing is checked out")
-    elif head.stdout.decode().strip() != task["target"]:
+    elif head.stdout.decode("ascii", "replace").strip() != task["target"]:
         failures.append("workspace: HEAD is not the task's target commit")
-    branch = git(workspace, "symbolic-ref", "--quiet", "HEAD", check=False).stdout.decode().strip()
-    if branch != "refs/heads/work":
+    if git(root, "symbolic-ref", "--quiet", "HEAD", check=False).stdout.strip() != b"refs/heads/work":
         failures.append("workspace: HEAD is not on the branch work")
     expected = {"refs/heads/work": task["target"]}
     if task["candidate"]:
         expected["refs/heads/candidate"] = task["candidate"]
-    refs = dict(line.split(" ", 1)[::-1] for line in
-                git(workspace, "for-each-ref", "--format=%(objectname) %(refname)").stdout.decode().splitlines())
-    if refs != expected:
+    listed = wgit("for-each-ref", "--format=%(objectname) %(refname)").decode("utf-8", "surrogateescape")
+    if dict(line.split(" ", 1)[::-1] for line in listed.splitlines() if " " in line) != expected:
         failures.append("workspace: refs are not exactly the expected work (and candidate) branches")
-    with tempfile.TemporaryDirectory() as tmp:
-        clone = Path(tmp) / "clone.git"
-        bundle = Path(bundles_dir) / task["bundle"]["file"]
-        if git(tmp, "clone", "--mirror", "--quiet", str(bundle.resolve()), str(clone), check=False,
-               local_bundle=True).returncode:
-            return failures + ["workspace: the task's bundle cannot be cloned"]
-        allowed = object_set(clone)
-    present = object_set(workspace)
-    if allowed - present:
-        failures.append(f"workspace: {len(allowed - present)} Git object(s) of the task's bundle are missing")
-    if present - allowed:
-        failures.append(f"workspace: {len(present - allowed)} Git object(s) not in the task's bundle")
+    allowed = bundle_objects(bundles_dir, task)
+    present = set(wgit("cat-file", "--batch-all-objects", "--batch-check=%(objectname)").decode("ascii").split())
+    if allowed is None:
+        failures.append("workspace: the task's bundle cannot be cloned")
+    else:
+        if allowed - present:
+            failures.append(f"workspace: {len(allowed - present)} Git object(s) of the task's bundle are missing")
+        if present - allowed:
+            failures.append(f"workspace: {len(present - allowed)} Git object(s) not in the task's bundle")
     for later in task["must_be_absent"]:
         if later in present:
             failures.append(f"workspace: later commit {later[:12]} is present")
+    entries, unreadable = walk(root)
+    failures += [f"workspace: {path} cannot be read" for path in unreadable]
+    failures += layout_failures(entries) + private_file_failures(manifest, inputs_dir, root, entries)
     if untrusted:
-        return failures + ["workspace: the work tree was not inspected, because its Git configuration is not a "
-                           "fresh clone's"] + private_file_failures(manifest, workspace)
-    result = git(workspace, "status", "--porcelain=v1", "-z", "--no-renames", "--untracked-files=all",
-                 "--ignored=traditional", check=False)
-    if result.returncode:
-        return failures + ["workspace: Git cannot read the work tree's state; the repository is damaged"]
-    status = result.stdout
-    allowed_files = {f"{BOOTSTRAP}/{name}" for name in ARM_FILES[arm]}
-    seen_bootstrap = set()
-    for entry in filter(None, status.split(b"\0")):
-        code, path = entry[:2].decode(), entry[3:].decode("utf-8", "replace")
-        if code in ("??", "!!"):
-            if path in allowed_files:
-                seen_bootstrap.add(path)
-            else:
-                failures.append(f"workspace: unapproved untracked file {shown(path)}")
+        return failures + ["workspace: the work tree was not compared with the target, because its Git "
+                           "configuration is not a fresh clone's"]
+    if task["target"] in present:
+        tree = tree_entries(wgit("ls-tree", "-r", "-z", "--full-tree", task["target"]))
+        failures += index_failures(wgit("ls-files", "-z", "--stage", "-v"), tree)
+        failures += content_failures(root, task, tree, entries, wgit)
+    else:
+        tree = {}
+        failures.append("workspace: the target commit is not in the workspace, so the work tree was not compared "
+                        "with it")
+    failures += bootstrap_failures(manifest, inputs_dir, task, arm, root, entries, tree)
+    return failures
+
+
+def listing(directory):
+    """The names in a directory of the Git metadata. Unreadable metadata makes the start state unverifiable."""
+    kind = kind_of(directory)
+    if kind is None:
+        return []
+    if kind != "dir":
+        raise Unreadable(f".git/{directory.name} is not a directory")
+    try:
+        return sorted(os.listdir(directory))
+    except OSError as error:
+        raise Unreadable(f".git/{directory.name} cannot be read") from error
+
+
+def bundle_objects(bundles_dir, task):
+    with tempfile.TemporaryDirectory() as tmp:
+        clone = Path(tmp) / "clone.git"
+        bundle = Path(bundles_dir) / task["bundle"]["file"]
+        if git(tmp, "clone", "--mirror", "--quiet", os.path.abspath(bundle), str(clone), check=False,
+               local_bundle=True).returncode:
+            return None
+        return object_set(clone)
+
+
+def walk(root):
+    """Every path under root, `.git` included, as {relative path: (kind, lstat)}, and the paths that could not be
+    examined. A symbolic link is listed, never followed. Iterative, so that no depth can exhaust the stack."""
+    entries, unreadable, pending = {}, [], [str(root)]
+    while pending:
+        directory = pending.pop()
+        try:
+            with os.scandir(directory) as listing:
+                children = list(listing)
+        except OSError:
+            unreadable.append(Path(os.path.relpath(directory, root)).as_posix())
             continue
-        if code[0] != " ":
-            failures.append(f"workspace: staged change to {shown(path)}")
-        if code[1] != " ":
-            failures.append(f"workspace: tracked file {shown(path)} differs from the target commit")
-    for name in ARM_FILES[arm]:
-        path = workspace / BOOTSTRAP / name
-        if f"{BOOTSTRAP}/{name}" not in seen_bootstrap or not path.is_file():
-            failures.append(f"workspace: required bootstrap file {BOOTSTRAP}/{name} is missing")
-            continue
-        data = path.read_bytes()
-        frozen = {"task.md": input_bytes(manifest, inputs_dir, task, "statement"),
-                  "handoff.md": input_bytes(manifest, inputs_dir, task, "handoff_a")}.get(name)
-        if name in ("task.md", "handoff.md") and data != frozen:
-            failures.append(f"workspace: {BOOTSTRAP}/{name} is not the frozen input")
-        if name == "context.md" and (not data.strip() or task["target"].encode() not in data):
-            failures.append(f"workspace: {BOOTSTRAP}/context.md does not name the task's target commit")
-    return failures + private_file_failures(manifest, workspace)
-
-
-def private_file_failures(manifest, workspace):
-    """Every regular file in the workspace, `.git` included, against the private inputs' hashes.
-
-    Git never lists a path with a `.git` component, so a nested `.git` is refused outright, and a symbolic link
-    inside the repository's own `.git` is refused because the walk does not follow it."""
-    private = {i["sha256"]: i["role"] for t in manifest["tasks"] for i in t["inputs"] if i["role"] in PRIVATE_ROLES}
-    failures = []
-    for root, dirs, files in os.walk(workspace):
-        here = Path(root)
-        relative = here.relative_to(workspace)
-        dirs.sort()
-        inside_git = relative.parts[:1] == (".git",)
-        for name in sorted(dirs + files):
-            path = here / name
-            where = shown((relative / name).as_posix())
-            if name == ".git" and here != workspace:
-                failures.append(f"workspace: nested Git directory or file {where}")
-            if inside_git and path.is_symlink():
-                failures.append(f"workspace: symbolic link {where} inside the Git directory")
-        for name in sorted(files):
-            path, where = here / name, shown((relative / name).as_posix())
+        for child in children:
+            relative = Path(os.path.relpath(child.path, root)).as_posix()
             try:
-                if not stat.S_ISREG(path.stat().st_mode):         # follows a file link: a linked private file counts
-                    continue
-                digest = sha256_file(path)
+                info = child.stat(follow_symlinks=False)
             except OSError:
-                if path.is_symlink() and not path.exists():
-                    continue                                       # a dangling link holds no bytes
-                failures.append(f"workspace: {where} cannot be read")
+                unreadable.append(relative)
                 continue
-            if digest in private:
-                failures.append(f"workspace: private input {private[digest]} is present at {where}")
+            mode = info.st_mode
+            kind = ("link" if stat.S_ISLNK(mode) else "file" if stat.S_ISREG(mode) else "dir" if stat.S_ISDIR(mode)
+                    else "other")
+            entries[relative] = (kind, info)
+            if kind == "dir":
+                pending.append(child.path)
+    return entries, sorted(set(unreadable))
+
+
+def layout_failures(entries):
+    """Git lists no path inside a `.git` directory, and the walk follows no link: refuse what neither would see."""
+    failures = []
+    for path, (kind, _) in sorted(entries.items()):
+        parts = path.split("/")
+        if parts[-1] == ".git" and len(parts) > 1:
+            failures.append(f"workspace: nested Git directory or file {path}")
+        if parts[0] == ".git" and kind == "link":
+            failures.append(f"workspace: symbolic link {path} inside the Git directory")
+        if kind == "other":
+            failures.append(f"workspace: {path} is not a regular file, directory or symbolic link")
+    return failures
+
+
+def private_file_failures(manifest, inputs_dir, root, entries):
+    """No file anywhere in the workspace, `.git` included, may hold the bytes of a private input: neither as the
+    whole file nor, when the input without its trailing whitespace is at least MIN_EMBEDDED bytes, inside another."""
+    exact, embedded = {}, []
+    for task in manifest["tasks"]:
+        for item in task["inputs"]:
+            if item["role"] not in PRIVATE_ROLES:
+                continue
+            exact[(item["sha256"], item["bytes"])] = item["role"]
+            data = frozen_input(manifest, inputs_dir, task, item["role"])
+            if data is not None and hashlib.sha256(data).hexdigest() == item["sha256"]:
+                needle = data.rstrip()                  # a pasted copy often loses its final newline
+                if len(needle) >= MIN_EMBEDDED:
+                    embedded.append((item["role"], needle))
+    sizes, shortest, failures = {size for _, size in exact}, min((len(d) for _, d in embedded), default=0), []
+    for path, (kind, info) in sorted(entries.items()):
+        if kind != "file":
+            continue
+        if info.st_size in sizes:
+            digest = digest_regular(root / path, "sha256")
+            if digest is None:
+                failures.append(f"workspace: {path} cannot be read")
+                continue
+            if (digest, info.st_size) in exact:
+                failures.append(f"workspace: private input {exact[(digest, info.st_size)]} is present at {path}")
+                continue
+        if embedded and info.st_size >= shortest:
+            found = embedded_inputs(root / path, embedded)
+            if found is None:
+                failures.append(f"workspace: {path} cannot be read")
+            failures += [f"workspace: private input {role} is embedded in {path}" for role in sorted(found or ())]
+    return failures
+
+
+def embedded_inputs(path, needles):
+    """The roles of the private inputs whose bytes occur in a regular file, read in overlapping chunks."""
+    try:
+        fd = _open_regular(path, follow=False)
+    except (OSError, ValueError):
+        return None
+    overlap, found, tail = max(len(data) for _, data in needles) - 1, set(), b""
+    try:
+        while block := os.read(fd, 1 << 20):
+            window = tail + block
+            found |= {role for role, data in needles if data in window}
+            tail = window[-overlap:] if overlap else b""
+        return found
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def tree_entries(listing_bytes):
+    """{path: (mode, object id)} from `git ls-tree -r -z`."""
+    tree = {}
+    for record in filter(None, listing_bytes.split(b"\0")):
+        meta, _, path = record.partition(b"\t")
+        mode, _, sha = meta.decode("ascii").split(" ")
+        tree[os.fsdecode(path)] = (mode, sha)
+    return tree
+
+
+def index_failures(listing_bytes, tree):
+    """The index must equal the target tree, entry for entry, with no flag that hides a change from Git."""
+    failures, index = [], {}
+    for record in filter(None, listing_bytes.split(b"\0")):
+        meta, _, raw = record.partition(b"\t")
+        tag, mode, sha, stage = meta.decode("ascii").split(" ")
+        path = os.fsdecode(raw)
+        if tag in ("S", "s"):
+            failures.append(f"workspace: the index marks {path} skip-worktree, which hides its changes from Git")
+        if tag.islower():
+            failures.append(f"workspace: the index marks {path} assume-unchanged, which hides its changes from Git")
+        elif tag not in ("H", "S"):
+            failures.append(f"workspace: the index entry for {path} is not an ordinary one")
+        if stage != "0":
+            failures.append(f"workspace: {path} is unmerged in the index")
+        index[path] = (mode, sha)
+    for path in sorted(set(index) | set(tree)):
+        if index.get(path) != tree.get(path):
+            failures.append(f"workspace: staged change to {path}")
+    return failures
+
+
+def content_failures(root, task, tree, entries, wgit):
+    """Every tracked path holds exactly the target's bytes and mode; every other path is an approved bootstrap
+    file. Bytes are hashed directly, so no index flag, stat cache, filter or `git status` result is relied on."""
+    def setting(name, default):
+        value = git(root, "config", "--local", "--bool", name, check=False).stdout.strip()
+        return default if not value else value == b"true"
+    filemode, symlinks = setting("core.filemode", True), setting("core.symlinks", True)
+    converts = any(path.rsplit("/", 1)[-1] == ".gitattributes" for path in tree)
+    failures = []
+    for path, (mode, sha) in sorted(tree.items()):
+        kind, info = entries.get(path, (None, None))
+        full = root / path
+        if mode in ("100644", "100755"):
+            if kind is None:
+                failures.append(f"workspace: tracked file {path} is missing")
+                continue
+            if kind != "file":
+                failures.append(f"workspace: tracked file {path} is not a regular file")
+                continue
+            actual = blob_id_of(full)
+            if actual is None:
+                failures.append(f"workspace: {path} cannot be read")
+            elif actual != sha and not (converts and checkout_bytes(wgit, task["target"], path) == read_regular(full)):
+                failures.append(f"workspace: tracked file {path} differs from the target commit")
+            if filemode and bool(info.st_mode & stat.S_IXUSR) != (mode == "100755"):
+                failures.append(f"workspace: tracked file {path} has the wrong mode")
+            if info.st_nlink != 1:
+                failures.append(f"workspace: tracked file {path} is hard-linked to a file outside the work tree")
+        elif mode == "120000":
+            if kind == "link":
+                try:
+                    target = os.fsencode(os.readlink(full))
+                except OSError:
+                    failures.append(f"workspace: {path} cannot be read")
+                    continue
+                if blob_id(target) != sha:
+                    failures.append(f"workspace: tracked symbolic link {path} differs from the target commit")
+            elif kind == "file" and not symlinks:
+                if blob_id_of(full) != sha:
+                    failures.append(f"workspace: tracked symbolic link {path} differs from the target commit")
+            else:
+                failures.append(f"workspace: tracked symbolic link {path} is "
+                                f"{'missing' if kind is None else 'not a symbolic link'}")
+        elif mode == "160000":
+            if kind != "dir" or any(other.startswith(path + "/") for other in entries):
+                failures.append(f"workspace: submodule path {path} is not an empty directory")
+        else:
+            failures.append(f"workspace: tracked path {path} has an unsupported mode")
+    return failures
+
+
+def checkout_bytes(wgit, target, path):
+    """The bytes a checkout writes for a path whose attributes convert it (end of line, ident, encoding). The
+    configuration was verified first, so no filter driver, and so no program, can be involved."""
+    try:
+        return wgit("cat-file", "--filters", f"{target}:{path}")
+    except Unreadable:
+        return None
+
+
+def bootstrap_failures(manifest, inputs_dir, task, arm, root, entries, tree):
+    allowed = {f"{BOOTSTRAP}/{name}" for name in ARM_FILES[arm]}
+    failures = [f"workspace: unapproved untracked file {path}" for path, (kind, _) in sorted(entries.items())
+                if kind in ("file", "link") and path.split("/")[0] != ".git" and path not in tree
+                and path not in allowed]
+    if entries.get(BOOTSTRAP, (None,))[0] not in (None, "dir"):
+        failures.append(f"workspace: {BOOTSTRAP} is not a directory")
+    for name in ARM_FILES[arm]:
+        path = f"{BOOTSTRAP}/{name}"
+        kind = entries.get(path, (None,))[0]
+        if kind is None:
+            failures.append(f"workspace: required bootstrap file {path} is missing")
+            continue
+        if kind != "file":
+            failures.append(f"workspace: bootstrap file {path} is not a regular file")
+            continue
+        if entries[path][1].st_nlink != 1:
+            failures.append(f"workspace: bootstrap file {path} is hard-linked to a file outside the work tree")
+        data = read_regular(root / path)
+        if data is None:
+            failures.append(f"workspace: {path} cannot be read")
+        elif name in ("task.md", "handoff.md"):
+            frozen = frozen_input(manifest, inputs_dir, task, "statement" if name == "task.md" else "handoff_a")
+            if frozen is None:
+                failures.append(f"workspace: the frozen input for {path} cannot be read")
+            elif data != frozen:
+                failures.append(f"workspace: {path} is not the frozen input")
+        elif name == "context.md" and (not data.strip() or task["target"].encode() not in data):
+            failures.append(f"workspace: {path} does not name the task's target commit")
     return failures
 
 
 def run_record(manifest, manifest_bytes, task_id, arm, workspace, inputs_dir):
     task = task_entry(manifest, task_id)
     context = {"A": "handoff.md", "B": "context.md"}.get(arm)
-    data = (Path(workspace) / BOOTSTRAP / context).read_bytes() if context else None
+    data = None
+    if context:
+        data = read_regular(Path(workspace) / BOOTSTRAP / context)
+        if data is None:
+            raise OperatingError(f"{BOOTSTRAP}/{context} cannot be read")
     fingerprint = re.search(rb"sha256:[0-9a-f]{64}", data) if arm == "B" else None
     gold = next(i["sha256"] for i in task["inputs"] if i["role"] == "gold_sheet")
     record = {"schema": RUN_SCHEMA, "record_kind": "task_run",
@@ -676,42 +1059,53 @@ def run_record(manifest, manifest_bytes, task_id, arm, workspace, inputs_dir):
 def make_workspace(manifest, inputs_dir, bundles_dir, task_id, arm, context, out):
     task = task_entry(manifest, task_id)
     out = Path(out)
-    if os.path.lexists(out):                      # a dangling symbolic link counts as existing
-        raise InputError(f"--out {out} exists")
-    if not out.parent.is_dir():
-        raise InputError(f"the parent directory of --out {out} does not exist")
     if arm == "B" and context is None:
         raise InputError("arm B needs --context, the generated package's Markdown")
     if arm != "B" and context is not None:
         raise InputError(f"arm {arm} takes no --context")
     context_bytes = read_file(context, "--context", MAX_CONTEXT_BYTES) if arm == "B" else None
+    bootstrap = {"task.md": frozen_input(manifest, inputs_dir, task, "statement")}
+    if arm == "A":
+        bootstrap["handoff.md"] = frozen_input(manifest, inputs_dir, task, "handoff_a")
+    if arm == "B":
+        bootstrap["context.md"] = context_bytes
+    if any(data is None for data in bootstrap.values()):
+        raise InputError(f"{task_id}: a frozen input for the bootstrap files cannot be read")
+    if kind_of(out) is not None:
+        raise InputError(f"--out {out} exists")
+    if not is_directory(out.parent):
+        raise InputError(f"the parent directory of --out {out} does not exist")
     try:
-        build_workspace(manifest, inputs_dir, bundles_dir, task, arm, context_bytes, out)
+        os.mkdir(out)                 # never follows or replaces: an occupied path, a dangling link included, fails
+    except FileExistsError as error:
+        raise InputError(f"--out {out} exists") from error
+    except OSError as error:
+        raise InputError(f"cannot create --out {out}") from error
+    try:
+        build_workspace(bundles_dir, task, bootstrap, out)
     except BaseException:
-        if out.exists():                          # it did not exist before: remove the partial workspace
-            shutil.rmtree(out)
+        shutil.rmtree(out, ignore_errors=True)   # it is ours: remove the partial workspace
         raise
 
 
-def build_workspace(manifest, inputs_dir, bundles_dir, task, arm, context_bytes, out):
+def build_workspace(bundles_dir, task, bootstrap, out):
     bundle = Path(bundles_dir) / task["bundle"]["file"]
-    git(out.parent, "clone", "--no-checkout", "--quiet", str(bundle.resolve()), str(out), local_bundle=True)
+    git(out.parent, "clone", "--no-checkout", "--quiet", os.path.abspath(bundle), os.path.abspath(out),
+        local_bundle=True)
     if git(out, "ls-tree", "--name-only", task["target"], BOOTSTRAP).stdout.strip():
         raise InputError(f"the target commit tracks {BOOTSTRAP}, where the bootstrap files go")
     git(out, "checkout", "--quiet", "-B", "work", task["target"])
     if task["candidate"]:
         git(out, "branch", "candidate", task["candidate"])
     git(out, "remote", "remove", "origin")
-    for ref in git(out, "for-each-ref", "--format=%(refname)").stdout.decode().splitlines():
+    for ref in git(out, "for-each-ref", "--format=%(refname)").stdout.decode("utf-8", "surrogateescape").splitlines():
         if ref not in ("refs/heads/work", "refs/heads/candidate"):
             git(out, "update-ref", "-d", ref)
-    (out / BOOTSTRAP).mkdir()
-    (out / BOOTSTRAP / "task.md").write_bytes(input_bytes(manifest, inputs_dir, task, "statement"))
-    if arm == "A":
-        (out / BOOTSTRAP / "handoff.md").write_bytes(input_bytes(manifest, inputs_dir, task, "handoff_a"))
-    if arm == "B":
-        (out / BOOTSTRAP / "context.md").write_bytes(context_bytes)
-    exclude = Path(git(out, "rev-parse", "--absolute-git-dir").stdout.decode().strip()) / "info" / "exclude"
+    os.mkdir(out / BOOTSTRAP)
+    for name, data in bootstrap.items():
+        with open(out / BOOTSTRAP / name, "xb") as handle:
+            handle.write(data)
+    exclude = out / ".git" / "info" / "exclude"
     exclude.parent.mkdir(exist_ok=True)
     with open(exclude, "a", encoding="utf-8") as handle:
         handle.write(f"/{BOOTSTRAP}/\n")
@@ -719,8 +1113,15 @@ def build_workspace(manifest, inputs_dir, bundles_dir, task, arm, context_bytes,
 
 # --- command line ---------------------------------------------------------------------------------------------------
 
+class Parser(argparse.ArgumentParser):
+    """Usage errors become InputError, so that their text, which may hold the user's arguments, is escaped."""
+
+    def error(self, message):
+        raise InputError(f"invalid arguments: {message}; see --help")
+
+
 def parse(argv):
-    parser = argparse.ArgumentParser(prog="benchmark_freeze.py", description=__doc__.split("\n\n")[0])
+    parser = Parser(prog="benchmark_freeze.py", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("prepare", help="derive a freeze plan from the published task plan")
     p.add_argument("--tasks", required=True)
@@ -747,28 +1148,13 @@ def parse(argv):
     v.add_argument("--task")
     v.add_argument("--arm", choices=sorted(ARM_FILES))
     v.add_argument("--record")
-    try:
-        return parser.parse_args(argv)
-    except SystemExit as stop:
-        if stop.code in (0, None):
-            raise                                     # --help
-        raise InputError("invalid arguments; see --help") from None
-
-
-def write_new(path, data, flag="--out"):
-    try:
-        with open(path, "xb") as handle:
-            handle.write(data)
-    except FileExistsError as error:
-        raise InputError(f"{flag} {path} exists") from error
-    except OSError as error:
-        raise InputError(f"cannot write {flag} {path}") from error
+    return parser.parse_args(argv)                     # --help exits 0 by itself
 
 
 def existing_dirs(args, *flags):
     for flag in flags:
         value = getattr(args, flag)
-        if not Path(value).is_dir():
+        if not is_directory(value):
             raise InputError(f"--{flag} {value} is not an existing directory")
 
 
@@ -783,8 +1169,8 @@ def run(argv):
         check_plan(plan)
         write_new(args.out, (json.dumps(plan, indent=2) + "\n").encode())
         for entry in plan["not_pinned"]:
-            print(f"{entry['id']}: not pinned ({entry['pin_when']}); left out of the freeze plan", file=sys.stderr)
-        print(f"freeze plan: {len(plan['tasks'])} task(s)")
+            emit(f"{entry['id']}: not pinned ({entry['pin_when']}); left out of the freeze plan", sys.stderr)
+        emit(f"freeze plan: {len(plan['tasks'])} task(s)")
         return 0
     if args.command == "bundle":
         plan = read_json(args.plan, "freeze plan")
@@ -794,10 +1180,8 @@ def run(argv):
             raise InputError(f"task {args.task} is not in the freeze plan")
         existing_dirs(args, "bundles")
         out = Path(args.bundles) / task["bundle"]
-        if out.exists():
-            raise InputError(f"bundle {out} exists")
         make_bundle(args.repo, [c for c in (task["target"], task["candidate"]) if c], out)
-        print(sha256_file(out))
+        emit(sha256_file(out))
         return 0
     if args.command == "manifest":
         plan = read_json(args.plan, "freeze plan")
@@ -805,7 +1189,7 @@ def run(argv):
         manifest = make_manifest(plan, args.inputs, args.bundles)
         data = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
         write_new(args.out, data)
-        print(hashlib.sha256(data).hexdigest())
+        emit(hashlib.sha256(data).hexdigest())
         return 0
     manifest, data = load_manifest(args.manifest)
     existing_dirs(args, "inputs", "bundles")
@@ -813,10 +1197,10 @@ def run(argv):
         failures = check_manifest(manifest, args.inputs, args.bundles, data)
         if failures:
             for failure in failures:
-                print(failure)
+                emit(failure)
             return 1
         make_workspace(manifest, args.inputs, args.bundles, args.task, args.arm, args.context, args.out)
-        print(f"workspace {args.out}: task {args.task}, arm {args.arm}")
+        emit(f"workspace {args.out}: task {args.task}, arm {args.arm}")
         return 0
     if args.workspace and not (args.task and args.arm):
         raise InputError("--workspace needs --task and --arm")
@@ -826,13 +1210,13 @@ def run(argv):
     if args.workspace:
         failures += check_workspace(manifest, args.inputs, args.bundles, args.task, args.arm, args.workspace)
     for failure in failures:
-        print(failure)
+        emit(failure)
     if failures:
         return 1
     if args.record:
         record = run_record(manifest, data, args.task, args.arm, args.workspace, args.inputs)
         write_new(args.record, (json.dumps(record, indent=2, sort_keys=True) + "\n").encode(), "--record")
-    print(f"verified: manifest {hashlib.sha256(data).hexdigest()}")
+    emit(f"verified: manifest {hashlib.sha256(data).hexdigest()}")
     return 0
 
 
@@ -840,10 +1224,14 @@ def main(argv=None):
     try:
         return run(sys.argv[1:] if argv is None else argv)
     except InputError as error:
-        print(f"error: {error}", file=sys.stderr)
+        emit(f"error: {error}", sys.stderr)
         return 2
     except OperatingError as error:
-        print(f"error: {error}", file=sys.stderr)
+        emit(f"error: {error}", sys.stderr)
+        return 3
+    except OSError as error:                      # an expected filesystem failure the checks above did not name
+        where = f": {error.filename}" if error.filename else ""
+        emit(f"error: {error.strerror or 'operating failure'}{where}", sys.stderr)
         return 3
 
 

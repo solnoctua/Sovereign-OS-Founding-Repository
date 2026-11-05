@@ -401,7 +401,7 @@ def test_workspace_configuration_cannot_run_programs_or_bend_the_status(setup):
     run(filtered, "config", "filter.planted.clean", f"touch '{marker}'; cat")
     os.utime(filtered / "store.py", (1, 1))                     # stale stat data: Git would re-read the file
     assert_rejected(setup, filtered, "unexpected repository configuration filter.planted.clean",
-                    "unexpected Git file info/attributes", "the work tree was not inspected")
+                    "unexpected Git file info/attributes", "the work tree was not compared with the target")
     assert not marker.exists()
     elsewhere = workspace(setup, name="elsewhere")
     run(elsewhere, "config", "core.worktree", str(workspace(setup, name="clean copy")))
@@ -585,3 +585,330 @@ def test_the_truncated_16_byte_bundle_is_refused_by_the_command_without_hanging(
     code, out, _ = cli("verify", "--manifest", edited, "--inputs", setup["inputs"], "--bundles", setup["bundles"],
                        timeout=30)
     assert code == 1 and "T1: bundle header ends before its terminating blank line" in out and "verified" not in out
+
+
+# --- round 4: Git's own view of the work tree is not trusted (F-13) ---------------------------------------------------
+
+LATER_CODE = "def forget(record):\n    return None\n"          # the later outcome of the synthetic task
+
+
+@pytest.mark.parametrize("flag, name", [("--skip-worktree", "skip-worktree"), ("--assume-unchanged", "assume-unchanged")])
+def test_index_flags_cannot_hide_an_altered_source(setup, flag, name):
+    """Reported in round 4: either flag, then the outcome's code, gave `freeze.valid: true`."""
+    altered = workspace(setup, name=f"altered {name}")
+    run(altered, "update-index", flag, "store.py")
+    (altered / "store.py").write_text(LATER_CODE, encoding="utf-8")
+    assert run(altered, "status", "--porcelain") == ""                        # Git itself sees nothing
+    assert_rejected(setup, altered, f"the index marks store.py {name}",
+                    "tracked file store.py differs from the target commit")
+    flagged = workspace(setup, name=f"flag only {name}")
+    run(flagged, "update-index", flag, "store.py")
+    assert_rejected(setup, flagged, f"the index marks store.py {name}")      # the flag alone is refused
+
+
+@pytest.mark.parametrize("form", ["symbolic link", "gitfile"])
+def test_relocated_git_metadata_holding_a_private_file_is_rejected(setup, form):
+    """Reported in round 4: a root .git leading to metadata elsewhere, holding the gold sheet, gave a record."""
+    path = workspace(setup, name=f"relocated {form}")
+    elsewhere = setup["tmp"] / f"metadata elsewhere ({form})"
+    (path / ".git").rename(elsewhere)
+    shutil.copy(setup["inputs"] / "T1" / "gold_sheet.json", elsewhere / "notes.json")
+    if form == "symbolic link":
+        (path / ".git").symlink_to(elsewhere, target_is_directory=True)
+    else:
+        (path / ".git").write_text(f"gitdir: {elsewhere}\n", encoding="utf-8")
+    assert run(path, "rev-parse", "HEAD") == setup["start"]                   # Git itself follows it
+    assert_rejected(setup, path, ".git is a symbolic link" if form == "symbolic link" else ".git is not a directory")
+
+
+def test_content_is_checked_without_git_and_untracked_paths_by_walking(setup):
+    restaged = workspace(setup, name="restaged")
+    (restaged / "store.py").write_text(LATER_CODE, encoding="utf-8")
+    run(restaged, "add", "store.py")
+    assert_rejected(setup, restaged, "staged change to store.py", "store.py differs from the target commit")
+    mode = workspace(setup, name="mode")
+    os.chmod(mode / "store.py", 0o755)
+    assert_rejected(setup, mode, "tracked file store.py has the wrong mode")
+    swapped = workspace(setup, name="swapped")
+    copy = setup["tmp"] / "identical copy.py"
+    shutil.copy(swapped / "store.py", copy)
+    (swapped / "store.py").unlink()
+    (swapped / "store.py").symlink_to(copy)
+    assert_rejected(setup, swapped, "tracked file store.py is not a regular file")
+    hard = workspace(setup, name="hard link")
+    (hard / ".devcontext" / "task.md").unlink()
+    os.link(setup["inputs"] / "T1" / "statement.md", hard / ".devcontext" / "task.md")   # same bytes, shared file
+    assert_rejected(setup, hard, "bootstrap file .devcontext/task.md is hard-linked")
+    symbolic = workspace(setup, name="linked bootstrap")
+    (symbolic / ".devcontext" / "handoff.md").unlink()
+    (symbolic / ".devcontext" / "handoff.md").symlink_to(setup["inputs"] / "T1" / "handoff_a.md")
+    assert_rejected(setup, symbolic, "bootstrap file .devcontext/handoff.md is not a regular file")
+    ignored = workspace(setup, name="ignored")
+    with open(ignored / ".git" / "info" / "exclude", "a", encoding="utf-8") as handle:
+        handle.write("*.secret\n")
+    (ignored / "notes.secret").write_text(LATER_CODE, encoding="utf-8")
+    assert_rejected(setup, ignored, "unapproved untracked file notes.secret")
+    special = workspace(setup, name="fifo")
+    os.mkfifo(special / "pipe")
+    assert_rejected(setup, special, "pipe is not a regular file, directory or symbolic link")
+    linked = workspace(setup, name="linked directory")
+    (linked / "docs").symlink_to(setup["inputs"], target_is_directory=True)
+    assert_rejected(setup, linked, "unapproved untracked file docs")
+    common = workspace(setup, name="commondir")
+    shutil.copytree(common / ".git", setup["tmp"] / "shared metadata")
+    (common / ".git" / "commondir").write_text(str(setup["tmp"] / "shared metadata") + "\n", encoding="utf-8")
+    assert run(common, "rev-parse", "--git-common-dir") == str(setup["tmp"] / "shared metadata")
+    assert_rejected(setup, common, ".git/commondir exists")
+    assert verify_ws(setup, workspace(setup, name="still valid"))[0] == 0
+
+
+def freeze_one(tmp_path, repo, task, contents=None):
+    """The documented workflow for one task of a hand-built task plan, through the command line."""
+    plan_v3 = task_plan(task["inputs"]["target"], task["environment"]["must_be_absent"][0])
+    plan_v3["tasks"] = [task]
+    tasks, plan, inputs, bundles = (tmp_path / "tasks.json", tmp_path / "plan.json", tmp_path / "inputs",
+                                    tmp_path / "bundles")
+    tasks.write_text(json.dumps(plan_v3), encoding="utf-8")
+    assert cli("prepare", "--tasks", tasks, "--tool-commit", ONE, "--protocol-commit", TWO, "--agent", "codex",
+               "--out", plan)[0] == 0
+    (inputs / "T1").mkdir(parents=True)
+    for name in ("statement.md", "handoff_a.md", "gold_sheet.json", "hidden_tests.py", "evaluator_instructions.md"):
+        (inputs / "T1" / name).write_text((contents or {}).get(name, f"synthetic {name}\n"), encoding="utf-8")
+    bundles.mkdir()
+    assert cli("bundle", "--repo", repo, "--plan", plan, "--task", "T1", "--bundles", bundles)[0] == 0
+    manifest = tmp_path / "manifest.json"
+    assert cli("manifest", "--plan", plan, "--inputs", inputs, "--bundles", bundles, "--out", manifest)[0] == 0
+    return {"tmp": tmp_path, "manifest": manifest, "inputs": inputs, "bundles": bundles}
+
+
+def test_valid_candidate_workspaces_and_checkout_conversions_still_verify(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run(repo, "init", "-q")
+    (repo / ".gitattributes").write_text("*.txt text eol=crlf\n", encoding="utf-8")
+    run(repo, "add", ".gitattributes")
+    base = commit(repo, "notes.txt", "one\ntwo\n", "base: CRLF on checkout")
+    run(repo, "branch", "feature")
+    target = commit(repo, "store.py", "x = 1\n", "main moves on")
+    run(repo, "checkout", "-q", "feature")
+    candidate = commit(repo, "store.py", "x = 2\n", "candidate")
+    run(repo, "checkout", "-q", "-")
+    later = commit(repo, "store.py", "x = 3\n", "later")
+    task = {"id": "T1", "set": "calibration", "kind": "feature", "stage": "integration", "title": "integrate",
+            "pin_when": None, "inputs": {"target": target, "candidate": candidate, "expected_merge_base": base},
+            "expected": None, "statement": {"source": "synthetic"}, "handoff_a": {"source": "synthetic"},
+            "environment": {"bundle_refs": sorted([target, candidate]), "must_be_absent": [later]},
+            "acceptance": "a", "reference_outcome": None}
+    s = freeze_one(tmp_path, repo, task)
+    context = tmp_path / "context.md"
+    context.write_text(f"Target commit {target}\n", encoding="utf-8")
+    for arm, extra in (("A", ()), ("B", ("--context", context)), ("N", ())):
+        path = tmp_path / f"run {arm}"
+        code, _, err = cli("workspace", "--manifest", s["manifest"], "--inputs", s["inputs"], "--bundles",
+                           s["bundles"], "--task", "T1", "--arm", arm, "--out", path, *extra)
+        assert code == 0, err
+        assert (path / "notes.txt").read_bytes() == b"one\r\ntwo\r\n"           # converted on checkout
+        assert run(path, "rev-parse", "candidate") == candidate
+        record = tmp_path / f"start {arm}.json"
+        code, out, err = verify(s, "--workspace", path, "--task", "T1", "--arm", arm, "--record", record)
+        assert code == 0 and json.loads(record.read_text())["freeze"]["valid"] is True, out + err
+    unconverted = tmp_path / "run N"                      # the blob's own bytes: the content Git would store
+    (unconverted / "notes.txt").write_bytes(b"one\ntwo\n")
+    assert verify(s, "--workspace", unconverted, "--task", "T1", "--arm", "N")[0] == 0
+    altered = tmp_path / "run A"
+    (altered / "notes.txt").write_bytes(b"one\r\nTWO\r\n")
+    record = tmp_path / "refused.json"
+    code, out, _ = verify(s, "--workspace", altered, "--task", "T1", "--arm", "A", "--record", record)
+    assert code == 1 and "tracked file notes.txt differs from the target commit" in out and not record.exists()
+
+
+# --- round 4: expected read failures are contained (F-12) -------------------------------------------------------------
+
+needs_permissions = pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file whatever its permissions")
+
+
+@needs_permissions
+def test_unreadable_files_fail_cleanly_without_a_record_or_partial_output(setup):
+    """Reported in round 4: an unreadable bootstrap file or frozen input raised a traceback."""
+    s = setup
+    gold = s["inputs"] / "T1" / "gold_sheet.json"
+    task_md = workspace(s, name="unreadable task")
+    os.chmod(task_md / ".devcontext" / "task.md", 0)
+    assert_rejected(s, task_md, ".devcontext/task.md cannot be read")
+    source = workspace(s, name="unreadable source")
+    os.chmod(source / "store.py", 0)
+    assert_rejected(s, source, "store.py cannot be read")
+    hidden = workspace(s, name="unreadable directory")
+    (hidden / "docs").mkdir()
+    shutil.copy(gold, hidden / "docs" / "notes.json")
+    os.chmod(hidden / "docs", 0)
+    assert_rejected(s, hidden, "docs cannot be read")
+    os.chmod(hidden / "docs", 0o755)
+    valid = workspace(s, name="valid before the input became unreadable")
+    os.chmod(gold, 0)
+    try:
+        assert_rejected(s, valid, "T1: input gold_sheet cannot be read")
+        out = s["tmp"] / "never written.json"
+        code, _, err = cli("manifest", "--plan", s["plan"], "--inputs", s["inputs"], "--bundles", s["bundles"],
+                           "--out", out)
+        assert code == 2 and "input gold_sheet (T1/gold_sheet.json) cannot be read" in err and not out.exists()
+        code, out_text, _ = cli("workspace", "--manifest", s["manifest"], "--inputs", s["inputs"], "--bundles",
+                                s["bundles"], "--task", "T1", "--arm", "A", "--out", s["tmp"] / "never built")
+        assert code == 1 and "cannot be read" in out_text and not (s["tmp"] / "never built").exists()
+    finally:
+        os.chmod(gold, 0o644)
+    os.chmod(s["bundles"] / "T1.bundle", 0)
+    try:
+        code, out_text, _ = verify(s)
+        assert code == 1 and "T1: bundle cannot be read" in out_text
+    finally:
+        os.chmod(s["bundles"] / "T1.bundle", 0o644)
+    os.chmod(s["plan"], 0)
+    try:
+        code, _, err = cli("bundle", "--repo", s["repo"], "--plan", s["plan"], "--task", "T1", "--bundles", s["tmp"])
+        assert code == 2 and "cannot be read" in err
+    finally:
+        os.chmod(s["plan"], 0o644)
+    locked = s["tmp"] / "read-only directory"
+    locked.mkdir()
+    os.chmod(locked, 0o555)
+    try:
+        code, _, err = cli("manifest", "--plan", s["plan"], "--inputs", s["inputs"], "--bundles", s["bundles"],
+                           "--out", locked / "m.json")
+        assert code == 2 and "cannot write" in err and list(locked.iterdir()) == []
+    finally:
+        os.chmod(locked, 0o755)
+
+
+# --- round 4: outputs never follow or replace an occupied path (F-16) -------------------------------------------------
+
+def test_outputs_never_follow_or_replace_an_occupied_path(setup, tmp_path):
+    """Reported in round 4: `bundle` followed a dangling symbolic link and wrote outside its directory."""
+    s = setup
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    bundles = tmp_path / "fresh bundles"
+    bundles.mkdir()
+    target = bundles / "T1.bundle"
+    args = ("bundle", "--repo", s["repo"], "--plan", s["plan"], "--task", "T1", "--bundles", bundles)
+    target.symlink_to(outside / "escaped.bundle")                            # dangling
+    code, _, err = cli(*args)
+    assert code == 2 and "exists" in err
+    assert not (outside / "escaped.bundle").exists() and os.readlink(target) == str(outside / "escaped.bundle")
+    victim = outside / "existing.bundle"
+    victim.write_bytes(b"keep me")
+    target.unlink()
+    target.symlink_to(victim)                                                  # a link to an existing file
+    assert cli(*args)[0] == 2 and victim.read_bytes() == b"keep me" and target.is_symlink()
+    target.unlink()
+    target.write_bytes(b"an existing file")
+    assert cli(*args)[0] == 2 and target.read_bytes() == b"an existing file"
+    target.unlink()
+    assert sorted(p.name for p in bundles.iterdir()) == [] and sorted(p.name for p in outside.iterdir()) == [
+        "existing.bundle"]                                                    # nothing staged is left behind
+    code, out, _ = cli(*args)
+    assert code == 0 and not target.is_symlink() and out.strip() == hashlib.sha256(target.read_bytes()).hexdigest()
+    assert [p.name for p in bundles.iterdir()] == ["T1.bundle"]
+    ws = workspace(s, name="valid")
+    for name, command in (
+            ("plan", ("prepare", "--tasks", s["tasks"], "--tool-commit", ONE, "--protocol-commit", TWO,
+                      "--agent", "codex", "--out")),
+            ("manifest", ("manifest", "--plan", s["plan"], "--inputs", s["inputs"], "--bundles", s["bundles"],
+                          "--out")),
+            ("record", ("verify", "--manifest", s["manifest"], "--inputs", s["inputs"], "--bundles", s["bundles"],
+                        "--workspace", ws, "--task", "T1", "--arm", "A", "--record")),
+            ("workspace", ("workspace", "--manifest", s["manifest"], "--inputs", s["inputs"], "--bundles",
+                           s["bundles"], "--task", "T1", "--arm", "A", "--out"))):
+        link = tmp_path / f"dangling {name}"
+        link.symlink_to(outside / f"escaped {name}")
+        code, _, err = cli(*command, link)
+        assert code == 2 and "exists" in err and not (outside / f"escaped {name}").exists(), name
+        assert link.is_symlink()
+
+
+# --- round 4: diagnostics escape what the user controls (F-17) --------------------------------------------------------
+
+def test_diagnostics_escape_and_bound_user_controlled_text(setup):
+    s = setup
+    plan = json.loads(s["plan"].read_text(encoding="utf-8"))
+    plan["\x1b[31mRED\x1b[0m"] = 1
+    plan["tasks"][0]["‮synthetic marker"] = 2
+    plan["k" * 10000] = 3
+    hostile = s["tmp"] / "hostile plan.json"
+    hostile.write_text(json.dumps(plan), encoding="utf-8")
+    code, _, err = cli("manifest", "--plan", hostile, "--inputs", s["inputs"], "--bundles", s["bundles"],
+                       "--out", s["tmp"] / "m.json")
+    assert code == 2 and "\x1b" not in err and "‮" not in err
+    assert "unexpected field \\x1b[31mRED\\x1b[0m" in err and "unexpected field \\u202esynthetic marker" in err
+    assert all(len(line) <= 2001 for line in err.splitlines()) and "k" * 81 not in err      # bounded, hiding nothing
+    code, _, err = verify(s, "--workspace", workspace(s), "--task", "\x1b[2J", "--arm", "A")
+    assert code == 2 and "task \\x1b[2J is not in the manifest" in err and "\x1b" not in err
+    code, _, err = cli("verify", "\x1b]0;title\x07", "--manifest", s["manifest"], "--inputs", s["inputs"],
+                       "--bundles", s["bundles"])
+    assert code == 2 and "unrecognized arguments: \\x1b]0;title\\x07" in err and "\x1b" not in err
+
+
+def test_embedded_private_inputs_and_deep_trees_are_handled(tmp_path):
+    """Found in the round-4 self-review: a gold sheet pasted inside a larger file was not found, and on Python 3.11
+    a directory 1,100 levels deep made os.walk raise RecursionError."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run(repo, "init", "-q")
+    target = commit(repo, "store.py", "def forget(record):\n    return record\n", "start")
+    later = commit(repo, "store.py", LATER_CODE, "later")
+    task = task_plan(target, later)["tasks"][0]
+    gold = json.dumps({"facts": [f"synthetic fact number {n} about forget()" for n in range(6)]}) + "\n"
+    assert len(gold) >= 64
+    s = freeze_one(tmp_path, repo, task, {"gold_sheet.json": gold})
+
+    def build(name):
+        path = tmp_path / name
+        assert cli("workspace", "--manifest", s["manifest"], "--inputs", s["inputs"], "--bundles", s["bundles"],
+                   "--task", "T1", "--arm", "N", "--out", path)[0] == 0
+        return path
+
+    def refused(path, *messages):
+        record = tmp_path / f"{path.name}.json"
+        code, out, _ = verify(s, "--workspace", path, "--task", "T1", "--arm", "N", "--record", record)
+        assert code == 1 and not record.exists() and all(m in out for m in messages), out
+
+    assert verify(s, "--workspace", build("fresh"), "--task", "T1", "--arm", "N")[0] == 0   # no false positive
+    metadata = build("in metadata")
+    with open(metadata / ".git" / "description", "a", encoding="utf-8") as handle:
+        handle.write("notes: " + gold)
+    refused(metadata, "private input gold_sheet is embedded in .git/description")
+    pasted = build("pasted")
+    (pasted / "notes.md").write_text("# Notes\n\n" + gold.rstrip() + " (pasted without its newline)\n",
+                                     encoding="utf-8")
+    refused(pasted, "private input gold_sheet is embedded in notes.md", "unapproved untracked file notes.md")
+    deep = build("deep")
+    level = deep
+    for _ in range(1100):
+        level = level / "d"
+        level.mkdir()
+    (level / "x.txt").write_text("x\n", encoding="utf-8")
+    try:
+        refused(deep, "unapproved untracked file d/d/d/")
+    finally:
+        while level != deep:                                       # removed bottom-up: rmtree recurses too
+            for child in level.iterdir():
+                child.unlink()
+            level.rmdir()
+            level = level.parent
+
+
+def test_nested_json_and_relative_output_paths_are_handled(setup):
+    """Found in the round-4 self-review: deeply nested JSON raised RecursionError, and a relative --out with a
+    directory in it was cloned into the wrong place (git ran in its parent with the relative path again)."""
+    s = setup
+    nested = s["tmp"] / "nested.json"
+    nested.write_text("[" * 100000 + "]" * 100000, encoding="utf-8")
+    code, _, err = cli("verify", "--manifest", nested, "--inputs", s["inputs"], "--bundles", s["bundles"])
+    assert code == 2 and "nested too deeply" in err
+    (s["tmp"] / "runs").mkdir()
+    relative = os.path.relpath(s["tmp"] / "runs" / "relative", PROJECT)
+    code, _, err = cli("workspace", "--manifest", s["manifest"], "--inputs", s["inputs"], "--bundles", s["bundles"],
+                       "--task", "T1", "--arm", "A", "--out", relative)
+    assert code == 0, err
+    assert (s["tmp"] / "runs" / "relative" / ".git").is_dir() and not (s["tmp"] / "runs" / "runs").exists()
+    assert verify_ws(s, s["tmp"] / "runs" / "relative")[0] == 0

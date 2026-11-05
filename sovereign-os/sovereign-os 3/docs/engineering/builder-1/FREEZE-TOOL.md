@@ -82,11 +82,13 @@
 | Code | Meaning |
 | --- | --- |
 | 0 | Success. For `verify`: every check passed |
-| 1 | A verification check failed. The start state is **not** valid, and the run must not start. One line per failed check |
-| 2 | Invalid input or usage, so nothing was checked or written. The causes include: missing or malformed JSON; an unsupported schema version; a schema violation; an unpinned task; a binding outside the inputs directory or to a missing file; a missing or malformed bundle; a missing `--inputs` or `--bundles` directory; a `--repo` that is not a full Git clone; a JSON input over 16 MiB, or a `--context` over 262,144 bytes; a target commit that tracks `.devcontext/`; an existing `--out`, `--record` or bundle file, including a dangling symbolic link |
-| 3 | An operating failure: Git missing, failing, or slower than 300 seconds |
+| 1 | A verification check failed. The start state is **not** valid, and the run must not start. One line per failed check. A file or directory that cannot be read is a failed check |
+| 2 | Invalid input or usage, so nothing was checked or written. The causes include: missing or malformed JSON; an unsupported schema version; a schema violation; an unpinned task; a binding outside the inputs directory or to a missing file; a missing or malformed bundle; a missing `--inputs` or `--bundles` directory; a `--repo` that is not a full Git clone; a JSON input over 16 MiB, or a `--context` over 262,144 bytes; a target commit that tracks `.devcontext/`; an input, plan or manifest that cannot be read; an occupied output path, including a dangling symbolic link |
+| 3 | An operating failure: Git missing, failing, or slower than 300 seconds, or a filesystem failure outside the checks |
 
-Messages name tasks, roles, fields and the files the user supplied. They never print file contents. An expected invalid input never produces a traceback.
+**Messages** name tasks, roles, fields and the files the user supplied. They never print file contents. Every character that is not printable is escaped, so a crafted key, identifier or file name cannot drive the terminal, and each line is bounded. An expected invalid input never produces a traceback.
+
+**Outputs** (the freeze plan, a bundle, the manifest, a start record) are written in a private staging directory beside the destination and then hard-linked into place. An occupied destination, including a dangling symbolic link, is refused, never followed or replaced, and nothing is published half-written. `workspace --out` creates its directory with a single `mkdir`, which refuses the same way.
 
 ## What `verify` checks
 
@@ -108,20 +110,25 @@ Messages name tasks, roles, fields and the files the user supplied. They never p
 
 **A workspace, with `--workspace`.** Each check covers both presence and absence.
 
+**Git's own view of the work tree is not trusted.** Index flags (`skip-worktree`, `assume-unchanged`), `git status` and filters can each hide a change. So the verifier hashes every tracked file itself, finds every other path by walking the directory without following links, and requires the Git metadata to be an ordinary directory inside the workspace, where it is scanned too.
+
 - **What it is:**
   - a non-bare work tree, at its own top level;
+  - its `.git` a real directory inside it: not a symbolic link, not a gitfile, and with no `commondir`;
   - not shallow, with no alternates, grafts, promisor state, replace refs or remotes;
-  - only the configuration a fresh clone writes, and no file in `.git/info` but `exclude`. Anything else could run a program or change what `git status` reports, so the work tree is then not inspected.
+  - only the configuration a fresh clone writes, and no file in `.git/info` but `exclude`. Anything else could run a program, so the work tree is then not compared with the target.
 - **Where it points:**
   - HEAD is born, on branch `work`, at the target commit;
   - the refs are exactly `work`, plus `candidate` at the candidate commit.
 - **Its Git objects:** exactly the task bundle's objects. None is missing, and there is no extra one, reachable or not. No later commit is present.
+- **Its index:** entry for entry the target tree, with no flag that hides a change from Git, and nothing unmerged.
 - **Its files:**
-  - no staged change, and no tracked file that differs from the target;
-  - no untracked or ignored file outside the arm's allow-list in `.devcontext/`;
-  - the arm's bootstrap files are present, with `task.md` and `handoff.md` byte-identical to the frozen inputs, and `context.md` naming the target commit;
-  - no file anywhere in the workspace, `.git` included, has the bytes of any task's gold sheet, hidden tests or evaluator instructions;
-  - no nested `.git`, and no symbolic link inside the repository's own `.git`. Git lists no path inside a `.git` directory, and the scan follows no link to a directory, so neither could otherwise be checked.
+  - every tracked file is a regular file, not hard-linked, with the target's bytes and executable bit; every tracked link has the target's link text. The bytes are hashed directly; Git is asked only for the checkout form of a file that `.gitattributes` converts, after the configuration check has ruled out every filter program;
+  - no other file or link outside the arm's allow-list in `.devcontext/`, whatever the ignore rules say, and no FIFO, socket or device anywhere;
+  - the arm's bootstrap files are present as regular files, not hard-linked, with `task.md` and `handoff.md` byte-identical to the frozen inputs, and `context.md` naming the target commit;
+  - no file anywhere in the workspace, `.git` included, has the bytes of any task's gold sheet, hidden tests or evaluator instructions. An input of at least 64 bytes, without its trailing whitespace, is also found inside a larger file;
+  - no nested `.git`, and no symbolic link inside the repository's own `.git`.
+- **What cannot be read** (a file, a directory, the metadata) fails the check, with its name: an unreadable place could hide anything.
 
 **A bare repository is never a valid workspace.** Bundles are cloned bare only inside the tool, for analysis.
 
@@ -129,7 +136,7 @@ Messages name tasks, roles, fields and the files the user supplied. They never p
 
 ## What it cannot detect
 
-- A private file whose bytes were changed (a paraphrase, or a pasted fragment).
+- A private file whose bytes were changed: a paraphrase, an encoding, a compressed copy, or a fragment shorter than the whole input (or than 64 bytes).
 - A model's knowledge of the repository's later history from its training.
 - Anything outside the workspace that an agent can reach. The agent's network and memory isolation is the runner's duty (BENCHMARK-PLAN §4).
 
