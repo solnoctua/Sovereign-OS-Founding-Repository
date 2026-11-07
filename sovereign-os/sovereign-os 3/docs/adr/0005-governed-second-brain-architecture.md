@@ -331,7 +331,7 @@ D8, D9 and D14 record the founder's 2026-10-20 direction. The founder's decision
 
 ## Revision notes
 
-**Status update** (2026-11-05; metadata only, no technical change): the founder approved D15's direction (Option C: transitive, fail-closed sensitivity inheritance across source records and MemoryClaims) and deferred governed declassification to D16 ([Issue #25](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/25)). The detailed policy is [ADR-0007](0007-lineage-sensitivity.md), PROPOSED; nothing is implemented. §15.1, dated 2026-10-21, records the earlier deferral and is unchanged.
+**Status update** (2026-11-05; metadata only, no technical change): the founder approved D15's direction (Option C: transitive, fail-closed sensitivity inheritance across source records and MemoryClaims) and deferred governed declassification to D16 ([Issue #25](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/25)). The detailed policy is [ADR-0007](0007-lineage-sensitivity.md), PROPOSED; nothing is implemented. §15.1, dated 2026-10-21, records the earlier deferral and is unchanged. SB-2a provenance navigation merged to `main` as PR #21 on 2026-11-03 (`3740119`); the 2026-11-02 note below, which calls it a candidate, describes the earlier state.
 
 **Status update** (2026-11-02; metadata only, no technical change): the storage-integrity repair (Issue #6, ADR-0006) merged to `main` as PR #20 (`99f3026`). The 2026-10-22 note below, which calls it unmerged, and §12.4, dated 2026-10-20, describe earlier states. SB-2a provenance navigation (validation spec §3) is implemented by PR #21, the replacement for #11, a candidate until the founder merges it.
 

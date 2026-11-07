@@ -31,7 +31,7 @@
 
 | Proposal | Recommended option | Blocking what | Where |
 | --- | --- | --- | --- |
-| ADR-0007 revision 2, the detailed D15 policy (direction approved 2026-11-05, above): the effective-sensitivity contract, correction refusal, import lineage, the lineage bound, and the fingerprint and token changes | Independent Tier 2 policy review, then founder ratification; implementation in a separate Tier 2 PR with its own audit | Threshold 3 | ADR-0007, PR #13 |
+| ADR-0007 revision 2 (amended 2026-11-07 after its independent review), the detailed D15 policy (direction approved 2026-11-05, above): the effective-sensitivity contract, correction refusal, import lineage, the lineage bound, the fingerprint and token changes, and the §4.6 consistency exception for an `active` record with a stored correction, which the founder proposed on 2026-11-07 | Independent Tier 2 policy review, then founder ratification; implementation in a separate Tier 2 PR with its own audit | Threshold 3 | ADR-0007, PR #13 |
 | Local generative inference as a `device` boundary provider after the runtime's network behaviour is verified | Research first, then an ADR-0004 amendment | Stage A+ usefulness | `ROADMAP.md` §H |
 | Authenticated capture-only API for non-sensitive data after WP-2 and D15 | Approve the threat-model step | Capture lane | `ROADMAP.md` §H |
 | Close PR #7 in favour of the reconciled master plan in WP-0 (done: the founder closed #7 on 2026-10-31) | Approve after reviewing WP-0 | Documentation coherence | PR #7 |
@@ -51,4 +51,4 @@ Forking Linux now; a graph database; a managed Obsidian projection with registry
 1. WP-0 (this consolidation): done (PR #19, which replaced #8, merged 2026-10-31). PR #7 is closed.
 2. WP-1 Builder 0 documents and the GitHub settings checklist: done (PR #18, merged 2026-10-27; D-F settings applied).
 3. WP-2 migration approach (ADR-0006): ratified 2026-10-31, after the independent Codex Tier 2 audit of `ab51bae` returned PASS (as reported by the founder; the reviewer's report and findings artifact are not in the repository). PR #20 merged on 2026-11-02 (`99f3026`) with the founder's Code Owner approval and explicit authorization. The audit report and a reviewer-owned findings artifact are still not in the repository.
-4. WP-3 SB-2a after independent audit.
+4. WP-3 SB-2a: done (PR #21, which replaced #11, merged 2026-11-03, `3740119`).
