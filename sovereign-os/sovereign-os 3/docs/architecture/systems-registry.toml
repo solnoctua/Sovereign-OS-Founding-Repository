@@ -96,7 +96,7 @@ upstream = "native: src/sovereign/context.py"
 code = ["src/sovereign/context.py"]
 version_or_commit = "policy_version sovereign.context.v0"
 license = "project"
-boundary = "Token recomputed at execution; resists stale or forged tokens and relevant-universe changes. Does not resist in-process code opening sockets or unauthenticated local clients. D15 lineage sensitivity deferred."
+boundary = "Token recomputed at execution; resists stale or forged tokens and relevant-universe changes. Does not resist in-process code opening sockets or unauthenticated local clients. D15 lineage sensitivity not implemented (direction approved 2026-11-05; ADR-0007 PROPOSED)."
 exit_test = "remove context.py and the compile endpoint; ADR-0003 /api/ask behaviour returns (ADR-0004 reversal)"
 documentation = "docs/adr/0004-governed-retrieval-context-compiler.md"
 
