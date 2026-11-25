@@ -63,6 +63,21 @@ class RestoreIn(BaseModel):
     backup: dict
 
 
+class HistoryMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=context.CONVERSATION.max_message_chars)
+    # A reply names the cloud provider that wrote it; the person's own messages name none (checked by the compiler).
+    provider: Literal["kimi", "openai"] | None = None
+
+
+class ConversationIn(BaseModel):
+    # The active conversation's earlier cloud exchanges (ADR-0008, PROPOSED). The browser tab holds them; the
+    # server stores nothing, renders them only as the preview shows, and binds every one into the token.
+    model_config = ConfigDict(extra="forbid")
+    history: list[HistoryMessage] = Field(default_factory=list, max_length=context.CONVERSATION.max_request_messages)
+
+
 class CompileIn(BaseModel):
     # extra="forbid": a client cannot smuggle context, roles, authority or messages into a request.
     model_config = ConfigDict(extra="forbid")
@@ -70,6 +85,8 @@ class CompileIn(BaseModel):
     provider: Literal["local", "kimi", "openai"] = "local"
     # Pinned evidence: high-priority candidates that still pass every compiler policy.
     source_ids: list[str] = Field(default_factory=list, max_length=8)
+    # Present only for a conversation turn (ADR-0008). Absent, the request is ADR-0004's single question, unchanged.
+    conversation: ConversationIn | None = None
 
 
 class AskIn(CompileIn):
@@ -267,8 +284,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
             raise HTTPException(status_code=422, detail=f"Backup rejected by vault integrity rules: {exc}")
 
     def compiled(body: CompileIn, previewed: bool = False):
+        history = None if body.conversation is None else [m.model_dump() for m in body.conversation.history]
         try:
-            return context.compile_context(vault, body.question, body.provider, body.source_ids)
+            return context.compile_context(vault, body.question, body.provider, body.source_ids, conversation=history)
         except context.PinnedSourceForgotten as exc:
             # After a preview, a pin forgotten since then means the approved plan no longer holds.
             raise HTTPException(409 if previewed else 422, context.CHANGED if previewed else str(exc))
@@ -318,11 +336,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
         except Exception as exc:
             # Never expose provider exceptions, request bodies, or secret-bearing error objects to browser.
             raise HTTPException(502, "The model request failed. Check server logs/configuration.") from None
+        disclosed = {"provider": question.provider, "question_included": True,
+                     "items": [{"id": i.candidate.id, "type": i.candidate.type, "role": i.role} for i in bundle.included]}
+        if bundle.conversation is not None:
+            disclosed["earlier_messages"] = bundle.conversation["sent_messages"]
         return {"answer": answer, "provider": question.provider, "sources": evidence, "cloud_disclosure": True,
                 "context": bundle.describe(), "receipt": bundle.receipt(transmitted=True).describe(),
-                "disclosed": {"provider": question.provider, "question_included": True,
-                              "items": [{"id": i.candidate.id, "type": i.candidate.type, "role": i.role}
-                                        for i in bundle.included]}}
+                "disclosed": disclosed}
 
     return app
 
