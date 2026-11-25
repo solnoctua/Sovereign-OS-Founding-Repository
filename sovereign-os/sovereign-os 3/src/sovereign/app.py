@@ -135,7 +135,11 @@ def create_app(db_path: str | None = None) -> FastAPI:
 
     @app.get("/api/status")
     def status():
+        # `conversation`: the bounds a client must respect when it sends earlier turns (ADR-0008); nothing is stored.
         return {"mode": "prototype", "local": True, "providers": providers.available(),
+                "conversation": {"policy_version": context.CONVERSATION.version,
+                                 "max_message_chars": context.CONVERSATION.max_message_chars,
+                                 "max_request_messages": context.CONVERSATION.max_request_messages},
                 "warning": "Synthetic/non-sensitive data only. No at-rest vault encryption or user authentication."}
 
     @app.get("/api/memories")
