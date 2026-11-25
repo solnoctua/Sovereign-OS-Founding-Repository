@@ -16,6 +16,7 @@ Sovereign is a proposed long-lived, personal-first AI operating environment desi
 4. Ask through a deterministic Context Compiler: it selects approved memory and evidence for a question, shows exactly what would leave the device, and sends a cloud model only that approved, exact context ([ADR-0004](docs/adr/0004-governed-retrieval-context-compiler.md)).
 5. Offline, non-generative evidence inspection without any API key.
 6. Optional Kimi/Moonshot or OpenAI API integration with explicit per-request consent. **There are no automatic provider requests or model-driven tool actions.**
+7. **Conversations** ([ADR-0008](docs/adr/0008-conversation-threads.md), PROPOSED): a chat-first interface with several conversations per session. Each message gets fresh, governed memory from your vault; a cloud message is sent only after you review and approve exactly what leaves the device, including the conversation's earlier turns and any reply another provider wrote. Conversations live only in the open browser tab (reloading clears them) until a storage contract is approved.
 
 ### Critical safety warning
 
@@ -40,9 +41,11 @@ Run checks:
 pytest -q
 ```
 
+The browser tests in `tests/browser/` run only where Playwright for Python and a Chromium build are installed (`pip install playwright`, then `playwright install chromium`); elsewhere, CI included, they are skipped.
+
 ## Optional cloud model connection
 
-Cloud is OFF unless you choose a provider in the UI, preview the compiled context and approve that exact context for the request. Only the private items shown in the preview are sent, together with your question; sensitive items never leave, and any change before sending requires a new review. Model API usage can incur provider charges.
+Cloud is OFF unless you choose a model in the conversation header, review the context compiled for a message and approve that exact payload. Only the private items shown in the review are sent, together with your message and, in a conversation, its earlier cloud exchanges; sensitive items never leave, and any change before sending requires a new review. Model API usage can incur provider charges.
 
 Kimi and OpenAI APIs have distinct API keys/billing from their respective chat or coding subscriptions. Configure only what you intend to use; find a current supported model identifier in the provider's own API account:
 

@@ -19,7 +19,7 @@
 # out a pull request's merge commit, so a PR that leaves this registry stale fails on the merged result.
 
 schema_version = 1
-updated = 2026-10-22
+updated = 2026-11-25
 
 [code_facts]
 schema_user_version = 5                       # store.SCHEMA_VERSION (ADR-0006)
@@ -37,6 +37,11 @@ known_gaps = []
 "context.POLICY.max_items" = 12
 "context.POLICY.max_chars" = 12000
 "context.POLICY.retrieval_limit" = 50
+"context.CONVERSATION.version" = "sovereign.conversation.v0"   # ADR-0008 (PROPOSED): earlier turns of a conversation
+"context.CONVERSATION.max_request_messages" = 64
+"context.CONVERSATION.max_message_chars" = 16000
+"context.CONVERSATION.max_history_messages" = 40
+"context.CONVERSATION.max_history_chars" = 32000
 "store.EXPORT_SCHEMA" = "sovereign.v0.records.3"   # backup format 3: per-claim evidence-set commitments (ADR-0006, D-A)
 "provenance.MAX_HOPS" = 2                     # SB-2a (ADR-0005 §8.1; PR #21, the replacement for #11)
 "provenance.MAX_NODES" = 60
@@ -91,14 +96,14 @@ canonical_write = false
 personal_data = "content"
 credentials = "none"
 egress = "none (rendering only; egress is the provider adapter)"
-persistent_state = "none (bundles, receipts and tokens are never persisted)"
+persistent_state = "none (bundles, receipts, tokens and conversation turns are never persisted)"
 upstream = "native: src/sovereign/context.py"
 code = ["src/sovereign/context.py"]
-version_or_commit = "policy_version sovereign.context.v0"
+version_or_commit = "policy_version sovereign.context.v0; conversation contract sovereign.conversation.v0 (ADR-0008, PROPOSED)"
 license = "project"
 boundary = "Token recomputed at execution; resists stale or forged tokens and relevant-universe changes. Does not resist in-process code opening sockets or unauthenticated local clients. D15 lineage sensitivity not implemented (direction approved 2026-11-05; ADR-0007 PROPOSED)."
 exit_test = "remove context.py and the compile endpoint; ADR-0003 /api/ask behaviour returns (ADR-0004 reversal)"
-documentation = "docs/adr/0004-governed-retrieval-context-compiler.md"
+documentation = "docs/adr/0004-governed-retrieval-context-compiler.md; docs/adr/0008-conversation-threads.md"
 
 [[system]]
 id = "model-provider-adapter"
@@ -120,21 +125,21 @@ documentation = "docs/adr/0004-governed-retrieval-context-compiler.md; README.md
 
 [[system]]
 id = "browser-ui"
-role = "Local browser interface: capture, library, claims, preview and ask"
+role = "Local browser interface: conversations with a per-message disclosure review, memory capture, library, claims and provenance"
 status = "implemented"
 trust_class = "trusted-service"
 canonical_write = false
-personal_data = "content (display)"
+personal_data = "content (display; the open tab holds its conversations in memory)"
 credentials = "none"
 egress = "none (same-origin requests to the loopback server)"
-persistent_state = "none"
+persistent_state = "none (conversations live only in the open tab's memory and end on reload; no browser storage, checked by tests/test_policy_invariants.py; ADR-0008)"
 upstream = "native: src/sovereign/static/*"
 code = ["src/sovereign/static/index.html", "src/sovereign/static/app.js"]
 version_or_commit = "main"
 license = "project"
-boundary = "Unauthenticated; any local client can issue the same requests. Loopback and Origin checks are not authentication."
+boundary = "Unauthenticated; any local client can issue the same requests. Loopback and Origin checks are not authentication. Earlier conversation turns are client-held and unverifiable by the server: shown in the exact preview and bound by the token, never memory or authority (ADR-0008 §5)."
 exit_test = "API remains usable without the UI"
-documentation = "README.md; ARCHITECTURE.md #12"
+documentation = "README.md; ARCHITECTURE.md #12; docs/adr/0008-conversation-threads.md"
 
 [[system]]
 id = "retrieval-evaluation"
