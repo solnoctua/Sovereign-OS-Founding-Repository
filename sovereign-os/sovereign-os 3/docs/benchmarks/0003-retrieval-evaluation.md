@@ -30,7 +30,7 @@ For this benchmark the positions mean:
 Also unchanged:
 
 - **Disclosure:** no new cloud-disclosure eligibility or permission.
-- **D15 (lineage sensitivity) stays deferred** and is not evaluated here.
+- **D15 (lineage sensitivity) is not evaluated here.** *Status update (2026-11-07):* its direction was approved on 2026-11-05 ([ADR-0007](../adr/0007-lineage-sensitivity.md), PROPOSED, not implemented). Implementing it will regenerate these results under `policy_version` v1, with any change explained here.
 - **Security Gate: NOT PASSED.** Synthetic data only; no real or sensitive personal data enters these experiments.
 
 **Relationship to ADR-0005 and the validation spec:**
@@ -471,7 +471,7 @@ The module is skipped where SQLite lacks FTS5.
 - **Questions with no relevant evidence.**
 - **Narrower settings:** pinned questions, other languages, and real usage frequencies.
 - **Latency and scale behaviour.** Hardware-dependent, deliberately not measured.
-- **Lineage sensitivity** (ADR-0005 D15, deferred): whether a private successor claim restates a sensitive predecessor.
+- **Lineage sensitivity** (D15; [ADR-0007](../adr/0007-lineage-sensitivity.md) PROPOSED, not implemented): whether a private successor claim restates a sensitive predecessor.
 - **Real or sensitive data:** only after the Security Gate passes.
 
 ## Threats to validity

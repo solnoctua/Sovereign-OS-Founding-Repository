@@ -61,7 +61,7 @@ Architectural vocabulary, Level 3–4 target, and Obsidian requirement are docum
 - **R6** Defer local embeddings until representative, legitimate usage shows meaningful improvement; no sensitive personal notes while the Security Gate is NOT PASSED.
 - **R7** Keep PR #4's evaluation framework; its own findings are resolved there (its Codex P2 on scale timings is resolved at `da52ce9`).
 
-**Second-brain decisions**, with recommendations in [ADR-0005 §15](docs/adr/0005-governed-second-brain-architecture.md#15-decisions-requested-from-the-founder). *D1–D14 were approved per those recommendations on 2026-10-21; D15 is deferred and remains open ([decision record](docs/adr/0005-governed-second-brain-architecture.md#151-founder-decision-record-2026-10-21)).*
+**Second-brain decisions**, with recommendations in [ADR-0005 §15](docs/adr/0005-governed-second-brain-architecture.md#15-decisions-requested-from-the-founder). *D1–D14 were approved per those recommendations on 2026-10-21; D15 was deferred then ([decision record](docs/adr/0005-governed-second-brain-architecture.md#151-founder-decision-record-2026-10-21)), and its direction was approved on 2026-11-05 ([ADR-0007](docs/adr/0007-lineage-sensitivity.md), PROPOSED).*
 
 - **D1** Approve the L3–L4 target, deferred L5, and the slice order (evaluation and provenance/Obsidian before retrieval changes)?
 - **D2** Where do project and concept nodes come from — human-declared organization, model suggestions, or both?
@@ -77,6 +77,6 @@ Architectural vocabulary, Level 3–4 target, and Obsidian requirement are docum
 - **D12** Obsidian provenance mode by default: label (one fixed partial sentence) or closed (omit items whose links lead outside scope)?
 - **D13** May exported notes carry raw canonical IDs, and only when they are canonical UUIDs?
 - **D14** *Not needed for V0 (2026-10-20):* exports keep no persistent registry.
-- **D15** *Deferred (2026-10-21), open:* should a claim that supersedes a sensitive claim inherit its sensitivity? (A Context Compiler question: an ADR-0004 amendment, Tier 2; current behavior unchanged and not certified safe for real private data.)
+- **D15** *Direction approved 2026-11-05 (Option C); detailed policy pending review:* successors of sensitive records and claims inherit their restriction, transitively, and a missing or unverifiable predecessor counts as sensitive. [ADR-0007](docs/adr/0007-lineage-sensitivity.md) revision 2 (PROPOSED) specifies it, with its own review questions (§17 there). Current behavior is unchanged and not certified safe for real private data. Governed declassification is D16, a deferred future direction ([Issue #25](https://github.com/solnoctua/Sovereign-OS-Founding-Repository/issues/25)).
 
 Level 5 remains deferred: which measured daily-use gains, monthly budget, permission model and interruption controls would justify scheduled sync or agents is a later question. No default always-on ingestion.
