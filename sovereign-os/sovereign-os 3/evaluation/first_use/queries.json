@@ -1,0 +1,71 @@
+{
+  "about": "The five founder questions of WP-4 (t1-t5) with the seed records a correct answer rests on, judged by meaning and written before the dry run, plus three paraphrase probes (p1-p3) worded without the seed's vocabulary. t1-t5 share words with the seed because one author wrote both: their recall is an optimistic upper bound.",
+  "queries": [
+    {
+      "id": "t1",
+      "question": "Why did we choose computed-on-read provenance?",
+      "expected": [
+        "fu-01"
+      ]
+    },
+    {
+      "id": "t2",
+      "question": "Which issues currently block SB-2?",
+      "expected": [
+        "fu-02",
+        "fu-03"
+      ]
+    },
+    {
+      "id": "t3",
+      "question": "What changed after the independent architecture audit?",
+      "expected": [
+        "fu-04",
+        "fu-05"
+      ]
+    },
+    {
+      "id": "t4",
+      "question": "Why are OpenClaw and Hermes deferred?",
+      "expected": [
+        "fu-06",
+        "fu-07"
+      ]
+    },
+    {
+      "id": "t5",
+      "question": "Which architectural assumptions remain unverified?",
+      "expected": [
+        "fu-08",
+        "fu-09"
+      ]
+    },
+    {
+      "id": "p1",
+      "question": "Is anything stopping the graph work right now?",
+      "expected": [
+        "fu-02",
+        "fu-03"
+      ],
+      "probe": "paraphrase"
+    },
+    {
+      "id": "p2",
+      "question": "Why not just plug in an existing agent platform for messaging?",
+      "expected": [
+        "fu-06",
+        "fu-07"
+      ],
+      "probe": "paraphrase"
+    },
+    {
+      "id": "p3",
+      "question": "What do we still not know for sure?",
+      "expected": [
+        "fu-08",
+        "fu-09"
+      ],
+      "probe": "paraphrase"
+    }
+  ]
+}
