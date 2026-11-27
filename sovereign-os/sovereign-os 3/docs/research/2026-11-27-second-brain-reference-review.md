@@ -7,7 +7,7 @@
 ## 1. Findings in brief
 
 1. **Dense retrieval as Khoj configures it is a real improvement on synthetic paraphrases, and safest as an admission signal.** On Benchmark 0003, `gte-small` at Khoj's default threshold recovers 6 of 7 paraphrase queries (baseline 0/7). Used **only to admit** items while lexical ranking and the newest-first tie-break stay (`hybrid_admission_only@0.85`), it is a strict improvement over the merged baseline: 72/88 governed local recall versus 66/88, **identical noise (166)**, temporal recall unchanged (16/18), and tokens 56/56 stable on repeat and after an unrelated write.
-2. **It does not fix the founder's actual paraphrase failures.** On the first-use trial (draft PR #12; project knowledge), every variant stays at 1/6 to 2/6. The gold records rank 1st–7th by cosine but score 0.776–0.826, straddling Khoj's absolute 0.82 cut: **project jargon** ("the graph work" ⇄ "SB-2") and abstract questions defeat a small general model at a fixed threshold. Aliases, human-declared concept membership (SB-3) and representative evaluation are needed, not just a model.
+2. **It does not fix the founder's actual paraphrase failures.** On the first-use trial (draft PR #12; project knowledge), every variant stays between 0/6 and 2/6 (baseline 1/6). The gold records rank 1st–7th by cosine but score 0.776–0.826, straddling Khoj's absolute 0.82 cut: **project jargon** ("the graph work" ⇄ "SB-2") and abstract questions defeat a small general model at a fixed threshold. Aliases, human-declared concept membership (SB-3) and representative evaluation are needed, not just a model.
 3. **Frameworks fragment.** In the builder-authored investment probe, the framework spread over three records is retrieved one fragment at a time (members rank 1, 2 and 4 by cosine; two fall below the threshold). A reusable framework should be one retrievable unit: an approved MemoryClaim that cites its records (PR E), not three loose notes.
 4. **The cross-encoder rerank added nothing measurable** to governed recall on any set: admission is unchanged and the 12-item budget rarely binds. It is a precision-floor candidate (R4), not a reordering need.
 5. **Pure dense ranking destroys the temporal prior:** temporal recall 16/18 → 14/18 at 0.82, 3/18 at 0.85, 1/18 at 0.88. Any semantic signal must keep the compiler's lexical tiers and newest-first tie-break.
@@ -206,8 +206,8 @@ Dispositions use the catalog's vocabulary.
 | `hybrid_admission_only@0.85` | 9/9 (noise 4) | 1/6 (noise 2) | 7/12 (noise 4) |
 
 **Diagnosis.**
-- **Ranking is good, the fixed threshold is not.** In the first-use paraphrases, gold records rank 1, 2, 2, 4 and 7 of 14 by cosine, but score 0.776–0.826.
-- **Pocket recovered fully.** "voice-activated desktop computer" reached all three Pocket records (baseline: one, plus the "desktop monitor arm" distractor).
+- **Ranking is good, the fixed threshold is not.** In the first-use paraphrases, the six gold records rank 1, 1, 2, 2, 4 and 7 of 14 by cosine, but score 0.776–0.826.
+- **Pocket recovered fully.** Under `dense@0.82` and `hybrid_admission_only@0.82`, "voice-activated desktop computer" reached all three Pocket records. The baseline reached one, plus the "desktop monitor arm" distractor, which the hybrid also keeps.
 - **The investment framework stayed fragmented.** "Research this company…" reached only the framework's first record; the valuation and downside records rank 2nd and 4th at 0.815 and 0.806, just under the cut.
 
 **Caveats.**
