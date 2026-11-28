@@ -6,11 +6,12 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import context, provenance, providers, store
@@ -63,10 +64,21 @@ class RestoreIn(BaseModel):
     backup: dict
 
 
+def _well_formed(value: str) -> str:
+    # Text with an unpaired UTF-16 surrogate (for example half of a clipped emoji) is refused as a validation error,
+    # never left to fail later as a server error, and the message never contains the text (ADR-0008, F-2).
+    if not context.well_formed(value):
+        raise ValueError("Text must be valid Unicode (no unpaired surrogate).")
+    return value
+
+
+Text = Annotated[str, AfterValidator(_well_formed)]
+
+
 class HistoryMessage(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=context.CONVERSATION.max_message_chars)
+    content: Text = Field(min_length=1, max_length=context.CONVERSATION.max_message_chars)
     # A reply names the cloud provider that wrote it; the person's own messages name none (checked by the compiler).
     provider: Literal["kimi", "openai"] | None = None
 
@@ -81,10 +93,10 @@ class ConversationIn(BaseModel):
 class CompileIn(BaseModel):
     # extra="forbid": a client cannot smuggle context, roles, authority or messages into a request.
     model_config = ConfigDict(extra="forbid")
-    question: str = Field(min_length=1, max_length=2000)
+    question: Text = Field(min_length=1, max_length=2000)
     provider: Literal["local", "kimi", "openai"] = "local"
     # Pinned evidence: high-priority candidates that still pass every compiler policy.
-    source_ids: list[str] = Field(default_factory=list, max_length=8)
+    source_ids: list[Text] = Field(default_factory=list, max_length=8)
     # Present only for a conversation turn (ADR-0008). Absent, the request is ADR-0004's single question, unchanged.
     conversation: ConversationIn | None = None
 
@@ -100,6 +112,13 @@ def create_app(db_path: str | None = None) -> FastAPI:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
     vault = Vault(db_path or os.getenv("SOVEREIGN_DB_PATH", "./data/sovereign.db"))
     app.state.vault = vault
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request: Request, exc: RequestValidationError):
+        # Say where and why a request is invalid, never what it contained: submitted values can be personal text or
+        # model output, and the default handler echoes them (`input`, `ctx`) (ADR-0008, F-2).
+        return JSONResponse({"detail": [{"type": e.get("type"), "loc": list(e.get("loc", ())), "msg": e.get("msg")}
+                                        for e in exc.errors()]}, status_code=422)
 
     @app.middleware("http")
     async def same_origin(request: Request, call_next):
@@ -294,6 +313,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
         except context.PinnedSourceForgotten as exc:
             # After a preview, a pin forgotten since then means the approved plan no longer holds.
             raise HTTPException(409 if previewed else 422, context.CHANGED if previewed else str(exc))
+        except UnicodeError:
+            # A codec error message quotes the offending text; never echo it (F-2). Validation refuses it earlier.
+            raise HTTPException(422, "Text must be valid Unicode (no unpaired surrogate).") from None
         except ValueError as exc:
             raise HTTPException(422, str(exc))
 
@@ -340,6 +362,9 @@ def create_app(db_path: str | None = None) -> FastAPI:
         except Exception as exc:
             # Never expose provider exceptions, request bodies, or secret-bearing error objects to browser.
             raise HTTPException(502, "The model request failed. Check server logs/configuration.") from None
+        # A reply with an unpaired surrogate would fail when the response is encoded, after the disclosure; replace
+        # such code units so the reply returns intact and can be sent back as valid history (F-2).
+        answer = answer.encode("utf-16", "surrogatepass").decode("utf-16", "replace")
         disclosed = {"provider": question.provider, "question_included": True,
                      "items": [{"id": i.candidate.id, "type": i.candidate.type, "role": i.role} for i in bundle.included]}
         if bundle.conversation is not None:
