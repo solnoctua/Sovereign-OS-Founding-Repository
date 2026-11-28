@@ -58,7 +58,8 @@ main{min-width:0;height:100vh;overflow:hidden}
 .pulse{width:8px;height:8px;border-radius:50%;background:#8ed2af;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
 @media (prefers-reduced-motion:reduce){.pulse{animation:none}.messages{scroll-behavior:auto}}
-.msg.redacted{color:#9aa8a1;font-style:italic;font-size:13px}
+.msg.cleared{border:1px dashed #4a5a54;border-radius:12px;padding:12px 14px;font-size:13px;color:#b9c6c1}
+.msg.cleared p{margin:0}.msg.cleared .micro{margin-top:6px}
 .msg.failed{border:1px solid #5a3b38;background:#1d1514;border-radius:12px;padding:12px 14px;font-size:13px}
 .msg.failed p{margin:0 0 10px;color:#e6c3bd}
 .msg.local{border:1px solid #283530;background:#0e1513;border-radius:12px;padding:12px 14px;font-size:13px}

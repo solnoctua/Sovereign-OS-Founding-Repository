@@ -33,32 +33,74 @@ function newChat(){
 }
 function touch(chat){chat.updated=Date.now();state.chats.sort((a,b)=>b.updated-a.updated)}
 function draw(chat){if(chat.id===state.activeId)drawChat();drawChatList()}
-function clip(text,limit){
-  // An earlier message longer than the conversation bound is shortened visibly; the preview shows exactly what is sent.
-  if(text.length<=limit)return text;const keep=limit-80;
-  return text.slice(0,keep)+`\n…[shortened by Sovereign: ${text.length-keep} characters omitted]`;
+
+// Asynchronous results are fenced (ADR-0008 §6). Every preview, reply and local search a turn starts carries the
+// turn's sequence number; it is accepted only while that conversation still exists, still holds that turn, and the
+// number is unchanged. Clearing, cancelling, editing, deleting and any newer preparation move the number on, so a
+// completion that arrives late (after a Forget, a deletion or a newer request) is dropped, never shown or reused.
+function begin(turn){turn.seq=(turn.seq||0)+1;return turn.seq}
+function current(chat,turn,seq){return state.chats.includes(chat)&&chat.turns.includes(turn)&&turn.seq===seq}
+function retire(turn){turn.seq=(turn.seq||0)+1}
+
+// Unicode-safe, bounded head-and-tail clipping (ADR-0008 §2, F-2): lengths are counted in code points as the server
+// counts them, cuts fall on grapheme-cluster boundaries where the browser can segment text (never inside a surrogate
+// pair), a visible marker says how much was left out, and text already within the bound is returned unchanged.
+const GRAPHEMES=typeof Intl!=="undefined"&&Intl.Segmenter?new Intl.Segmenter(undefined,{granularity:"grapheme"}):null;
+const omission=n=>`\n…[${n} characters omitted by Sovereign]…\n`;
+function wellFormed(text){
+  return typeof text.toWellFormed==="function"?text.toWellFormed():
+    text.replace(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g,"�");
 }
-// The earlier complete cloud exchanges a turn carries, oldest first. Local, failed, pending and redacted turns never
-// travel, and neither does any turn's compiled context: memory is compiled afresh for every message.
+function clip(text,limit){
+  text=wellFormed(text);
+  const total=Array.from(text).length;
+  if(total<=limit)return text;
+  const pieces=GRAPHEMES?Array.from(GRAPHEMES.segment(text),g=>g.segment):Array.from(text);
+  const budget=limit-Array.from(omission(total)).length,headBudget=Math.ceil(budget/2),tailBudget=budget-headBudget;
+  let headEnd=0,head=0,tailStart=pieces.length,tail=0;
+  while(headEnd<pieces.length){const n=Array.from(pieces[headEnd]).length;if(head+n>headBudget)break;head+=n;headEnd++}
+  while(tailStart>headEnd){const n=Array.from(pieces[tailStart-1]).length;if(tail+n>tailBudget)break;tail+=n;tailStart--}
+  return pieces.slice(0,headEnd).join("")+omission(total-head-tail)+pieces.slice(tailStart).join("");
+}
+// The earlier complete cloud exchanges a turn carries, oldest first, and how many eligible earlier messages this
+// browser left out (its request limit) or shortened. Local, failed, pending and cleared turns never travel, and
+// neither does any turn's compiled context: memory is compiled afresh for every message.
 function historyBefore(chat,turn){
   const stop=chat.turns.findIndex(t=>t.id===(turn.replaces||turn.id));
   const limit=state.conversation.max_message_chars,cap=Math.floor(state.conversation.max_request_messages/2)*2;
-  const history=chat.turns.slice(0,stop<0?chat.turns.length:stop).filter(t=>t.status==="done"&&t.provider!=="local"&&t.reply)
-    .flatMap(t=>[{role:"user",content:clip(t.message,limit)},{role:"assistant",content:clip(t.reply,limit),provider:t.provider}]);
-  return history.slice(-cap);
+  const eligible=chat.turns.slice(0,stop<0?chat.turns.length:stop).filter(t=>t.status==="done"&&t.provider!=="local"&&t.reply)
+    .flatMap(t=>[{role:"user",content:t.message},{role:"assistant",content:t.reply,provider:t.provider}]);
+  const kept=eligible.slice(-cap);let clipped=0;
+  const history=kept.map(m=>{const content=clip(m.content,limit);if(content!==m.content)clipped++;return {...m,content}});
+  return {history,trimmed:eligible.length-kept.length,clipped};
 }
-function cloudRequest(chat,turn){return {question:turn.message,provider:turn.provider,source_ids:turn.pins,conversation:{history:historyBefore(chat,turn)}}}
-// Which vault items a turn used and listed, kept as ids apart from its displayed context, so a later Forget still
-// finds a reply that used an item after the displayed details were dropped by an earlier Forget.
+function cloudRequest(chat,turn){
+  const {history,trimmed,clipped}=historyBefore(chat,turn);
+  return {request:{question:turn.message,provider:turn.provider,source_ids:turn.pins,conversation:{history}},trimmed,clipped};
+}
+// Which vault items a turn used (included) and listed (included or excluded), as kind-qualified keys kept apart
+// from its displayed context: a record and a claim can share an id, and an earlier Forget may drop the display.
+const itemKey=x=>`${x.type==="claim"?"claim":"record"}:${x.id}`;
 function remember(turn){
   const ctx=turn.context||turn.plan;
-  turn.used=(ctx?.included||[]).map(x=>x.id);turn.listed=[...turn.used,...(ctx?.excluded||[]).map(x=>x.id)];
+  turn.used=(ctx?.included||[]).map(itemKey);turn.listed=[...turn.used,...(ctx?.excluded||[]).map(itemKey)];
 }
-function usesForgotten(turn){return (turn.used||[]).some(id=>state.forgotten.has(id))}
-function listsForgotten(turn){return (turn.listed||[]).some(id=>state.forgotten.has(id))}
-function redact(turn){Object.assign(turn,{reply:null,context:null,plan:null,receipt:null,used:[],listed:[],status:"redacted"})}
+const usesForgotten=turn=>(turn.used||[]).some(k=>state.forgotten.has(k));
+const listsForgotten=turn=>(turn.listed||[]).some(k=>state.forgotten.has(k));
+const REASONS={forget:"the first of them used memory you have since forgotten",
+  claim:"the first of them used a claim you have since deleted",
+  restore:"a trusted restore can delete records, and this tab cannot tell which messages used them"};
+// Conservative suffix invalidation (ADR-0008 §6): Sovereign cannot trace every way later text repeats earlier text,
+// so it clears the first affected turn and every turn after it: your messages, replies, previews and pending
+// requests. Earlier turns stay. One content-free notice takes their place.
+function invalidateFrom(chat,index,reason){
+  const removed=chat.turns.slice(index);if(!removed.length)return;
+  for(const t of removed)retire(t);
+  const count=removed.reduce((n,t)=>n+(t.status==="cleared"?t.count:1),0);
+  chat.turns=[...chat.turns.slice(0,index),{id:uid(),status:"cleared",count,reason,seq:0}];
+}
 function finish(chat,turn){
-  if(turn.provider==="local"?listsForgotten(turn):usesForgotten(turn))redact(turn);   // a Forget committed meanwhile
+  if(usesForgotten(turn))return invalidateFrom(chat,chat.turns.indexOf(turn),"forget");  // a Forget committed meanwhile
   if(turn.replaces){chat.turns=chat.turns.filter(t=>t.id!==turn.replaces);turn.replaces=null}
   touch(chat);
 }
@@ -74,39 +116,38 @@ async function send(){
 function run(chat,turn,notice=null){return turn.provider==="local"?runLocal(chat,turn):prepare(chat,turn,notice)}
 async function runLocal(chat,turn){
   // Local turns call no model and are never part of a cloud conversation (ADR-0008 §1).
-  turn.status="sending";turn.error=null;draw(chat);const started=performance.now();
+  const seq=begin(turn);turn.status="sending";turn.error=null;draw(chat);const started=performance.now();
   try{
     const data=await api("/api/ask",{method:"POST",body:JSON.stringify({question:turn.message,provider:"local",source_ids:turn.pins})});
-    if(!chat.turns.includes(turn))return;
+    if(!current(chat,turn,seq))return;
     Object.assign(turn,{context:data.context,receipt:data.receipt,ms:performance.now()-started,status:"local"});remember(turn);finish(chat,turn);
-  }catch(e){turn.status="error";turn.error=`Could not search your vault: ${e.message}`}
+  }catch(e){if(!current(chat,turn,seq))return;turn.status="error";turn.error=`Could not search your vault: ${e.message}`}
   draw(chat);
 }
 async function prepare(chat,turn,notice=null){
-  // Compile and show exactly what this message would send; nothing leaves the device until it is approved. Only the
-  // newest preparation of a turn may become its preview: after a Forget its history is rebuilt, and a result
-  // compiled from the older history is discarded rather than offered for approval.
-  const seq=(turn.seq||0)+1;
-  Object.assign(turn,{seq,status:"preparing",notice,error:null,plan:null,request:null});draw(chat);
-  const request=cloudRequest(chat,turn);
+  // Compile and show exactly what this message would send; nothing leaves the device until it is approved.
+  const seq=begin(turn);
+  Object.assign(turn,{status:"preparing",notice,error:null,plan:null,request:null});draw(chat);
+  const {request,trimmed,clipped}=cloudRequest(chat,turn);
   try{
     const plan=await api("/api/context/compile",{method:"POST",body:JSON.stringify(request)});
-    if(turn.seq!==seq||!chat.turns.includes(turn))return;
-    Object.assign(turn,{request,plan,status:plan.disclosure.blocked?"blocked":"review"});remember(turn);
+    if(!current(chat,turn,seq))return;
+    Object.assign(turn,{request,plan,trimmed,clipped,status:plan.disclosure.blocked?"blocked":"review"});remember(turn);
     if(listsForgotten(turn))return prepare(chat,turn,notice);   // compiled before a Forget committed: compile again
-  }catch(e){if(turn.seq!==seq)return;turn.status="error";turn.error=`Could not prepare this message: ${e.message}`}
+  }catch(e){if(!current(chat,turn,seq))return;turn.status="error";turn.error=`Could not prepare this message: ${e.message}`}
   draw(chat);
 }
 async function approve(chat,turn){
   if(turn.status!=="review")return;
-  turn.status="sending";draw(chat);const started=performance.now();
+  const seq=begin(turn);turn.status="sending";draw(chat);const started=performance.now();
   try{
     // Exactly the previewed request plus the approval of its token; the server recompiles and verifies it.
     const data=await api("/api/ask",{method:"POST",body:JSON.stringify({...turn.request,approve_cloud_disclosure:true,context_token:turn.plan.context_token})});
-    if(!chat.turns.includes(turn))return;
+    if(!current(chat,turn,seq))return;   // cleared, cancelled or deleted while in flight: the reply is dropped
     Object.assign(turn,{reply:data.answer,context:data.context,receipt:data.receipt,ms:performance.now()-started,status:"done",plan:null});
     remember(turn);finish(chat,turn);
   }catch(e){
+    if(!current(chat,turn,seq))return;
     if(e.status===409)return prepare(chat,turn,"Your memory or this conversation changed since the preview. Review the updated context before sending.");
     turn.status="error";
     turn.error=e.status===503?`${providerName(turn.provider)} is not configured on this computer. Set its API key and model in the environment and restart Sovereign.`:`The request was refused or failed: ${e.message}`;
@@ -114,7 +155,7 @@ async function approve(chat,turn){
   draw(chat);
 }
 function cancel(chat,turn){
-  chat.turns=chat.turns.filter(t=>t!==turn);
+  retire(turn);chat.turns=chat.turns.filter(t=>t!==turn);
   if(!turn.replaces&&!$("message").value.trim()){$("message").value=turn.message;autosize()}
   if(!chat.turns.length)chat.title="New conversation";
   draw(chat);$("message").focus();
@@ -126,25 +167,30 @@ function regenerate(chat,turn){
 }
 function editLast(chat,turn){
   if(turn.status==="done"&&!confirm("Edit this message? Its reply is removed from this conversation."))return;
-  chat.turns=chat.turns.filter(t=>t!==turn);if(!chat.turns.length)chat.title="New conversation";
+  retire(turn);chat.turns=chat.turns.filter(t=>t!==turn);if(!chat.turns.length)chat.title="New conversation";
   $("message").value=turn.message;autosize();draw(chat);$("message").focus();
 }
 function deleteChat(chat){
   if(!confirm("Delete this conversation from this tab? Copies already sent to a provider are outside Sovereign's control."))return;
+  for(const t of chat.turns)retire(t);
   state.chats=state.chats.filter(c=>c!==chat);if(state.activeId===chat.id)state.activeId=state.chats[0]?.id||null;
   drawChatList();drawChat();
 }
-// Forget reaches what this tab shows (display only; ADR-0008 §6): a turn that used a forgotten item loses its reply,
-// a turn that listed one loses its stored preview, and every pending review is compiled again.
-function purgeForgotten(ids){
-  for(const id of ids)state.forgotten.add(id);
+// A Forget or claim deletion through this tab (keys like "record:<id>") reaches every conversation it holds: the
+// suffix from the earliest turn that used a forgotten item is cleared, a turn that only listed one loses its stored
+// preview, and every remaining pending review is compiled again.
+function purgeForgotten(keys,reason="forget"){
+  for(const k of keys)state.forgotten.add(k);
   for(const chat of state.chats){
-    for(const turn of chat.turns){
-      if(turn.status==="local"&&listsForgotten(turn)||turn.status==="done"&&usesForgotten(turn))redact(turn);
-      else if(listsForgotten(turn)){turn.context=null;turn.plan=null}
-    }
+    const index=chat.turns.findIndex(t=>t.status!=="cleared"&&usesForgotten(t));
+    if(index>=0)invalidateFrom(chat,index,reason);
+    for(const turn of chat.turns)if(listsForgotten(turn)){turn.context=null;turn.plan=null}
   }
   invalidateReviews("Your memory changed since this preview. Review the updated context before sending.");
+}
+function clearAllConversations(reason){
+  for(const chat of state.chats)if(chat.turns.some(t=>t.status!=="cleared"))invalidateFrom(chat,0,reason);
+  drawChat();drawChatList();
 }
 function invalidateReviews(notice){
   for(const chat of state.chats)for(const turn of chat.turns)
@@ -155,7 +201,7 @@ function invalidateReviews(notice){
 // --- Conversation rendering ----------------------------------------------------------------------------------
 function drawChatList(){
   const list=$("chat-list");list.replaceChildren();const q=state.query.toLowerCase();
-  const shown=state.chats.filter(c=>!q||c.title.toLowerCase().includes(q)||c.turns.some(t=>t.message.toLowerCase().includes(q)||(t.reply||"").toLowerCase().includes(q)));
+  const shown=state.chats.filter(c=>!q||c.title.toLowerCase().includes(q)||c.turns.some(t=>(t.message||"").toLowerCase().includes(q)||(t.reply||"").toLowerCase().includes(q)));
   if(!shown.length){list.append(el("p","empty",state.chats.length?"No conversation matches.":"No conversations yet."));return}
   for(const chat of shown){
     const row=el("div","chat-item"+(chat.id===state.activeId?" active":""));
@@ -171,7 +217,7 @@ function drawChat(){
   const chat=activeChat();const box=$("messages");box.replaceChildren();
   $("chat-title").textContent=chat?.title||"New conversation";
   if(!chat||!chat.turns.length)box.append(emptyState());
-  else{const last=chat.turns[chat.turns.length-1];for(const turn of chat.turns)box.append(userMessage(chat,turn,turn===last),turnView(chat,turn,turn===last))}
+  else{const last=chat.turns[chat.turns.length-1];for(const turn of chat.turns)turn.status==="cleared"?box.append(clearedNotice(turn)):box.append(userMessage(chat,turn,turn===last),turnView(chat,turn,turn===last))}
   updateComposer();box.scrollTop=box.scrollHeight;
 }
 function emptyState(){
@@ -189,7 +235,7 @@ function userMessage(chat,turn,isLast){
   const meta=el("div","msg-meta");
   if(turn.pins?.length)meta.append(el("span","",`${turn.pins.length} pinned record${s(turn.pins.length)}`));
   if(turn.replaces)meta.append(el("span","","Regenerating the reply above"));
-  if(isLast&&["done","local","error","redacted"].includes(turn.status))meta.append(button("Edit",()=>editLast(chat,turn)));
+  if(isLast&&["done","local","error"].includes(turn.status))meta.append(button("Edit",()=>editLast(chat,turn)));
   if(meta.childNodes.length)row.append(meta);
   return row;
 }
@@ -200,10 +246,15 @@ function turnView(chat,turn,isLast){
   if(turn.status==="review"||turn.status==="blocked")return reviewCard(chat,turn);
   if(turn.status==="done")return replyView(chat,turn,isLast);
   if(turn.status==="local")return localView(chat,turn,isLast);
-  if(turn.status==="redacted")return el("div","msg assistant redacted","This reply was removed because it used memory you have since forgotten. Copies already sent to a provider are outside Sovereign's control.");
   const wrap=el("div","msg assistant failed");wrap.append(el("p","",turn.error||"Something went wrong."));
   const actions=el("div","review-actions");actions.append(button("Try again",()=>run(chat,turn),"secondary"),button("Remove",()=>cancel(chat,turn),"secondary"));
   wrap.append(actions);return wrap;
+}
+function clearedNotice(turn){
+  const box=el("div","msg cleared");box.setAttribute("role","status");
+  box.append(el("p","",`${turn.count} message${s(turn.count)} from here on ${turn.count===1?"was":"were"} cleared from this conversation, with ${turn.count===1?"its reply and preview":"their replies and previews"}, because ${REASONS[turn.reason]||REASONS.forget}.`),
+    el("p","micro","Earlier messages are kept. Sovereign cannot trace every way later text repeats earlier text, so it clears everything after the first message that used it, and none of it is sent again. Copies already sent to a provider are outside Sovereign's control."));
+  return box;
 }
 function pendingLine(text){const line=el("div","msg assistant pending");line.append(el("span","pulse"),document.createTextNode(text));return line}
 function reviewCard(chat,turn){
@@ -220,7 +271,12 @@ function reviewCard(chat,turn){
     parts.push(plan.included.length?`${plan.included.length} item${s(plan.included.length)} from your memory (${memory} approved memory, ${evidence} evidence; all ${plan.disclosure.outbound_sensitivities.join(", ")})`:"nothing from your memory");
     card.append(el("p","review-summary",`Leaves this device: ${listJoin(parts)}.`));
     for(const c of conv.carryover)card.append(el("p","warn",`Includes ${c.replies} earlier ${c.replies===1?"reply":"replies"} written by ${providerName(c.from)}: approving sends ${c.replies===1?"it":"them"} to ${provider}.`));
-    if(conv.omitted_messages)card.append(el("p","micro",`${conv.omitted_messages} older message${s(conv.omitted_messages)} of this conversation ${conv.omitted_messages===1?"is":"are"} not sent (conversation budget).`));
+    // Omissions in full (F-3): this browser's request limit, counted here, plus Sovereign's budget, reported by the
+    // server. The exact payload below stays the authority on what is sent.
+    const byBrowser=turn.trimmed||0,byServer=conv.omitted_messages||0,total=byBrowser+byServer,notes=[];
+    if(total)notes.push(`${total} older message${s(total)} of this conversation ${total===1?"is":"are"} not sent: ${byBrowser} left out by this browser before the request (counted here, not verified by Sovereign) and ${byServer} by Sovereign's conversation budget.`);
+    if(turn.clipped)notes.push(`${turn.clipped} earlier message${s(turn.clipped)} ${turn.clipped===1?"was":"were"} shortened to the per-message limit; the payload marks where.`);
+    if(notes.length)card.append(el("p","micro omitted",notes.join(" ")));
     if(!ready)card.append(el("p","warn",`${provider} is not configured on this computer: set its API key and model in the environment and restart Sovereign. You can still inspect what would be sent.`));
   }
   card.append(itemsDetails(`Memory and evidence to send (${plan.included.length})`,plan.included,plan.included.length>0&&plan.included.length<=3));
@@ -260,7 +316,7 @@ function localView(chat,turn,isLast){
   const wrap=el("div","msg assistant local");const ctx=turn.context;
   wrap.append(el("p","local-head","From your vault: no model was called and nothing left this device."));
   const memory=ctx.included.filter(x=>x.role==="approved_memory"),evidence=ctx.included.filter(x=>x.role==="evidence");
-  if(!ctx.included.length)wrap.append(el("p","empty","Nothing in your vault matched this message. Rephrase it, or pin records in Memory."));
+  if(!ctx.included.length)wrap.append(el("p","empty","No eligible record matched this message's words. A record phrased differently, or one that cannot be used here, can still exist: try other words, or pin records in Memory."));
   if(memory.length){wrap.append(el("div","source-label",`APPROVED MEMORY (${memory.length})`));for(const x of memory)wrap.append(itemNode(x))}
   if(evidence.length){wrap.append(el("div","source-label",`EVIDENCE (${evidence.length})`));for(const x of evidence)wrap.append(itemNode(x))}
   if(ctx.excluded.length)wrap.append(itemsDetails(`Considered but not used (${ctx.excluded.length})`,ctx.excluded,false));
@@ -400,7 +456,7 @@ function drawClaims(){
     const foot=el("div","record-foot");const actions=el("div","record-actions");
     for(const action of CLAIM_ACTIONS[c.status]){const btn=el("button","",action[0].toUpperCase()+action.slice(1));btn.addEventListener("click",()=>claimAction(c,action));actions.append(btn)}
     if(c.integrity==="unconfirmed"&&CLAIM_ACTIONS[c.status].length){const btn=el("button","","Revalidate");btn.addEventListener("click",()=>openRevalidation(c));actions.append(btn)}
-    const del=el("button","","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this claim and its history? Its evidence is not affected."))return;try{await api(`/api/claims/${encodeURIComponent(c.id)}`,{method:"DELETE"});purgeForgotten([c.id]);await refreshClaims()}catch(e){alert(e.message)}});
+    const del=el("button","","Delete");del.addEventListener("click",async()=>{if(!confirm("Delete this claim and its history? Its evidence is not affected."))return;try{await api(`/api/claims/${encodeURIComponent(c.id)}`,{method:"DELETE"});purgeForgotten(["claim:"+c.id],"claim");await refreshClaims()}catch(e){alert(e.message)}});
     const why=el("button","","Provenance");why.addEventListener("click",()=>openProvenance("claim",c.id));
     actions.append(why,del);foot.append(el("span","",displayDate(c.created_at)),actions);wrapper.append(foot);container.append(wrapper)
   }
@@ -445,9 +501,9 @@ function drawRecords(){
         const older=plan.records_forgotten-1;
         const shown=plan.claims.slice(0,5).map(c=>`  • [${c.status}] ${c.text}`).join("\n");
         const rest=plan.claims_forgotten>5?`\n  …and ${plan.claims_forgotten-5} more`:"";
-        if(!confirm(`Forget this record${older?` and its ${older} earlier revision(s)`:""}, and ${plan.claims_forgotten} claim(s) derived from them?${plan.claims_forgotten?"\n\n"+shown+rest:""}\n\nThey are removed from the active vault and will not return on import or restore. Conversation replies in this tab that used them are removed too. Backups and copies already sent to a provider may retain them.`))return;
+        if(!confirm(`Forget this record${older?` and its ${older} earlier revision(s)`:""}, and ${plan.claims_forgotten} claim(s) derived from them?${plan.claims_forgotten?"\n\n"+shown+rest:""}\n\nThey are removed from the active vault and will not return on import or restore. In this tab's conversations, everything from the first message that used them onward is cleared. Backups and copies already sent to a provider may retain them.`))return;
         const r=await api(`/api/memories/${encodeURIComponent(record.id)}?expected_impact=${plan.impact_token}`,{method:"DELETE"});
-        state.selected.delete(record.id);purgeForgotten([...r.record_ids,...r.claim_ids]);await refresh();
+        state.selected.delete(record.id);purgeForgotten([...r.record_ids.map(i=>"record:"+i),...r.claim_ids.map(i=>"claim:"+i)]);await refresh();
         setStatus(`Forgot ${r.records_forgotten} record revision(s) and ${r.claims_forgotten} derived claim(s); conversations in this tab no longer show them. Backups and provider copies are not covered.`);
       }catch(e){setStatus(e.message,true)}
     });
@@ -471,7 +527,7 @@ const REASON_LABEL={invalid_state:"record in an unrecognized state — never use
 function itemNode(x){
  const node=el("div","context-item"+(x.role?"":" excluded"));
  const kind=x.role==="approved_memory"?"◆ approved memory":x.role==="evidence"?"▤ evidence":`✕ ${REASON_LABEL[x.reason]||x.reason}`;
- const meta=[x.label?`${kind} [${x.label}]`:kind,x.type==="claim"?`claim ${x.id.slice(0,8)} · ${x.status} · evidence ${x.source_ids.map(i=>i.slice(0,8)).join(", ")}`:`source ${x.id.slice(0,8)} · ${displayDate(x.created_at)}`,x.sensitivity.toUpperCase()];
+ const meta=[x.label?`${kind} [${x.label}]`:kind,x.type==="claim"?`claim ${x.id.slice(0,8)} · ${x.status} · recorded ${displayDate(x.created_at)} · evidence ${x.source_ids.map(i=>i.slice(0,8)).join(", ")}`:`source ${x.id.slice(0,8)} · ${displayDate(x.created_at)}`,x.sensitivity.toUpperCase()];
  if(x.relevance.pinned)meta.push("PINNED");
  node.append(el("small","",meta.join(" · ")),document.createTextNode(x.content.length>280?x.content.slice(0,280)+"…":x.content));
  const why=el("button","text-button","Provenance ↗");why.type="button";why.addEventListener("click",()=>openProvenance(x.type==="claim"?"claim":"record",x.id));node.append(why);return node;
@@ -560,8 +616,10 @@ async function init(){
    if(trusted&&!confirm("Trusted restore: only for your own Sovereign backup. It restores prior approvals and applies its deletions to this vault. Continue?"))return;
    const r=trusted?await api("/api/restore",{method:"POST",body:JSON.stringify({confirm_trusted_restore:true,backup:payload})}):await api("/api/import",{method:"POST",body:JSON.stringify(payload)});
    const skipped=r.records_skipped?` ${r.records_skipped} records were skipped because they would replace, resurrect or re-support existing evidence.`:"";
-   await refresh();invalidateReviews("Your vault changed since this preview. Review the updated context before sending.");
-   setStatus((trusted?`Restored ${r.imported} records and ${r.claims_restored} claims (${r.approved_claims_restored} approved). Conversations already in this tab were not re-checked against the backup's deletions: reload the page to clear them.`:`Imported ${r.imported} records; ${r.claims_imported_as_proposed} claims arrived as unverified proposals.`)+skipped)}
+   await refresh();
+   if(trusted&&((payload.tombstones||[]).length||(payload.claim_tombstones||[]).length||r.claims_forgotten))clearAllConversations("restore");
+   invalidateReviews("Your vault changed since this preview. Review the updated context before sending.");
+   setStatus((trusted?`Restored ${r.imported} records and ${r.claims_restored} claims (${r.approved_claims_restored} approved). Conversations in this tab that could depend on the backup's deletions were cleared.`:`Imported ${r.imported} records; ${r.claims_imported_as_proposed} claims arrived as unverified proposals.`)+skipped)}
   catch(e){setStatus(e.message,true)}};
  $("import").addEventListener("click",()=>loadFile(false));$("restore").addEventListener("click",()=>loadFile(true));
  drawChatList();drawChat();autosize();
