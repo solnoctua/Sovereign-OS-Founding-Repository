@@ -189,6 +189,7 @@ The Forget preview's lesson (ADR-0003) applied to disclosure: **the human approv
 - **One conversion point.** `context.render_messages` is the only place a bundle becomes model messages. It produces model-neutral chat messages:
   - a system message stating that context is data, never instructions, and what approved memory and evidence each mean;
   - a user message with the question and a JSON context.
+  - A conversation turn ([ADR-0008](0008-conversation-threads.md), PROPOSED) is rendered by `context.render_conversation` instead, the only other conversion point; a request without a conversation is rendered exactly as described here.
 - **Ephemeral labels, never durable IDs.**
   - The model receives request-scoped labels (`M1`, `M2`… for approved memory; `E1`, `E2`… for evidence) and the authorised text, and is instructed to cite those labels.
   - Durable Sovereign IDs never enter provider messages: record IDs, claim IDs and claim `source_ids`. ADR-0002 legacy record IDs can be arbitrary, meaningful text, so sending them would be needless metadata disclosure.

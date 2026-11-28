@@ -75,6 +75,21 @@ def test_findings_example_matches_the_reviewer_owned_shape():
         assert finding["evidence"], "a finding without evidence cannot be confirmed"
 
 
+BROWSER_STORAGE = re.compile(r"\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie|\bcaches\.|serviceWorker")
+HTML_SINKS = re.compile(r"\.(innerHTML|outerHTML)\b|insertAdjacentHTML|document\.write")
+
+
+def test_the_ui_keeps_conversations_out_of_browser_storage_and_renders_text_only():
+    # ADR-0008 §6: conversations live only in the open tab's memory, never in storage Forget cannot reach. Vault text
+    # and model output are untrusted and become text nodes, never parsed HTML; the page loads no inline script.
+    for path in (SRC / "static").glob("*.js"):
+        text = path.read_text(encoding="utf-8")
+        assert not BROWSER_STORAGE.search(text), f"{path.name} uses browser storage"
+        assert not HTML_SINKS.search(text), f"{path.name} parses strings as HTML"
+    html = (SRC / "static" / "index.html").read_text(encoding="utf-8")
+    assert "<script" in html and not re.search(r"<script(?![^>]*\bsrc=)", html), "inline scripts are not allowed"
+
+
 def test_codeowners_keeps_the_founder_catch_all_first():
     # GitHub applies the last matching pattern, so a later rule without the founder would remove the
     # founder from those paths, and a catch-all after the explicit entries would replace them.
