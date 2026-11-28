@@ -16,7 +16,7 @@ Sovereign is a proposed long-lived, personal-first AI operating environment desi
 4. Ask through a deterministic Context Compiler: it selects approved memory and evidence for a question, shows exactly what would leave the device, and sends a cloud model only that approved, exact context ([ADR-0004](docs/adr/0004-governed-retrieval-context-compiler.md)).
 5. Offline, non-generative evidence inspection without any API key.
 6. Optional Kimi/Moonshot or OpenAI API integration with explicit per-request consent. **There are no automatic provider requests or model-driven tool actions.**
-7. **Conversations** ([ADR-0008](docs/adr/0008-conversation-threads.md), PROPOSED): a chat-first interface with several conversations per session. Each message gets fresh, governed memory from your vault; a cloud message is sent only after you review and approve exactly what leaves the device, including the conversation's earlier turns and any reply another provider wrote. Conversations live only in the open browser tab (reloading clears them) until a storage contract is approved.
+7. **Conversations** ([ADR-0008](docs/adr/0008-conversation-threads.md), PROPOSED): a chat-first interface with several conversations per session. Each message gets fresh, governed memory from your vault; a cloud message is sent only after you review and approve exactly what leaves the device, including the conversation's earlier turns and any reply another provider wrote. Conversations live only in the open browser tab (reloading clears them) until a storage contract is approved. Forgetting a record, deleting a claim or a trusted restore with deletions clears, in this tab, each affected conversation from the first message that used the item onward, and a notice says why; copies already sent to a provider are outside Sovereign's control.
 
 ### Critical safety warning
 
@@ -41,7 +41,7 @@ Run checks:
 pytest -q
 ```
 
-The browser tests in `tests/browser/` run only where Playwright for Python and a Chromium build are installed (`pip install playwright`, then `playwright install chromium`); elsewhere, CI included, they are skipped.
+The browser tests in `tests/browser/` run only where Playwright for Python and a Chromium build are installed (`pip install playwright`, then `playwright install chromium`); elsewhere, CI included, they are skipped, so a CI pass is not evidence that they ran. An advisory browser CI job is proposed, not applied, in [`docs/reviews/2026-11-28-pr26-audit-remediation.md`](docs/reviews/2026-11-28-pr26-audit-remediation.md).
 
 ## Optional cloud model connection
 
